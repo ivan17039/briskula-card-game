@@ -10,16 +10,22 @@ const app = express();
 const server = http.createServer(app);
 
 // CORS konfiguracija
+const allowedOrigins = [
+  "http://localhost:5173", // Local development
+  "https://briskula-card-game.vercel.app", // Production Vercel
+  "https://briskula-card-game-*.vercel.app", // Vercel preview deployments
+];
+
 app.use(
   cors({
-    origin: "http://localhost:5173", // Vite dev server
+    origin: allowedOrigins,
     credentials: true,
   })
 );
 
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true,
   },
