@@ -44,7 +44,7 @@ function AppContent() {
       <div className="connection-error">
         <h2>❌ Greška konekcije</h2>
         <p>{connectionError}</p>
-        <p>Molimo provjerite je li server pokrenut na portu 3002</p>
+        <p>Molimo provjerite internetsku vezu i pokušajte ponovno</p>
         <button onClick={() => window.location.reload()}>
           🔄 Pokušaj ponovno
         </button>
