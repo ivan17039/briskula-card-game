@@ -1,10 +1,11 @@
-// Login.jsx - Komponenta za autentikaciju
+// Login.jsx - Komponenta za autentikaciju sa Supabase
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { auth } from "./supabase.js";
 import "./Login.css";
 
 function Login({ onLogin }) {
-  const [loginMode, setLoginMode] = useState("guest"); // 'guest' ili 'register'
+  const [loginMode, setLoginMode] = useState("guest"); // 'guest', 'login', ili 'register'
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -12,6 +13,22 @@ function Login({ onLogin }) {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkUser = async () => {
+      const { user } = await auth.getUser();
+      if (user) {
+        onLogin({
+          name: user.user_metadata?.username || user.email,
+          email: user.email,
+          isGuest: false,
+          userId: user.id,
+        });
+      }
+    };
+    checkUser();
+  }, [onLogin]);
 
   const handleInputChange = (e) => {
     setFormData({
@@ -33,20 +50,47 @@ function Login({ onLogin }) {
           name: guestName,
           isGuest: true,
         });
-      } else {
-        // Registracija (za sada samo frontend validacija)
+      } else if (loginMode === "login") {
+        // Supabase login
+        const { data, error } = await auth.signIn(
+          formData.email,
+          formData.password
+        );
+        if (error) throw error;
+
+        await onLogin({
+          name: data.user.user_metadata?.username || data.user.email,
+          email: data.user.email,
+          isGuest: false,
+          userId: data.user.id,
+        });
+      } else if (loginMode === "register") {
+        // Supabase registracija
         if (!formData.name.trim()) {
           throw new Error("Ime je obavezno");
         }
         if (!formData.email.trim() || !formData.email.includes("@")) {
           throw new Error("Unesite važeću email adresu");
         }
+        if (formData.password.length < 6) {
+          throw new Error("Password mora imati najmanje 6 karaktera");
+        }
 
-        await onLogin({
-          name: formData.name.trim(),
-          email: formData.email.trim(),
-          isGuest: false,
-        });
+        const { data, error } = await auth.signUp(
+          formData.email,
+          formData.password,
+          formData.name
+        );
+        if (error) throw error;
+
+        if (data.user) {
+          await onLogin({
+            name: formData.name.trim(),
+            email: formData.email.trim(),
+            isGuest: false,
+            userId: data.user.id,
+          });
+        }
       }
     } catch (err) {
       setError(err.message);
@@ -79,6 +123,13 @@ function Login({ onLogin }) {
           </button>
           <button
             type="button"
+            className={`mode-btn ${loginMode === "login" ? "active" : ""}`}
+            onClick={() => setLoginMode("login")}
+          >
+            🔑 Prijaviť se
+          </button>
+          <button
+            type="button"
             className={`mode-btn ${loginMode === "register" ? "active" : ""}`}
             onClick={() => setLoginMode("register")}
           >
@@ -90,24 +141,30 @@ function Login({ onLogin }) {
         <form onSubmit={handleSubmit} className="login-form">
           {error && <div className="error-message">{error}</div>}
 
-          {/* Ime korisnika */}
-          <div className="form-group">
-            <label htmlFor="name">
-              {loginMode === "guest" ? "Nadimak (opcionalno)" : "Ime korisnika"}
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              placeholder={loginMode === "guest" ? "Guest_123" : "Unesite ime"}
-              required={loginMode === "register"}
-            />
-          </div>
+          {/* Ime korisnika - samo za guest i register */}
+          {(loginMode === "guest" || loginMode === "register") && (
+            <div className="form-group">
+              <label htmlFor="name">
+                {loginMode === "guest"
+                  ? "Nadimak (opcionalno)"
+                  : "Ime korisnika"}
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder={
+                  loginMode === "guest" ? "Guest_123" : "Unesite ime"
+                }
+                required={loginMode === "register"}
+              />
+            </div>
+          )}
 
-          {/* Email (samo za registraciju) */}
-          {loginMode === "register" && (
+          {/* Email (za login i registraciju) */}
+          {(loginMode === "login" || loginMode === "register") && (
             <div className="form-group">
               <label htmlFor="email">Email adresa</label>
               <input
@@ -122,12 +179,31 @@ function Login({ onLogin }) {
             </div>
           )}
 
+          {/* Password (za login i registraciju) */}
+          {(loginMode === "login" || loginMode === "register") && (
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                placeholder="Unesite password"
+                required
+                minLength={6}
+              />
+            </div>
+          )}
+
           {/* Gumb za prijavu */}
           <button type="submit" className="login-btn" disabled={isLoading}>
             {isLoading ? (
               <span>⏳ Prijavljivanje...</span>
             ) : loginMode === "guest" ? (
               "🎮 Uđi u igru"
+            ) : loginMode === "login" ? (
+              "🔑 Prijaviť se"
             ) : (
               "👤 Registriraj se"
             )}
