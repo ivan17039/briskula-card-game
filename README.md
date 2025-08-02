@@ -1,6 +1,6 @@
 # Briskula Card Game
 
-A real-time multiplayer Serbian card game built with React.js and Socket.io, featuring both 1v1 and 2v2 game modes with traditional Briskula gameplay.
+A real-time multiplayer Croatian card game built with React.js and Socket.io, featuring both 1v1 and 2v2 game modes with traditional Briskula gameplay.
 
 ## 🎮 About Briskula
 
@@ -10,7 +10,7 @@ Briskula (Briškula/Briscola) is a popular traditional card game from the Balkan
 - **2v2 Mode**: Team-based competitive matches
 - **Real-time Multiplayer**: Instant gameplay powered by Socket.io
 - **Mobile-First Design**: Optimized for all devices
-- **Traditional Rules**: Authentic Serbian card game mechanics
+- **Traditional Rules**: Authentic Croatian card game mechanics
 
 ## 🃏 Game Rules
 
@@ -84,7 +84,7 @@ Coming soon - currently in development for web deployment
 
 ## 👨‍💻 Development
 
-This project was built with modern web technologies to provide a smooth, real-time gaming experience that honors the traditional Briskula card game while making it accessible to players worldwide.
+This project was built with modern web technologies to provide a smooth, real-time gaming experience that honors the traditional Croatian Briskula card game while making it accessible to players worldwide.
 
 ---
 
