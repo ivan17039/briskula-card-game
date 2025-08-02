@@ -1,0 +1,672 @@
+/* Reset and base styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Main game wrapper - full screen */
+.game-wrapper {
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #0f5132 0%, #198754 50%, #0f5132 100%);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Game header - compact and clean */
+.game-header {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  position: relative;
+  min-height: 60px;
+}
+
+.game-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #0f5132;
+  margin: 0;
+}
+
+.title-suit-icon {
+  height: 1.7em;
+  width: auto;
+  vertical-align: middle;
+  margin-right: 0.4em;
+  margin-bottom: 0.15em;
+  display: inline-block;
+}
+
+/* Simple player names with colors - ALWAYS CENTERED */
+.players-names {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  z-index: 5;
+}
+
+.player-name-simple {
+  color: #198754;
+  transition: all 0.2s ease;
+}
+
+.player-name-simple.active {
+  color: #0f5132;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.opponent-name-simple {
+  color: #dc3545;
+  transition: all 0.2s ease;
+}
+
+.opponent-name-simple.active {
+  color: #c82333;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.vs-simple {
+  color: #666;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Desktop controls */
+.desktop-controls {
+  display: flex;
+  gap: 12px;
+}
+
+.game-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: #198754;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #20a366;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #5c636a;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+/* Mobile header buttons */
+.mobile-header-buttons {
+  display: none;
+}
+
+.floating-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  margin: 0 4px;
+}
+
+.details-btn {
+  background: #198754;
+  color: white;
+}
+
+.details-btn:hover {
+  background: #20a366;
+  transform: scale(1.05);
+}
+
+.exit-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.exit-btn:hover {
+  background: #c82333;
+  transform: scale(1.05);
+}
+
+.turn-indicator {
+  color: orange;
+  font-weight: bold;
+  animation: pulse 2s infinite;
+}
+
+/* Card selection info - FLOATING RIGHT SIDE */
+.selection-info {
+  position: absolute;
+  top: 80px;
+  right: 20px;
+  background: rgba(40, 167, 69, 0.95);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 15px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 2px solid #28a745;
+  max-width: 250px;
+  line-height: 1.2;
+  animation: slideInRight 0.3s ease;
+  z-index: 15;
+}
+
+.selection-info small {
+  display: block;
+  margin-top: 2px;
+  opacity: 0.9;
+  font-size: 0.75rem;
+}
+
+@keyframes statusFade {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Main game area with MARGIN-BASED responsive design instead of scaling */
+.game-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Responsive margins instead of scaling */
+@media (max-width: 1199px) and (min-width: 900px) {
+  .game-area {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 899px) and (min-width: 700px) {
+  .game-area {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 699px) and (min-width: 500px) {
+  .game-area {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 499px) {
+  .game-area {
+    padding: 8px;
+  }
+}
+
+@media (max-height: 700px) {
+  .game-area {
+    padding: 8px;
+  }
+}
+
+@media (max-height: 600px) {
+  .game-area {
+    padding: 6px;
+  }
+}
+
+/* Opponent hand area */
+.opponent-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: -10px;
+}
+
+.opponent-label {
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.opponent-cards {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* Center play area - COMPACT LAYOUT */
+.play-area {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 200px;
+  position: relative;
+  gap: 60px;
+}
+
+/* Played cards section - CENTER LEFT - SMALLER */
+.played-cards-section {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 200px;
+}
+
+.played-cards-label {
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.played-cards-area {
+  display: flex;
+  gap: 16px;
+  min-height: 110px;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 180px;
+}
+
+/* Deck and Trump section - STACKED LIKE REAL LIFE */
+.deck-trump-section {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 100px;
+  position: relative;
+}
+
+.deck-label {
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Deck and trump stack container */
+.deck-trump-stack {
+  position: relative;
+  width: 120px;
+  height: 150px;
+}
+
+/* Trump card - positioned under deck, NO rotation (upright) */
+.trump-card {
+  position: absolute;
+  top: 15px;
+  left: 20px;
+  z-index: 1;
+}
+
+/* Deck card - on top */
+.deck-card {
+  position: absolute;
+  top: -30px;
+  left: 20px;
+  z-index: 2;
+  transform: rotate(90deg);
+  width: 80px;
+  height: 150px;
+}
+
+/* Player hand area */
+.player-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  min-height: 280px;
+  position: relative;
+}
+
+/* Game status - ABOVE PLAYER NAME */
+.game-status {
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f5132;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  border: 2px solid rgba(15, 81, 50, 0.2);
+  animation: statusFade 0.3s ease;
+  max-width: 350px;
+  margin-bottom: 8px;
+}
+
+.player-label {
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  margin-top: -16px;
+}
+
+.player-cards {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+/* Detailed scores overlay */
+.scores-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+}
+
+.scores-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  color: black;
+}
+
+.scores-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.scores-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.player-stats {
+  text-align: center;
+}
+
+.player-stats h3 {
+  color: #0f5132;
+  margin-bottom: 16px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.trump-info {
+  text-align: center;
+  padding: 0 16px;
+}
+
+.trump-info h3 {
+  color: #0f5132;
+  margin-bottom: 16px;
+}
+
+.close-scores {
+  width: 100%;
+  margin-top: 24px;
+  padding: 12px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.close-scores:hover {
+  background: #5c636a;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* MOBILE RESPONSIVE DESIGN */
+@media (max-width: 768px) {
+  .game-header {
+    padding: 8px 16px;
+  }
+
+  .game-title {
+    font-size: 1.2rem;
+  }
+
+  /* Hide desktop controls on mobile */
+  .desktop-controls {
+    display: none;
+  }
+
+  /* Hide player names on mobile to save space */
+  .players-names {
+    display: none;
+  }
+
+  /* Show mobile header buttons */
+  .mobile-header-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Mobile game status - stays above player name */
+  .game-status {
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    max-width: 90vw;
+    margin-bottom: 6px;
+  }
+
+  .selection-info {
+    position: fixed;
+    top: auto;
+    bottom: 20px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    max-width: 90vw;
+    font-size: 0.75rem;
+    padding: 6px 10px;
+    border-radius: 20px;
+  }
+
+  /* MOBILE: Horizontal layout for center area */
+  .play-area {
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 20px;
+    min-height: 160px;
+  }
+
+  .played-cards-section {
+    flex: 1;
+    min-width: 120px;
+    max-width: 65%;
+  }
+
+  .played-cards-area {
+    min-width: 100px;
+    padding: 12px;
+    min-height: 80px;
+    gap: 12px;
+  }
+
+  /* MOBILE: Deck and trump section */
+  .deck-trump-section {
+    flex: 0 0 auto;
+    min-width: 80px;
+  }
+
+  .deck-trump-stack {
+    width: 80px;
+    height: 120px;
+  }
+
+  .trump-card {
+    top: 8px;
+    left: -5px;
+  }
+
+  .deck-card {
+    left: 10px;
+    width: 60px;
+    height: 110px;
+  }
+
+  .player-cards,
+  .opponent-cards {
+    gap: 6px;
+  }
+
+  .scores-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 480px) {
+  .played-cards-area {
+    min-width: 90px;
+    padding: 10px;
+    min-height: 70px;
+    gap: 10px;
+  }
+
+  .floating-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+  }
+
+  .game-status {
+    font-size: 0.75rem;
+    padding: 5px 10px;
+  }
+
+  .selection-info {
+    font-size: 0.7rem;
+    padding: 5px 8px;
+  }
+}
+
+/* Landscape mobile adjustments */
+@media (max-height: 500px) and (orientation: landscape) {
+  .opponent-section {
+    gap: 6px;
+  }
+
+  .play-area {
+    min-height: 120px;
+    gap: 15px;
+  }
+
+  .player-section {
+    gap: 8px;
+    min-height: 200px;
+  }
+
+  .game-status {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    margin-bottom: 4px;
+  }
+}

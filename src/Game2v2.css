@@ -1,0 +1,682 @@
+/* 2v2 specific styles */
+.game-2v2 .game-header {
+  padding: 8px 16px;
+}
+
+.team-scores {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-weight: 600;
+  z-index: 5;
+}
+
+.team-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  transition: all 0.3s ease;
+  color: black;
+}
+
+.team-score.my-team {
+  background: rgba(40, 167, 69, 0.8);
+}
+
+.team-label {
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+.team-points {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.vs-divider {
+  color: black;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* 2v2 Game area layout */
+.game-area-2v2 {
+  flex: 1;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 20px;
+  gap: 20px;
+  overflow: hidden;
+}
+
+/* Player positions */
+.player-position {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-player {
+  justify-self: center;
+}
+
+.bottom-player {
+  justify-self: center;
+  min-height: 200px;
+}
+
+/* Middle section with 3 columns: left player, center area with play area and deck, right player */
+.middle-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr 100px 1fr;
+  gap: 20px;
+  align-items: center;
+  min-height: 300px;
+  position: relative;
+}
+
+.left-player,
+.right-player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  height: 250px;
+  justify-content: center;
+}
+
+/* Container for rotated cards that doesn't affect layout */
+.game-2v2 .left-player .opponent-cards.vertical,
+.game-2v2 .right-player .opponent-cards.vertical {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex !important;
+  flex-direction: row !important;
+  gap: -5px;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-2v2 .left-player .opponent-cards.vertical {
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center center;
+}
+
+.game-2v2 .right-player .opponent-cards.vertical {
+  transform: translate(-50%, -50%) rotate(-90deg);
+  transform-origin: center center;
+}
+
+/* Center area for 2v2 - now includes both play area and deck */
+.center-area {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 30px;
+  min-height: 250px;
+  justify-content: center;
+}
+
+.deck-trump-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.played-cards-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.played-cards-label {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  margin-bottom: 5px;
+}
+
+.deck-trump-stack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.trump-card {
+  position: relative;
+  z-index: 1;
+}
+
+.deck-card {
+  position: relative;
+  z-index: 2;
+  top: -150px;
+}
+
+.deck-label {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  margin-bottom: 5px;
+}
+
+.played-cards-area-2v2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 20px;
+  min-height: 180px;
+  min-width: 320px;
+  width: 100%;
+  max-width: 400px;
+  align-items: center;
+  justify-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  padding: 25px;
+}
+
+/* Player info styling */
+.player-info {
+  text-align: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 0.9rem;
+  min-width: 120px;
+  position: relative;
+  z-index: 10;
+}
+
+.player-info.teammate {
+  background: rgba(40, 167, 69, 0.3); /* Zelena za moj tim */
+  border: 1px solid rgba(40, 167, 69, 0.5);
+}
+
+.player-info.opponent {
+  background: rgba(220, 53, 69, 0.3); /* Crvena za protivnički tim */
+  border: 1px solid rgba(220, 53, 69, 0.5);
+
+  top: -230px;
+}
+
+.player-info.my-player {
+  background: rgba(40, 167, 69, 0.5); /* Jača zelena za mene */
+  border: 2px solid rgba(40, 167, 69, 0.8);
+  font-weight: 600;
+}
+
+.player-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.player-cards-count {
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+/* Scores modal for 2v2 */
+.teams-scores-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.team-stats {
+  text-align: center;
+}
+
+.team-stats h3 {
+  color: #0f5132;
+  margin-bottom: 16px;
+}
+
+.team-players {
+  margin-top: 16px;
+}
+
+.player-stat {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9rem;
+}
+
+/* Mobile adjustments for 2v2 */
+/* Large screens (27+ inch monitors) - 1920px+ */
+@media (min-width: 1920px) {
+  .middle-section {
+    grid-template-columns: 1fr 1fr 120px 1fr;
+    gap: 25px;
+  }
+
+  .played-cards-area-2v2 {
+    min-width: 400px;
+    min-height: 200px;
+    gap: 25px;
+    padding: 30px;
+  }
+
+  .center-area {
+    gap: 40px;
+  }
+}
+
+/* Standard desktop screens (15.6" laptops) - 1366px to 1919px */
+@media (max-width: 1919px) and (min-width: 1366px) {
+  .middle-section {
+    grid-template-columns: 1fr 1fr 100px 1fr;
+    gap: 20px;
+  }
+
+  .played-cards-area-2v2 {
+    min-width: 280px;
+    min-height: 160px;
+    gap: 15px;
+    padding: 20px;
+  }
+
+  .center-area {
+    gap: 25px;
+  }
+
+  .player-info {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+    min-width: 100px;
+  }
+  /* Card selection info - FLOATING RIGHT SIDE */
+  .selection-info {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    background: rgba(40, 167, 69, 0.95);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 15px;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    border: 2px solid #28a745;
+    max-width: 250px;
+    line-height: 1.2;
+    animation: slideInRight 0.3s ease;
+    z-index: 15;
+  }
+  .player-info.my-player {
+    bottom: 10px;
+  }
+}
+
+/* Smaller laptops and tablets - 1024px to 1365px */
+@media (max-width: 1365px) and (min-width: 1024px) {
+  .middle-section {
+    grid-template-columns: 80px 1fr 80px 80px;
+    gap: 15px;
+  }
+
+  .played-cards-area-2v2 {
+    min-width: 240px;
+    min-height: 140px;
+    gap: 12px;
+    padding: 18px;
+  }
+
+  .center-area {
+    gap: 20px;
+  }
+
+  .player-info {
+    font-size: 0.75rem;
+    padding: 5px 8px;
+    min-width: 90px;
+  }
+}
+
+/* Tablets - 768px to 1023px */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .team-scores {
+    display: none;
+  }
+
+  .game-area-2v2 {
+    padding: 12px;
+    gap: 15px;
+  }
+
+  .middle-section {
+    grid-template-columns: 70px 1fr 70px 70px;
+    gap: 10px;
+    min-height: 200px;
+  }
+
+  .left-player,
+  .right-player {
+    height: 180px;
+  }
+
+  .played-cards-area-2v2 {
+    min-width: 200px;
+    min-height: 120px;
+    gap: 10px;
+    padding: 15px;
+  }
+
+  .center-area {
+    gap: 15px;
+  }
+
+  .player-info {
+    font-size: 0.7rem;
+    padding: 4px 6px;
+    min-width: 70px;
+  }
+}
+
+/* Mobile devices - up to 767px - OPTIMIZED LAYOUT */
+@media (max-width: 767px) {
+  .team-scores {
+    display: none;
+  }
+
+  .game-area-2v2 {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  /* MOBILE: 3-column layout with more space for left/right players */
+  .middle-section {
+    display: grid;
+    grid-template-columns: 80px 1fr 80px;
+    gap: 12px;
+    min-height: 180px;
+    justify-items: center;
+    top: 50px;
+  }
+
+  .left-player,
+  .right-player {
+    height: 140px;
+    justify-content: center;
+  }
+
+  .left-player .player-info {
+    position: absolute;
+    top: -105px;
+    left: 35px;
+    transform: translateX(-50%);
+    font-size: 0.65rem;
+    padding: 3px 6px;
+    min-width: 70px;
+    white-space: nowrap;
+  }
+
+  .right-player .player-info {
+    position: absolute;
+    top: -105px;
+    left: -29px;
+    transform: translateX(-50%);
+    font-size: 0.65rem;
+    padding: 3px 6px;
+    min-width: 70px;
+    white-space: nowrap;
+  }
+
+  /* MOBILE: Center area - vertical layout with deck below played cards */
+  .center-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    min-height: 160px;
+    justify-content: center;
+  }
+
+  /* MOBILE: Played cards section */
+  .played-cards-section {
+    order: 1;
+  }
+
+  .played-cards-area-2v2 {
+    min-width: 160px;
+    min-height: 100px;
+    gap: 8px;
+    padding: 12px;
+    max-width: 220px;
+  }
+
+  .played-cards-label {
+    font-size: 0.7rem;
+    margin-bottom: 4px;
+  }
+
+  /* MOBILE: Deck section - positioned below played cards */
+  .deck-trump-section {
+    order: 2;
+    min-width: 60px;
+    gap: 4px;
+  }
+
+  .deck-trump-stack {
+    width: 60px;
+    height: 90px;
+    position: relative;
+    top: -60px;
+    right: -40px;
+  }
+
+  .trump-card {
+    position: absolute;
+    top: 8px;
+    left: 5px;
+    z-index: 1;
+  }
+
+  .deck-card {
+    position: absolute;
+    top: -15px;
+    left: -20px;
+    z-index: 2;
+    transform: rotate(90deg);
+  }
+
+  .deck-label {
+    font-size: 0.65rem;
+    margin-bottom: 3px;
+  }
+
+  /* MOBILE: Bottom player adjustments */
+  .bottom-player {
+    min-height: 140px;
+    gap: 6px;
+  }
+
+  .game-status {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    margin-bottom: 4px;
+    max-width: 90vw;
+  }
+
+  .player-cards {
+    gap: 4px;
+    margin-top: 26px;
+  }
+
+  /* MOBILE: Selection info */
+  .selection-info {
+    position: fixed;
+    bottom: 200px;
+    left: 85%;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    max-width: 90vw;
+    border-radius: 15px;
+  }
+
+  /* MOBILE: Card sizes reduced by 10px */
+  .game-2v2 .card-medium .card-image,
+  .game-2v2 .card-small .card-image {
+    width: 30px; /* Reduced from 40px */
+    height: 60px; /* Reduced from 70px */
+  }
+
+  /* MOBILE: Scores modal */
+  .teams-scores-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .scores-modal {
+    padding: 20px;
+    max-width: 95vw;
+  }
+  .player-position.bottom-player {
+    position: relative;
+    top: -20px;
+  }
+}
+
+/* Different card sizes */
+.game-2v2 .card-small .card-image {
+  width: 55px;
+  height: 100px;
+}
+
+.game-2v2 .card-medium .card-image {
+  width: 80px;
+  height: 150px;
+}
+
+.game-2v2 .card-large .card-image {
+  width: 80px;
+  height: 150px;
+}
+
+/* 2v2 responsive card sizes */
+@media (max-width: 1900px) and (min-width: 1200px) {
+  .game-2v2 .card-medium .card-image {
+    width: 60px;
+    height: 110px;
+  }
+  .game-2v2 .card-small .card-image {
+    width: 40px;
+    height: 75px;
+  }
+  .middle-section {
+    top: -50px;
+  }
+  .player-info.opponent {
+    top: -160px;
+  }
+  .player-position.bottom-player {
+    position: relative;
+    top: -90px;
+  }
+}
+
+/* Very small mobile screens - height below 850px */
+@media (max-width: 767px) and (max-height: 850px) {
+  /* Extra small cards for very small screens */
+  .game-2v2 .card-medium .card-image,
+  .game-2v2 .card-small .card-image {
+    width: 35px !important; /* Further reduced from 30px */
+    height: 65px !important; /* Further reduced from 60px */
+  }
+
+  /* Adjust deck stack for smaller cards */
+  .deck-trump-stack {
+    width: 45px;
+    height: 70px;
+  }
+
+  .trump-card {
+    top: 60px;
+    left: -50px;
+  }
+
+  .deck-card {
+    position: absolute;
+    top: 45px;
+    left: -70px;
+    z-index: 2;
+    transform: rotate(90deg);
+  }
+
+  /* Smaller played cards area */
+  .played-cards-area-2v2 {
+    min-width: 140px;
+    min-height: 80px;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  /* Reduce middle section height */
+  .middle-section {
+    min-height: 140px;
+  }
+
+  .left-player,
+  .right-player {
+    height: 110px;
+  }
+  .right-player .player-info {
+    position: absolute;
+    top: -65px;
+    left: -29px;
+    transform: translateX(-50%);
+    font-size: 0.65rem;
+    padding: 3px 6px;
+    min-width: 70px;
+    white-space: nowrap;
+  }
+  .left-player .player-info {
+    position: absolute;
+    top: -65px;
+    left: 35px;
+    transform: translateX(-50%);
+    font-size: 0.65rem;
+    padding: 3px 6px;
+    min-width: 70px;
+    white-space: nowrap;
+  }
+  .selection-info {
+    position: fixed;
+    bottom: 175px;
+    margin-left: 0px;
+    transform: translateX(-50%);
+    font-size: 0.5rem;
+    padding: 1px 2px;
+    max-width: 100vw;
+    border-radius: 15px;
+  }
+  .selection-info small {
+    display: block;
+    margin-top: 2px;
+    opacity: 0.9;
+    font-size: 0.5rem;
+  }
+}

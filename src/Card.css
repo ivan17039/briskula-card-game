@@ -1,0 +1,76 @@
+/* Card component styles */
+.card {
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  overflow: visible; /* Promjena s hidden na visible */
+}
+
+.card-image {
+  width: 80px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: block;
+}
+
+/* Different card sizes */
+.card-small .card-image {
+  width: 55px;
+  height: 100px;
+}
+
+.card-medium .card-image {
+  width: 80px;
+  height: 150px;
+}
+
+.card-large .card-image {
+  width: 80px;
+  height: 150px;
+}
+
+/* Card states - hover effect on ENTIRE CARD */
+.card-playable:hover {
+  transform: translateY(-12px) scale(1.05);
+}
+
+.card-selected {
+  transform: translateY(-20px) scale(1.08);
+}
+
+/* Selection glow effect */
+.card-selected::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  background: linear-gradient(45deg, orange, yellow);
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.6;
+  animation: glow 1.5s infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    opacity: 0.6;
+  }
+  to {
+    opacity: 0.5;
+  }
+}
+
+/* Non-playable cards */
+.card:not(.card-playable) {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.card:not(.card-playable):hover {
+  transform: none;
+}

@@ -1,0 +1,410 @@
+.game-mode-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.game-mode-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+  max-width: 450px;
+  width: 100%;
+  text-align: center;
+  color: #333;
+  animation: slideUp 0.6s ease-out;
+}
+
+.mode-header {
+  margin-bottom: 15px;
+}
+
+.game-icon {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 1px;
+  margin-bottom: 20px;
+  animation: bounce 2s infinite;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.suit-icon {
+  width: 30px;
+  height: 45px;
+  object-fit: contain;
+}
+
+.mode-header h2 {
+  margin: 0 0 5px 0;
+  color: #4a5568;
+  font-size: 1.4em;
+}
+
+.mode-header p {
+  color: #666;
+  font-size: 0.9em;
+  margin: 0;
+}
+
+.mode-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.mode-option {
+  background: rgba(255, 255, 255, 0.8);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  padding: 10px 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mode-option:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  border-color: rgba(102, 126, 234, 0.3);
+}
+
+.mode-option.selected {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 0 15px 30px rgba(102, 126, 234, 0.3);
+}
+
+.mode-icon {
+  font-size: 1.8em;
+  margin-bottom: 6px;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mode-option h3 {
+  margin: 0 0 5px 0;
+  color: #4a5568;
+  font-size: 1em;
+}
+
+.mode-option p {
+  color: #666;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 0.8em;
+}
+
+.mode-option ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px 0;
+  text-align: left;
+}
+
+.mode-option li {
+  padding: 2px 0;
+  color: #555;
+  font-size: 0.75em;
+  position: relative;
+  padding-left: 14px;
+}
+
+.mode-option li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: #48bb78;
+  font-weight: bold;
+}
+
+.mode-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 15px;
+  font-size: 0.7em;
+  font-weight: 600;
+}
+
+.mode-option.selected .mode-badge {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.mode-info {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+  padding: 18px;
+  text-align: left;
+}
+
+.mode-info h4 {
+  margin: 0 0 15px 0;
+  color: #4a5568;
+  text-align: center;
+  font-size: 1.1em;
+}
+
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.rule-item {
+  background: rgba(255, 255, 255, 0.7);
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 0.8em;
+}
+
+.rule-item strong {
+  color: #4a5568;
+}
+
+/* Additional styles for matchmaking */
+.back-btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  padding: 10px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #4a5568;
+  transition: all 0.3s ease;
+}
+
+.back-btn:hover {
+  background: white;
+  transform: translateX(-2px);
+}
+
+.mode-info {
+  text-align: center;
+}
+
+.mode-info h2 {
+  margin: 0 0 10px 0;
+  color: #4a5568;
+}
+
+.mode-info p {
+  color: #666;
+  margin: 0;
+}
+
+.teams-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  margin: 20px 0;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+.team {
+  text-align: center;
+}
+
+.team h4 {
+  margin: 0 0 15px 0;
+  color: #4a5568;
+  font-size: 1.1em;
+}
+
+.team-players {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+}
+
+.player-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9em;
+  font-weight: bold;
+  color: white;
+}
+
+.vs-divider {
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #4a5568;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounce {
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-5px);
+  }
+}
+
+@media (max-width: 768px) {
+  .game-mode-container {
+    padding: 10px;
+  }
+
+  .game-mode-card {
+    padding: 20px;
+  }
+
+  .mode-options {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .mode-option {
+    padding: 12px 10px;
+  }
+
+  .rules-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .teams-preview {
+    flex-direction: column;
+    gap: 15px;
+  }
+}
+
+/* Mobile-specific simplified interface */
+@media (max-width: 767px) {
+  .mode-selector {
+    padding: 15px;
+    margin: 10px;
+    max-height: 85vh;
+  }
+
+  .mode-header h1 {
+    font-size: 1.8em;
+    margin-bottom: 8px;
+  }
+
+  .mode-header p {
+    font-size: 0.85em;
+    margin: 0;
+  }
+
+  .mode-options {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .mode-option {
+    padding: 8px 6px;
+    border-radius: 6px;
+  }
+
+  .mode-icon {
+    font-size: 1.5em;
+    height: 35px;
+    margin-bottom: 4px;
+  }
+
+  .mode-option h3 {
+    font-size: 0.9em;
+    margin-bottom: 3px;
+  }
+
+  /* Hide descriptions on mobile for compact view */
+  .mode-option p {
+    display: none;
+  }
+
+  .mode-option ul {
+    display: none;
+  }
+
+  .mode-badge {
+    font-size: 0.6em;
+    padding: 2px 6px;
+    top: 6px;
+    right: 6px;
+  }
+
+  .mode-info {
+    padding: 12px;
+    border-radius: 6px;
+  }
+
+  .rules-grid {
+    gap: 10px;
+  }
+
+  .rule-item {
+    padding: 8px;
+    border-radius: 6px;
+  }
+
+  .rule-item h4 {
+    font-size: 0.9em;
+    margin-bottom: 4px;
+  }
+
+  .rule-item p {
+    font-size: 0.8em;
+  }
+
+  .start-game-section {
+    margin-top: 15px;
+  }
+
+  .start-game-btn {
+    padding: 10px 20px;
+    font-size: 0.9em;
+  }
+}
