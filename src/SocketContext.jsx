@@ -20,7 +20,10 @@ export const SocketProvider = ({ children }) => {
   const [connectionError, setConnectionError] = useState(null);
 
   useEffect(() => {
-    const newSocket = io("http://localhost:3002", {
+    const serverUrl = import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
+    console.log("🔗 Connecting to server:", serverUrl);
+    
+    const newSocket = io(serverUrl, {
       transports: ["websocket", "polling"],
       timeout: 5000,
     });
