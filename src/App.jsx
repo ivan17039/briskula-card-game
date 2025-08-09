@@ -71,7 +71,12 @@ function AppContent() {
       return <Login onLogin={handleLogin} />;
 
     case "modeSelect":
-      return <GameModeSelector onModeSelect={handleModeSelect} onBack={handleBackToLogin} />;
+      return (
+        <GameModeSelector
+          onModeSelect={handleModeSelect}
+          onBack={handleBackToLogin}
+        />
+      );
 
     case "matchmaking":
       return (

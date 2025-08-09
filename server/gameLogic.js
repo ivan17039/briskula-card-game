@@ -114,14 +114,14 @@ function determineRoundWinner(card1, card2, trumpSuit, firstPlayer) {
     console.log("🏆 Obje karte su adut - pobjednik:", winner);
     return winner;
   }
-  
+
   // Provjeri da li je prva karta adut
   if (trumpSuit && card1.suit === trumpSuit) {
     console.log("🏆 Karta 1 je adut - pobjednik: 1");
     return 1;
   }
-  
-  // Provjeri da li je druga karta adut  
+
+  // Provjeri da li je druga karta adut
   if (trumpSuit && card2.suit === trumpSuit) {
     console.log("🏆 Karta 2 je adut - pobjednik: 2");
     return 2;
