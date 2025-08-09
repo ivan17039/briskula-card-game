@@ -37,6 +37,7 @@ function dealCards2v2(deck) {
 
   // Trump card is the 17th card
   const trump = deck[16];
+  const trumpSuit = trump.suit; // KLJUČNO: Sačuvaj trumpSuit nezavisno od trump karte
   const remainingDeck = deck.slice(17);
 
   return {
@@ -45,6 +46,7 @@ function dealCards2v2(deck) {
     player3Hand,
     player4Hand,
     trump,
+    trumpSuit, // Dodaj trumpSuit kao zaseban property
     remainingDeck,
     discardPile: [],
   };
@@ -68,18 +70,17 @@ function getNextPlayer2v2(currentPlayer) {
 /**
  * Determines winner of 4-card round using proper Briskula rules
  */
-function determineRoundWinner2v2(playedCards, firstPlayer, trump) {
+function determineRoundWinner2v2(playedCards, firstPlayer, trumpSuit) {
   console.log("🥊 Determining 2v2 round winner:", {
     cards: playedCards.map(
       (c) => `P${c.playerNumber}: ${c.card.name} ${c.card.suit}`
     ),
     firstPlayer,
-    trump: trump ? `${trump.name} ${trump.suit}` : "none",
+    trumpSuit: trumpSuit,
   });
 
   // Get the suit of the first played card (determines the "lead suit")
   const leadSuit = playedCards[0].card.suit;
-  const trumpSuit = trump ? trump.suit : null;
 
   console.log(`🎯 Lead suit: ${leadSuit}, Trump suit: ${trumpSuit}`);
 
@@ -174,6 +175,7 @@ function createGameState2v2() {
     team1Cards: [], // Cards won by team 1 (players 1 & 3)
     team2Cards: [], // Cards won by team 2 (players 2 & 4)
     trump: dealt.trump,
+    trumpSuit: dealt.trump.suit, // Sačuvaj trump boju permanentno
     remainingDeck: dealt.remainingDeck,
     currentPlayer: 1, // Start with player 1
     playedCards: [], // Cards played in current round

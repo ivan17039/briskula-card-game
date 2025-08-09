@@ -87,39 +87,47 @@ function dealCards(deck) {
   }
 
   const trump = deck[6];
+  const trumpSuit = trump.suit; // KLJUČNO: Sačuvaj trumpSuit nezavisno od trump karte
   const remainingDeck = deck.slice(7);
 
   return {
     player1Hand,
     player2Hand,
     trump,
+    trumpSuit, // Dodaj trumpSuit kao zaseban property
     remainingDeck,
     discardPile: [],
   };
 }
 
-function determineRoundWinner(card1, card2, trump, firstPlayer) {
-  const trumpSuit = trump ? trump.suit : null;
+function determineRoundWinner(card1, card2, trumpSuit, firstPlayer) {
   console.log("🥊 Određujem pobjednika runde:", {
     card1: `${card1.name} ${card1.suit} (jačina: ${card1.strength})`,
     card2: `${card2.name} ${card2.suit} (jačina: ${card2.strength})`,
-    trump: trump ? `${trump.name} ${trump.suit}` : "null",
+    trumpSuit: trumpSuit,
     firstPlayer: firstPlayer,
   });
 
+  // Provjeri da li su obje karte adut
   if (trumpSuit && card1.suit === trumpSuit && card2.suit === trumpSuit) {
     const winner = card1.strength > card2.strength ? 1 : 2;
     console.log("🏆 Obje karte su adut - pobjednik:", winner);
     return winner;
   }
+  
+  // Provjeri da li je prva karta adut
   if (trumpSuit && card1.suit === trumpSuit) {
     console.log("🏆 Karta 1 je adut - pobjednik: 1");
     return 1;
   }
+  
+  // Provjeri da li je druga karta adut  
   if (trumpSuit && card2.suit === trumpSuit) {
     console.log("🏆 Karta 2 je adut - pobjednik: 2");
     return 2;
   }
+
+  // Ako su obje karte iste boje (nisu adut)
   if (card1.suit === card2.suit) {
     if (card1.strength > card2.strength) {
       console.log("🏆 Ista boja, card1 jača - pobjednik: 1");

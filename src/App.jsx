@@ -39,6 +39,10 @@ function AppContent() {
     setAppState("modeSelect");
   };
 
+  const handleBackToLogin = () => {
+    setAppState("login");
+  };
+
   if (connectionError) {
     return (
       <div className="connection-error">
@@ -67,7 +71,7 @@ function AppContent() {
       return <Login onLogin={handleLogin} />;
 
     case "modeSelect":
-      return <GameModeSelector onModeSelect={handleModeSelect} />;
+      return <GameModeSelector onModeSelect={handleModeSelect} onBack={handleBackToLogin} />;
 
     case "matchmaking":
       return (

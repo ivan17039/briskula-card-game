@@ -262,6 +262,7 @@ function createGameRoom1v1(player1, player2) {
       player1Cards: [],
       player2Cards: [],
       trump: dealt.trump,
+      trumpSuit: dealt.trump.suit, // Sačuvaj trump boju permanentno
       remainingDeck: dealt.remainingDeck,
       currentPlayer: 1,
       playedCards: [],
@@ -542,7 +543,7 @@ function finishRound1v1(roomId) {
   const roundWinner = determineRoundWinner(
     card1,
     card2,
-    room.gameState.trump,
+    room.gameState.trumpSuit,
     firstPlayer
   );
 
@@ -649,7 +650,7 @@ function finishRound2v2(roomId) {
   const roundWinner = determineRoundWinner2v2(
     room.gameState.playedCards,
     firstPlayerInRound,
-    room.gameState.trump
+    room.gameState.trumpSuit
   );
 
   const winningTeam = getPlayerTeam(roundWinner);

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import "./GameModeSelector.css";
 
-function GameModeSelector({ onModeSelect }) {
+function GameModeSelector({ onModeSelect, onBack }) {
   const [selectedMode, setSelectedMode] = useState(null);
 
   const handleModeSelect = (mode) => {
@@ -16,6 +16,11 @@ function GameModeSelector({ onModeSelect }) {
   return (
     <div className="game-mode-container">
       <div className="game-mode-card">
+        {onBack && (
+          <button className="back-btn" onClick={onBack}>
+            ←
+          </button>
+        )}
         <div className="mode-header">
           <div className="game-icon">
             <img
