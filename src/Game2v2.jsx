@@ -11,11 +11,72 @@ function calculatePoints(cards) {
   return cards.reduce((total, card) => total + (card.points || 0), 0);
 }
 
+/**
+ * Sortira karte po boji i jačini i grupiraj po bojama
+ * @param {Array} cards - Array karata za sortiranje
+ * @param {string} gameType - Tip igre (briskula ili treseta)
+ * @returns {Array} - Sortirane karte s dodatnim gap-om između boja
+ */
+function sortCards(cards, gameType = "briskula") {
+  if (!cards || cards.length === 0) return cards;
+
+  // Definiranje redoslijeda boja (Kupe, Bati, Spadi, Dinari)
+  const suitOrder = { Kupe: 1, Bati: 2, Spadi: 3, Dinari: 4 };
+
+  // Definiranje jačine karata ovisno o tipu igre
+  const getCardStrength = (card) => {
+    if (gameType === "treseta") {
+      // Trešeta: Trica > Duja > As > Kralj > Konj > Fanat > 7 > 6 > 5 > 4
+      const tresetaStrength = {
+        3: 10, // Trica - najjača
+        2: 9, // Duja
+        1: 8, // As
+        13: 7, // Kralj
+        12: 6, // Konj
+        11: 5, // Fanat
+        7: 4, // 7
+        6: 3, // 6
+        5: 2, // 5
+        4: 1, // 4 - najslabija
+      };
+      return tresetaStrength[card.value] || 0;
+    } else {
+      // Briskula: As > Trica > Kralj > Konj > Fanat > 7 > 6 > 5 > 4 > Duja
+      const briskulaStrength = {
+        1: 10, // As - najjači
+        3: 9, // Trica
+        13: 8, // Kralj
+        12: 7, // Konj
+        11: 6, // Fanat
+        7: 5, // 7
+        6: 4, // 6
+        5: 3, // 5
+        4: 2, // 4
+        2: 1, // Duja - najslabija
+      };
+      return briskulaStrength[card.value] || 0;
+    }
+  };
+
+  return [...cards].sort((a, b) => {
+    // Prvo sortiraj po boji
+    const suitComparison = suitOrder[a.suit] - suitOrder[b.suit];
+    if (suitComparison !== 0) {
+      return suitComparison;
+    }
+
+    // Ako su iste boje, sortiraj po jačini (od najjače prema najslabijoj)
+    return getCardStrength(b) - getCardStrength(a);
+  });
+}
+
 function Game2v2({ gameData, onGameEnd }) {
   const { socket, user, playCard, leaveRoom } = useSocket();
 
   const initializeGameState = () => {
     if (!gameData) return null;
+
+    console.log("🎮 Game2v2 gameData:", gameData);
 
     const myPlayerNumber = gameData.playerNumber;
     const myHand = gameData.gameState[`player${myPlayerNumber}Hand`] || [];
@@ -31,6 +92,13 @@ function Game2v2({ gameData, onGameEnd }) {
       playerNumber: myPlayerNumber,
       myTeam: gameData.myTeam,
       players: gameData.players,
+      gameType: gameData.gameType || "briskula", // Dodaj gameType
+
+      // Debug log
+      ...(console.log(
+        "🎯 Game2v2 inicijaliziran sa gameType:",
+        gameData.gameType
+      ) || {}),
       myHand: myHand,
       playedCards: [],
       trump: gameData.gameState.trump,
@@ -44,12 +112,17 @@ function Game2v2({ gameData, onGameEnd }) {
       remainingCardsCount: gameData.gameState.remainingDeck?.length || 0,
       team1Cards: [],
       team2Cards: [],
+      // Dodaj bodove za Trešetu
+      team1Points: 0,
+      team2Points: 0,
       handCounts: {
         player1: player1Hand.length,
         player2: player2Hand.length,
         player3: player3Hand.length,
         player4: player4Hand.length,
       },
+      // Dodaj playableCards za Trešetu
+      playableCards: gameData.gameState.playableCards || [],
     };
   };
 
@@ -122,6 +195,19 @@ function Game2v2({ gameData, onGameEnd }) {
             player3: data.player3Hand?.length || prev.handCounts.player3 || 0,
             player4: data.player4Hand?.length || prev.handCounts.player4 || 0,
           },
+          // Dodaj Trešeta specifične podatke
+          playableCards:
+            prev.gameType === "treseta"
+              ? data[`player${prev.playerNumber}PlayableCards`] || []
+              : prev.playableCards,
+          team1Points:
+            prev.gameType === "treseta" && data.team1Points
+              ? data.team1Points.points
+              : prev.team1Points,
+          team2Points:
+            prev.gameType === "treseta" && data.team2Points
+              ? data.team2Points.points
+              : prev.team2Points,
         };
 
         if (data.gameEnd.isGameOver) {
@@ -149,12 +235,48 @@ function Game2v2({ gameData, onGameEnd }) {
     });
 
     socket.on("playerDisconnected", (data) => {
+      let displayMessage = data.message;
+      if (data.gameMode === "2v2" && data.playerTeam) {
+        displayMessage += `. Igra je prekinuta.`;
+      }
+
       setGameState((prev) => ({
         ...prev,
         gamePhase: "finished",
-        message: `${data.message}. Vraćamo vas na početak...`,
+        message: `${displayMessage} Vraćamo vas na početak...`,
       }));
-      setTimeout(() => onGameEnd(), 3000);
+      setTimeout(() => onGameEnd(), 4000);
+    });
+
+    socket.on("playerLeft", (data) => {
+      let displayMessage = data.message;
+      if (data.gameMode === "2v2" && data.playerTeam) {
+        displayMessage += ` Igra je prekinuta.`;
+      }
+
+      setGameState((prev) => ({
+        ...prev,
+        gamePhase: "finished",
+        message: `${displayMessage} Vraćamo vas na početak...`,
+      }));
+      setTimeout(() => onGameEnd(), 4000);
+    });
+
+    // Trešeta specific events
+    socket.on("playableCardsUpdate", (data) => {
+      if (gameState?.gameType === "treseta") {
+        setGameState((prev) => ({
+          ...prev,
+          playableCards: data[`player${prev.playerNumber}PlayableCards`] || [],
+        }));
+      }
+    });
+
+    socket.on("invalidMove", (data) => {
+      if (gameState?.gameType === "treseta") {
+        alert(`Neispavan potez: ${data.reason}`);
+        setSelectedCard(null);
+      }
     });
 
     return () => {
@@ -162,6 +284,9 @@ function Game2v2({ gameData, onGameEnd }) {
       socket.off("turnChange");
       socket.off("roundFinished");
       socket.off("playerDisconnected");
+      socket.off("playerLeft");
+      socket.off("playableCardsUpdate");
+      socket.off("invalidMove");
     };
   }, [socket, gameState?.roomId, onGameEnd]);
 
@@ -172,6 +297,17 @@ function Game2v2({ gameData, onGameEnd }) {
       gameState.gamePhase !== "playing" ||
       gameState.currentPlayer !== gameState.playerNumber
     ) {
+      return;
+    }
+
+    // Provjeri je li karta playable za Trešetu
+    if (
+      gameState.gameType === "treseta" &&
+      !gameState.playableCards.includes(card.id)
+    ) {
+      alert(
+        "Ne možete igrati tu kartu! Morate pratiti boju ili igrati jaču kartu."
+      );
       return;
     }
 
@@ -202,8 +338,14 @@ function Game2v2({ gameData, onGameEnd }) {
     );
   }
 
-  const team1Points = calculatePoints(gameState.team1Cards);
-  const team2Points = calculatePoints(gameState.team2Cards);
+  const team1Points =
+    gameState.gameType === "treseta"
+      ? gameState.team1Points
+      : calculatePoints(gameState.team1Cards);
+  const team2Points =
+    gameState.gameType === "treseta"
+      ? gameState.team2Points
+      : calculatePoints(gameState.team2Cards);
   const cardSize = isMobile ? "small" : "medium";
 
   // Get player positions for 2v2 layout
@@ -267,7 +409,7 @@ function Game2v2({ gameData, onGameEnd }) {
             alt="Dinari"
             className="title-suit-icon"
           />
-          Briskula 2v2
+          {gameState.gameType === "treseta" ? "Trešeta 2v2" : "Briskula 2v2"}
         </h1>
 
         {/* Team scores */}
@@ -321,76 +463,73 @@ function Game2v2({ gameData, onGameEnd }) {
         {/* Top player */}
         <div className="player-position top-player">
           <div
-            className={`player-info ${getTeamColor(
+            className={`player-icon-display ${getTeamColor(
               getPlayerByPosition("top")
-            )}`}
+            )} ${
+              gameState.currentPlayer === getPlayerByPosition("top")
+                ? "current-turn"
+                : ""
+            }`}
           >
+            <div
+              className={`player-avatar ${getTeamColor(
+                getPlayerByPosition("top")
+              )}`}
+            >
+              {getPlayerName(getPlayerByPosition("top"))
+                .charAt(0)
+                .toUpperCase()}
+            </div>
             <div className="player-name">
               {getPlayerName(getPlayerByPosition("top"))}
-              {gameState.currentPlayer === getPlayerByPosition("top") && (
-                <span className="turn-indicator"> (Red)</span>
-              )}
             </div>
-            <div className="player-cards-count">
-              {gameState.handCounts[`player${getPlayerByPosition("top")}`]}{" "}
-              karata
+            <div className="player-cards-indicator">
+              <div className="cards-icon">
+                {gameState.handCounts[`player${getPlayerByPosition("top")}`]}
+              </div>
+              <span>karata</span>
             </div>
-          </div>
-          <div className="opponent-cards">
-            {Array.from(
-              {
-                length:
-                  gameState.handCounts[`player${getPlayerByPosition("top")}`],
-              },
-              (_, index) => (
-                <Card
-                  key={`top-${index}`}
-                  card={{}}
-                  isHidden={true}
-                  size={cardSize}
-                />
-              )
-            )}
           </div>
         </div>
 
         {/* Middle section with left player, play area, deck-trump, and right player */}
-        <div className="middle-section">
+        <div
+          className={`middle-section ${
+            gameState.remainingCardsCount === 0 ||
+            gameState.gameType === "treseta"
+              ? "no-deck"
+              : ""
+          }`}
+        >
           {/* Left player */}
           <div className="player-position left-player">
             <div
-              className={`player-info ${getTeamColor(
+              className={`player-icon-display ${getTeamColor(
                 getPlayerByPosition("left")
-              )}`}
+              )} ${
+                gameState.currentPlayer === getPlayerByPosition("left")
+                  ? "current-turn"
+                  : ""
+              }`}
             >
+              <div
+                className={`player-avatar ${getTeamColor(
+                  getPlayerByPosition("left")
+                )}`}
+              >
+                {getPlayerName(getPlayerByPosition("left"))
+                  .charAt(0)
+                  .toUpperCase()}
+              </div>
               <div className="player-name">
                 {getPlayerName(getPlayerByPosition("left"))}
-                {gameState.currentPlayer === getPlayerByPosition("left") && (
-                  <span className="turn-indicator"> (Red)</span>
-                )}
               </div>
-              <div className="player-cards-count">
-                {gameState.handCounts[`player${getPlayerByPosition("left")}`]}{" "}
-                karata
+              <div className="player-cards-indicator">
+                <div className="cards-icon">
+                  {gameState.handCounts[`player${getPlayerByPosition("left")}`]}
+                </div>
+                <span>karata</span>
               </div>
-            </div>
-            <div className="opponent-cards vertical">
-              {Array.from(
-                {
-                  length:
-                    gameState.handCounts[
-                      `player${getPlayerByPosition("left")}`
-                    ],
-                },
-                (_, index) => (
-                  <Card
-                    key={`left-${index}`}
-                    card={{}}
-                    isHidden={true}
-                    size={cardSize}
-                  />
-                )
-              )}
             </div>
           </div>
 
@@ -406,58 +545,59 @@ function Game2v2({ gameData, onGameEnd }) {
             </div>
           </div>
 
-          {/* Deck and Trump section */}
-          <div className="deck-trump-section">
-            <div className="deck-label">
-              Špil ({gameState.remainingCardsCount})
-            </div>
-            <div className="deck-trump-stack">
-              {gameState.trump && (
-                <div className="trump-card">
-                  <Card card={gameState.trump} size={cardSize} />
+          {/* Deck and Trump section - Hide if no cards remaining or Trešeta 2v2 */}
+          {gameState.remainingCardsCount > 0 &&
+            !(gameState.gameType === "treseta") && (
+              <div className="deck-trump-section">
+                <div className="deck-label">
+                  Špil ({gameState.remainingCardsCount})
                 </div>
-              )}
-              <div className="deck-card">
-                <Card card={{}} isHidden={true} size={cardSize} />
+                <div className="deck-trump-stack">
+                  {gameState.trump && gameState.gameType !== "treseta" && (
+                    <div className="trump-card">
+                      <Card card={gameState.trump} size={cardSize} />
+                    </div>
+                  )}
+                  <div className="deck-card">
+                    <Card card={{}} isHidden={true} size={cardSize} />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            )}
 
           {/* Right player */}
           <div className="player-position right-player">
             <div
-              className={`player-info ${getTeamColor(
+              className={`player-icon-display ${getTeamColor(
                 getPlayerByPosition("right")
-              )}`}
+              )} ${
+                gameState.currentPlayer === getPlayerByPosition("right")
+                  ? "current-turn"
+                  : ""
+              }`}
             >
+              <div
+                className={`player-avatar ${getTeamColor(
+                  getPlayerByPosition("right")
+                )}`}
+              >
+                {getPlayerName(getPlayerByPosition("right"))
+                  .charAt(0)
+                  .toUpperCase()}
+              </div>
               <div className="player-name">
                 {getPlayerName(getPlayerByPosition("right"))}
-                {gameState.currentPlayer === getPlayerByPosition("right") && (
-                  <span className="turn-indicator"> (Red)</span>
-                )}
               </div>
-              <div className="player-cards-count">
-                {gameState.handCounts[`player${getPlayerByPosition("right")}`]}{" "}
-                karata
-              </div>
-            </div>
-            <div className="opponent-cards vertical">
-              {Array.from(
-                {
-                  length:
+              <div className="player-cards-indicator">
+                <div className="cards-icon">
+                  {
                     gameState.handCounts[
                       `player${getPlayerByPosition("right")}`
-                    ],
-                },
-                (_, index) => (
-                  <Card
-                    key={`right-${index}`}
-                    card={{}}
-                    isHidden={true}
-                    size={cardSize}
-                  />
-                )
-              )}
+                    ]
+                  }
+                </div>
+                <span>karata</span>
+              </div>
             </div>
           </div>
         </div>
@@ -474,13 +614,15 @@ function Game2v2({ gameData, onGameEnd }) {
             </div>
           </div>
           <div className="player-cards">
-            {gameState.myHand.map((card) => (
+            {sortCards(gameState.myHand, gameState.gameType).map((card) => (
               <Card
                 key={card.id}
                 card={card}
                 isPlayable={
                   gameState.gamePhase === "playing" &&
-                  gameState.currentPlayer === gameState.playerNumber
+                  gameState.currentPlayer === gameState.playerNumber &&
+                  (gameState.gameType !== "treseta" ||
+                    gameState.playableCards.includes(card.id))
                 }
                 isSelected={selectedCard && selectedCard.id === card.id}
                 onClick={handleCardClick}
@@ -530,13 +672,25 @@ function Game2v2({ gameData, onGameEnd }) {
                 </div>
               </div>
 
-              <div className="trump-info">
-                <h3>Adut</h3>
-                {gameState.trump && (
-                  <Card card={gameState.trump} size="small" />
-                )}
-                <p>Preostalo: {gameState.remainingCardsCount}</p>
-              </div>
+              {/* Show deck/trump info only if relevant */}
+              {gameState.remainingCardsCount > 0 && (
+                <div className="trump-info">
+                  {gameState.gameType === "treseta" ? (
+                    <>
+                      <h3>Špil</h3>
+                      <p>Preostalo: {gameState.remainingCardsCount}</p>
+                    </>
+                  ) : (
+                    <>
+                      <h3>Adut</h3>
+                      {gameState.trump && (
+                        <Card card={gameState.trump} size="small" />
+                      )}
+                      <p>Preostalo: {gameState.remainingCardsCount}</p>
+                    </>
+                  )}
+                </div>
+              )}
 
               <div className="team-stats">
                 <h3>Tim 2 {gameState.myTeam === 2 && "(Vaš tim)"}</h3>

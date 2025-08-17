@@ -15,7 +15,18 @@ function Card({
     }
     if (!card || !card.suit || !card.value) return null;
 
+    console.log(`🎴 Card.jsx getCardImage:`, {
+      card,
+      suit: card.suit,
+      value: card.value,
+    });
+
     const suitFolders = {
+      Kupe: "Kupe",
+      Bati: "Bati",
+      Spadi: "Spadi",
+      Dinari: "Dinari",
+      // Legacy support for old format
       kupe: "Kupe",
       bate: "Bati",
       spade: "Spadi",
@@ -33,7 +44,10 @@ function Card({
     else if (card.value === 13) fileName = `Kralj${folder}.jpg`;
     else return null;
 
-    return `/cards_img/${folder}/${fileName}`;
+    const imagePath = `/cards_img/${folder}/${fileName}`;
+    console.log(`🎴 Card.jsx final path:`, imagePath);
+
+    return imagePath;
   };
 
   const cardImage = getCardImage();

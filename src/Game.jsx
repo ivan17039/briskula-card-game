@@ -9,11 +9,72 @@ function calculatePoints(cards) {
   return cards.reduce((total, card) => total + (card.points || 0), 0);
 }
 
+/**
+ * Sortira karte po boji i jačini
+ * @param {Array} cards - Array karata za sortiranje
+ * @param {string} gameType - Tip igre (briskula ili treseta)
+ * @returns {Array} - Sortirane karte
+ */
+function sortCards(cards, gameType = "briskula") {
+  if (!cards || cards.length === 0) return cards;
+
+  // Definiranje redoslijeda boja (Kupe, Bati, Spadi, Dinari)
+  const suitOrder = { Kupe: 1, Bati: 2, Spadi: 3, Dinari: 4 };
+
+  // Definiranje jačine karata ovisno o tipu igre
+  const getCardStrength = (card) => {
+    if (gameType === "treseta") {
+      // Trešeta: Trica > Duja > As > Kralj > Konj > Fanat > 7 > 6 > 5 > 4
+      const tresetaStrength = {
+        3: 10, // Trica - najjača
+        2: 9, // Duja
+        1: 8, // As
+        13: 7, // Kralj
+        12: 6, // Konj
+        11: 5, // Fanat
+        7: 4, // 7
+        6: 3, // 6
+        5: 2, // 5
+        4: 1, // 4 - najslabija
+      };
+      return tresetaStrength[card.value] || 0;
+    } else {
+      // Briskula: As > Trica > Kralj > Konj > Fanat > 7 > 6 > 5 > 4 > Duja
+      const briskulaStrength = {
+        1: 10, // As - najjači
+        3: 9, // Trica
+        13: 8, // Kralj
+        12: 7, // Konj
+        11: 6, // Fanat
+        7: 5, // 7
+        6: 4, // 6
+        5: 3, // 5
+        4: 2, // 4
+        2: 1, // Duja - najslabija
+      };
+      return briskulaStrength[card.value] || 0;
+    }
+  };
+
+  return [...cards].sort((a, b) => {
+    // Prvo sortiraj po boji
+    const suitComparison = suitOrder[a.suit] - suitOrder[b.suit];
+    if (suitComparison !== 0) {
+      return suitComparison;
+    }
+
+    // Ako su iste boje, sortiraj po jačini (od najjače prema najslabijoj)
+    return getCardStrength(b) - getCardStrength(a);
+  });
+}
+
 function Game({ gameData, onGameEnd }) {
   const { socket, user, playCard, leaveRoom } = useSocket();
 
   const initializeGameState = () => {
     if (!gameData) return null;
+
+    console.log("🚀 Initializing game state with gameData:", gameData);
 
     const myHand =
       gameData.playerNumber === 1
@@ -25,10 +86,11 @@ function Game({ gameData, onGameEnd }) {
         ? gameData.gameState.player2Hand.length
         : gameData.gameState.player1Hand.length;
 
-    return {
+    const state = {
       roomId: gameData.roomId,
       playerNumber: gameData.playerNumber,
       opponent: gameData.opponent,
+      gameType: gameData.gameType, // Add gameType to state
       myHand: myHand,
       opponentHandCount: opponentHandCount,
       myCards: [],
@@ -43,7 +105,13 @@ function Game({ gameData, onGameEnd }) {
           ? "Vaš red! Odaberite kartu za igranje."
           : "Protivnikov red. Čekajte...",
       remainingCardsCount: gameData.gameState.remainingDeck.length,
+      playableCards: gameData.gameState.playableCards || [], // Lista ID-jeva karata koje se mogu igrati
+      myPoints: 0, // Bodovi igrača
+      opponentPoints: 0, // Bodovi protivnika
     };
+
+    console.log("🎮 Final game state:", state);
+    return state;
   };
 
   const [gameState, setGameState] = useState(initializeGameState);
@@ -51,6 +119,8 @@ function Game({ gameData, onGameEnd }) {
   const [showScores, setShowScores] = useState(false);
   // Determine if we're on mobile
   const [isMobile, setIsMobile] = useState(false);
+  // Animation state for picked up cards
+  const [cardPickupAnimation, setCardPickupAnimation] = useState(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -120,6 +190,22 @@ function Game({ gameData, onGameEnd }) {
           remainingCardsCount: data.remainingCards,
           gamePhase: data.gameEnd.isGameOver ? "finished" : "playing",
           winner: data.gameEnd.winner,
+          // Ažuriraj playableCards za Trešetu
+          playableCards:
+            prev.gameType === "treseta"
+              ? (prev.playerNumber === 1
+                  ? data.player1PlayableCards
+                  : data.player2PlayableCards) || []
+              : prev.playableCards,
+          // Ažuriraj bodove
+          myPoints:
+            prev.playerNumber === 1
+              ? data.player1Points.points
+              : data.player2Points.points,
+          opponentPoints:
+            prev.playerNumber === 1
+              ? data.player2Points.points
+              : data.player1Points.points,
         };
 
         if (data.gameEnd.isGameOver) {
@@ -131,10 +217,41 @@ function Game({ gameData, onGameEnd }) {
             newState.message = `😔 Izgubili ste. (${data.gameEnd.reason})`;
           }
         } else {
+          // Pokreni animaciju pokupljenih karata iz špila (samo za Trešetu)
+          if (
+            prev.gameType === "treseta" &&
+            data.newCards &&
+            (data.newCards.player1 || data.newCards.player2)
+          ) {
+            const myCard =
+              prev.playerNumber === 1
+                ? data.newCards.player1
+                : data.newCards.player2;
+            const opponentCard =
+              prev.playerNumber === 1
+                ? data.newCards.player2
+                : data.newCards.player1;
+
+            // Pokreni animaciju pokupljenih karata
+            if (myCard || opponentCard) {
+              setCardPickupAnimation({
+                myCard: myCard,
+                opponentCard: opponentCard,
+                roundWinner: data.roundWinner,
+                playerNumber: prev.playerNumber,
+              });
+
+              // Ukloni animaciju nakon 3 sekunde
+              setTimeout(() => {
+                setCardPickupAnimation(null);
+              }, 2000);
+            }
+          }
+
           newState.message =
             data.roundWinner === prev.playerNumber
-              ? "Uzeli ste rundu! Vaš red."
-              : "Protivnik je uzeo rundu. Njihov red.";
+              ? `Uzeli ste rundu! Vaš red.`
+              : `Protivnik je uzeo rundu. Njihov red.`;
         }
 
         return newState;
@@ -163,12 +280,29 @@ function Game({ gameData, onGameEnd }) {
       setTimeout(() => onGameEnd(), 3000);
     });
 
+    // Trešeta - ažuriranje igrljivih karata
+    socket.on("playableCardsUpdate", (data) => {
+      console.log("🎮 Playable cards update:", data.playableCards);
+      setGameState((prev) => ({
+        ...prev,
+        playableCards: data.playableCards,
+      }));
+    });
+
+    // Trešeta - nevaljan potez
+    socket.on("invalidMove", (data) => {
+      console.log("❌ Invalid move:", data.message);
+      alert(`Nevaljan potez: ${data.message}`);
+    });
+
     return () => {
       socket.off("cardPlayed");
       socket.off("turnChange");
       socket.off("roundFinished");
       socket.off("playerDisconnected");
       socket.off("playerLeft");
+      socket.off("playableCardsUpdate");
+      socket.off("invalidMove");
     };
   }, [socket, gameState?.roomId, onGameEnd]);
 
@@ -179,6 +313,15 @@ function Game({ gameData, onGameEnd }) {
       gameState.gamePhase !== "playing" ||
       gameState.currentPlayer !== gameState.playerNumber
     ) {
+      return;
+    }
+
+    // Za Trešetu - provjeri je li karta igriva
+    if (
+      gameState.gameType === "treseta" &&
+      !gameState.playableCards.includes(card.id)
+    ) {
+      alert("Ne možete odigrati ovu kartu. Molimo odaberite drugu kartu.");
       return;
     }
 
@@ -227,7 +370,7 @@ function Game({ gameData, onGameEnd }) {
             alt="Dinari"
             className="title-suit-icon"
           />{" "}
-          Briskula Online
+          {gameState.gameType === "treseta" ? "Trešeta" : "Briskula"} Online
         </h1>
 
         {/* Simple player names with colors - desktop only */}
@@ -316,7 +459,15 @@ function Game({ gameData, onGameEnd }) {
       <div className="game-area game-area-responsive">
         {/* Opponent hand */}
         <div className="opponent-section">
-          <div className="opponent-label">{gameState.opponent?.name}</div>
+          <div className="opponent-label">
+            {gameState.opponent?.name}
+            {gameState.gameType === "treseta" && (
+              <span className="points-display">
+                {" "}
+                ({gameState.opponentPoints} bodova)
+              </span>
+            )}
+          </div>
           <div className="opponent-cards">
             {Array.from({ length: gameState.opponentHandCount }, (_, index) => (
               <Card
@@ -344,7 +495,15 @@ function Game({ gameData, onGameEnd }) {
             </div>
           </div>
 
-          <div className="deck-trump-section">
+          <div
+            className={`deck-trump-section ${
+              gameState.gameType === "treseta" ? "treseta-deck" : ""
+            }`}
+          >
+            {console.log("🎮 Game type check:", {
+              gameType: gameState.gameType,
+              isTreseta: gameState.gameType === "treseta",
+            })}
             <div className="deck-label">
               Špil ({gameState.remainingCardsCount})
             </div>
@@ -370,18 +529,26 @@ function Game({ gameData, onGameEnd }) {
           <div className="game-status">{gameState.message}</div>
           <div className="player-label">
             {user?.name}
+            {gameState.gameType === "treseta" && (
+              <span className="points-display">
+                {" "}
+                ({gameState.myPoints} bodova)
+              </span>
+            )}
             {gameState.currentPlayer === gameState.playerNumber && (
               <span className="turn-indicator"> (Vaš red)</span>
             )}
           </div>
           <div className="player-cards">
-            {gameState.myHand.map((card) => (
+            {sortCards(gameState.myHand, gameState.gameType).map((card) => (
               <Card
                 key={card.id}
                 card={card}
                 isPlayable={
                   gameState.gamePhase === "playing" &&
-                  gameState.currentPlayer === gameState.playerNumber
+                  gameState.currentPlayer === gameState.playerNumber &&
+                  (gameState.gameType !== "treseta" ||
+                    gameState.playableCards.includes(card.id))
                 }
                 isSelected={selectedCard && selectedCard.id === card.id}
                 onClick={handleCardClick}
@@ -414,7 +581,11 @@ function Game({ gameData, onGameEnd }) {
                 <h3>{user?.name}</h3>
                 <div className="stat-item">
                   <span>Bodovi:</span>
-                  <span>{myPoints}</span>
+                  <span>
+                    {gameState.gameType === "treseta"
+                      ? gameState.myPoints
+                      : myPoints}
+                  </span>
                 </div>
                 <div className="stat-item">
                   <span>Karte u ruci:</span>
@@ -427,18 +598,31 @@ function Game({ gameData, onGameEnd }) {
               </div>
 
               <div className="trump-info">
-                <h3>Adut</h3>
-                {gameState.trump && (
-                  <Card card={gameState.trump} size="small" />
+                {gameState.gameType === "treseta" ? (
+                  <>
+                    <h3>Špil</h3>
+                    <p>Preostalo: {gameState.remainingCardsCount}</p>
+                  </>
+                ) : (
+                  <>
+                    <h3>Adut</h3>
+                    {gameState.trump && (
+                      <Card card={gameState.trump} size="small" />
+                    )}
+                    <p>Preostalo: {gameState.remainingCardsCount}</p>
+                  </>
                 )}
-                <p>Preostalo: {gameState.remainingCardsCount}</p>
               </div>
 
               <div className="player-stats">
                 <h3>{gameState.opponent?.name}</h3>
                 <div className="stat-item">
                   <span>Bodovi:</span>
-                  <span>{opponentPoints}</span>
+                  <span>
+                    {gameState.gameType === "treseta"
+                      ? gameState.opponentPoints
+                      : opponentPoints}
+                  </span>
                 </div>
                 <div className="stat-item">
                   <span>Karte u ruci:</span>
@@ -457,6 +641,40 @@ function Game({ gameData, onGameEnd }) {
             >
               Zatvori
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Card pickup animation overlay */}
+      {cardPickupAnimation && (
+        <div className="card-pickup-overlay">
+          <div className="card-pickup-animation">
+            <div className="pickup-header">
+              <h3>Pokupljene karte iz špila:</h3>
+            </div>
+
+            <div className="pickup-cards">
+              {cardPickupAnimation.myCard && (
+                <div className="pickup-player">
+                  <div className="pickup-label">Vi:</div>
+                  <Card card={cardPickupAnimation.myCard} size="medium" />
+                </div>
+              )}
+
+              {cardPickupAnimation.opponentCard && (
+                <div className="pickup-player">
+                  <div className="pickup-label">Protivnik:</div>
+                  <Card card={cardPickupAnimation.opponentCard} size="medium" />
+                </div>
+              )}
+            </div>
+
+            <div className="pickup-winner">
+              {cardPickupAnimation.roundWinner ===
+              cardPickupAnimation.playerNumber
+                ? "🎉 Vi ste uzeli rundu!"
+                : "😔 Protivnik je uzeo rundu"}
+            </div>
           </div>
         </div>
       )}

@@ -92,9 +92,9 @@ export const SocketProvider = ({ children }) => {
     });
   };
 
-  const findMatch = (gameMode = "1v1") => {
+  const findMatch = (gameMode = "1v1", gameType = "briskula") => {
     if (socket && user) {
-      socket.emit("findMatch", { gameMode });
+      socket.emit("findMatch", { gameMode, gameType });
     }
   };
 

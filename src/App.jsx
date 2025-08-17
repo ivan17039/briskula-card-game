@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { SocketProvider, useSocket } from "./SocketContext";
 import Login from "./Login";
+import GameTypeSelector from "./GameTypeSelector";
 import GameModeSelector from "./GameModeSelector";
 import Matchmaking from "./Matchmaking";
 import Game from "./Game";
@@ -12,11 +13,17 @@ import "./App.css";
 function AppContent() {
   const { isConnected, connectionError, user, registerUser } = useSocket();
   const [appState, setAppState] = useState("login");
+  const [gameType, setGameType] = useState(null); // 'briskula' | 'treseta'
   const [gameMode, setGameMode] = useState("1v1");
   const [gameData, setGameData] = useState(null);
 
   const handleLogin = async (userData) => {
     await registerUser(userData);
+    setAppState("gameSelect");
+  };
+
+  const handleGameTypeSelect = (type) => {
+    setGameType(type);
     setAppState("modeSelect");
   };
 
@@ -37,6 +44,10 @@ function AppContent() {
 
   const handleBackToModeSelect = () => {
     setAppState("modeSelect");
+  };
+
+  const handleBackToGameSelect = () => {
+    setAppState("gameSelect");
   };
 
   const handleBackToLogin = () => {
@@ -70,11 +81,20 @@ function AppContent() {
     case "login":
       return <Login onLogin={handleLogin} />;
 
+    case "gameSelect":
+      return (
+        <GameTypeSelector
+          onGameTypeSelect={handleGameTypeSelect}
+          onBack={handleBackToLogin}
+        />
+      );
+
     case "modeSelect":
       return (
         <GameModeSelector
           onModeSelect={handleModeSelect}
-          onBack={handleBackToLogin}
+          onBack={handleBackToGameSelect}
+          gameType={gameType}
         />
       );
 
@@ -83,6 +103,7 @@ function AppContent() {
         <Matchmaking
           onGameStart={handleGameStart}
           gameMode={gameMode}
+          gameType={gameType}
           onBackToModeSelect={handleBackToModeSelect}
         />
       );

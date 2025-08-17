@@ -3,7 +3,7 @@
 import { useState } from "react";
 import "./GameModeSelector.css";
 
-function GameModeSelector({ onModeSelect, onBack }) {
+function GameModeSelector({ onModeSelect, onBack, gameType }) {
   const [selectedMode, setSelectedMode] = useState(null);
 
   const handleModeSelect = (mode) => {
@@ -12,6 +12,21 @@ function GameModeSelector({ onModeSelect, onBack }) {
       onModeSelect(mode);
     }, 300);
   };
+
+  const gameInfo = {
+    briskula: {
+      name: "Briskula",
+      target: "61+ bodova",
+      scoring: "As(11), Trica(10), Kralj(4), Konj(3), Fant(2)",
+    },
+    treseta: {
+      name: "Trešeta",
+      target: "31/41 bodova",
+      scoring: "As(1), Trica/Duja(⅓), Kralj/Konj/Fant(⅓) + Akuže",
+    },
+  };
+
+  const currentGame = gameInfo[gameType] || gameInfo.briskula;
 
   return (
     <div className="game-mode-container">
@@ -45,7 +60,7 @@ function GameModeSelector({ onModeSelect, onBack }) {
             />
           </div>
           <h2>Odaberite način igre</h2>
-          <p>Kako želite igrati Briskulu?</p>
+          <p>Kako želite igrati {currentGame.name}?</p>
         </div>
 
         <div className="mode-options">
@@ -57,7 +72,7 @@ function GameModeSelector({ onModeSelect, onBack }) {
           >
             <div className="mode-icon">👤 vs 👤</div>
             <h3>1 vs 1</h3>
-            <p>Klasična Briskula</p>
+            <p>Klasična {currentGame.name}</p>
             <ul>
               <li>Dva igrača</li>
               <li>Brža igra</li>
@@ -74,7 +89,7 @@ function GameModeSelector({ onModeSelect, onBack }) {
           >
             <div className="mode-icon">👥 vs 👥</div>
             <h3>2 vs 2</h3>
-            <p>Timska Briskula</p>
+            <p>Timska {currentGame.name}</p>
             <ul>
               <li>Četiri igrača</li>
               <li>Timska strategija</li>
@@ -88,14 +103,13 @@ function GameModeSelector({ onModeSelect, onBack }) {
           <h4>ℹ️ Pravila igre</h4>
           <div className="rules-grid">
             <div className="rule-item">
-              <strong>Cilj:</strong> Prvi do 61+ bodova
+              <strong>Cilj:</strong> Prvi do {currentGame.target}
             </div>
             <div className="rule-item">
-              <strong>Karte:</strong> 40 karata (As, 2-7, Fant, Konj, Kralj)
+              <strong>Karte:</strong> 40 karata (1-7, 11-13)
             </div>
             <div className="rule-item">
-              <strong>Bodovi:</strong> As(11), Trica(10), Kralj(4), Konj(3),
-              Fant(2)
+              <strong>Bodovi:</strong> {currentGame.scoring}
             </div>
           </div>
         </div>

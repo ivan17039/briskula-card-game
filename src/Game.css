@@ -300,9 +300,11 @@ body,
   display: flex;
   gap: 8px;
   justify-content: center;
+  flex-wrap: wrap; /* Allow wrapping for mobile */
+  max-width: 100vw; /* Prevent overflow */
 }
 
-/* Center play area - COMPACT LAYOUT */
+/* Center play area - RESPONSIVE LAYOUT */
 .play-area {
   display: flex;
   justify-content: center;
@@ -312,7 +314,15 @@ body,
   gap: 60px;
 }
 
-/* Played cards section - CENTER LEFT - SMALLER */
+/* Trešeta specific layout - centered single column */
+.play-area.treseta-layout {
+  justify-content: center;
+  max-width: 400px;
+  margin: 0 auto;
+  gap: 0; /* No gap since deck is positioned absolutely */
+}
+
+/* Played cards section - with relative positioning for deck attachment */
 .played-cards-section {
   flex: 0 0 auto;
   display: flex;
@@ -320,6 +330,7 @@ body,
   align-items: center;
   gap: 12px;
   min-width: 200px;
+  position: relative; /* Enable absolute positioning for deck */
 }
 
 .played-cards-label {
@@ -363,27 +374,27 @@ body,
 /* Deck and trump stack container */
 .deck-trump-stack {
   position: relative;
-  width: 120px;
-  height: 150px;
+  width: 100px;
+  height: 120px;
 }
 
 /* Trump card - positioned under deck, NO rotation (upright) */
 .trump-card {
   position: absolute;
-  top: 15px;
-  left: 20px;
+  top: 10px;
+  left: 15px;
   z-index: 1;
 }
 
-/* Deck card - on top */
+/* Deck card - on top, smaller size for Trešeta */
 .deck-card {
   position: absolute;
-  top: -30px;
-  left: 20px;
+  top: -20px;
+  left: 15px;
   z-index: 2;
   transform: rotate(90deg);
-  width: 80px;
-  height: 150px;
+  width: 70px;
+  height: 120px;
 }
 
 /* Player hand area */
@@ -394,6 +405,7 @@ body,
   gap: 16px;
   min-height: 280px;
   position: relative;
+  bottom: 50px;
 }
 
 /* Game status - ABOVE PLAYER NAME */
@@ -418,6 +430,13 @@ body,
   font-weight: 600;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   margin-top: -16px;
+}
+
+.points-display {
+  color: #ffd700; /* Zlatna boja za bodove */
+  font-size: 0.95em;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .player-cards {
@@ -595,6 +614,21 @@ body,
     min-width: 80px;
   }
 
+  /* MOBILE: Trešeta deck positioning */
+  .deck-trump-section.treseta-deck {
+    position: absolute;
+    top: 50%;
+    right: 50px;
+    transform: translateY(-50%);
+    z-index: 3;
+  }
+
+  /* MOBILE: Trešeta layout adjustments */
+  .play-area.treseta-layout {
+    gap: 0;
+    max-width: 100%;
+  }
+
   .deck-trump-stack {
     width: 80px;
     height: 120px;
@@ -614,6 +648,8 @@ body,
   .player-cards,
   .opponent-cards {
     gap: 6px;
+    flex-wrap: wrap; /* Allow cards to wrap to multiple rows */
+    max-width: 100%; /* Ensure cards wrap within screen width */
   }
 
   .scores-grid {
@@ -668,5 +704,107 @@ body,
     font-size: 0.75rem;
     padding: 4px 8px;
     margin-bottom: 4px;
+  }
+}
+
+/* Card pickup animation overlay */
+.card-pickup-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  pointer-events: none; /* Ne blokira interakciju s pozadinom */
+}
+
+.card-pickup-animation {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 3px solid #198754;
+  animation: pickupSlideIn 0.4s ease-out;
+  max-width: 90vw;
+  max-height: 80vh;
+}
+
+@keyframes pickupSlideIn {
+  from {
+    transform: scale(0.8) translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.pickup-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.pickup-header h3 {
+  color: #0f5132;
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+.pickup-cards {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.pickup-player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.pickup-label {
+  font-weight: 600;
+  color: #0f5132;
+  font-size: 1rem;
+}
+
+.pickup-winner {
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #0f5132;
+  padding: 12px;
+  background: rgba(25, 135, 84, 0.1);
+  border-radius: 8px;
+  border: 2px solid rgba(25, 135, 84, 0.3);
+}
+
+/* Mobile optimizations for pickup animation */
+@media (max-width: 768px) {
+  .card-pickup-animation {
+    padding: 16px;
+    margin: 16px;
+  }
+
+  .pickup-header h3 {
+    font-size: 1rem;
+  }
+
+  .pickup-cards {
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .pickup-winner {
+    font-size: 1rem;
+    padding: 8px;
   }
 }

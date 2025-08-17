@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSocket } from "./SocketContext";
 import "./Matchmaking.css";
 
-function Matchmaking({ onGameStart, gameMode, onBackToModeSelect }) {
+function Matchmaking({ onGameStart, gameMode, gameType, onBackToModeSelect }) {
   const { socket, user, findMatch, cancelMatch } = useSocket();
   const [matchmakingState, setMatchmakingState] = useState("idle");
   const [queuePosition, setQueuePosition] = useState(0);
@@ -62,8 +62,8 @@ function Matchmaking({ onGameStart, gameMode, onBackToModeSelect }) {
 
   const handleFindMatch = () => {
     setMatchmakingState("searching");
-    setMessage("Tražimo protivnike...");
-    findMatch(gameMode);
+    setMessage(`Tražimo igrače za ${gameType}...`);
+    findMatch(gameMode, gameType);
   };
 
   const handleCancelMatch = () => {
@@ -76,9 +76,10 @@ function Matchmaking({ onGameStart, gameMode, onBackToModeSelect }) {
   };
 
   const getModeDescription = () => {
+    const gameName = gameType === "treseta" ? "Trešeta" : "Briskula";
     return gameMode === "1v1"
-      ? "Klasična Briskula - jedan protiv jedan"
-      : "Timska Briskula - dva tima od po dva igrača";
+      ? `Klasična ${gameName} - jedan protiv jedan`
+      : `Timska ${gameName} - dva tima od po dva igrača`;
   };
 
   return (
@@ -93,7 +94,10 @@ function Matchmaking({ onGameStart, gameMode, onBackToModeSelect }) {
             ←
           </button>
           <div className="mode-info">
-            <h2>{gameMode === "1v1" ? "1 vs 1" : "2 vs 2"} Matchmaking</h2>
+            <h2>
+              {gameType === "treseta" ? "Trešeta" : "Briskula"} -{" "}
+              {gameMode === "1v1" ? "1 vs 1" : "2 vs 2"}
+            </h2>
             <p>{getModeDescription()}</p>
           </div>
         </div>

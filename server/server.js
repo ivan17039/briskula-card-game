@@ -79,7 +79,7 @@ io.on("connection", (socket) => {
     );
   });
 
-  // Traženje protivnika (matchmaking) - UPDATED za 1v1 i 2v2
+  // Traženje protivnika (matchmaking) - UPDATED za 1v1 i 2v2 + gameType
   socket.on("findMatch", (data) => {
     const user = connectedUsers.get(socket.id);
     if (!user) {
@@ -88,8 +88,12 @@ io.on("connection", (socket) => {
     }
 
     const gameMode = data?.gameMode || "1v1";
+    const gameType = data?.gameType || "briskula"; // Dodano gameType
     const queue = gameMode === "1v1" ? waitingQueue1v1 : waitingQueue2v2;
     const playersNeeded = gameMode === "1v1" ? 2 : 4;
+
+    // Dodaj gameType informaciju u user podatke za queue
+    const userWithGameInfo = { ...user, gameType };
 
     // Provjeri je li korisnik već u bilo kojem queue-u
     const existingIndex1v1 = waitingQueue1v1.findIndex(
@@ -109,7 +113,7 @@ io.on("connection", (socket) => {
     }
 
     // Dodaj u odgovarajući queue
-    queue.push(user);
+    queue.push(userWithGameInfo);
 
     // Ako ima dovoljno korisnika u queue, napravi match
     if (queue.length >= playersNeeded) {
@@ -118,10 +122,27 @@ io.on("connection", (socket) => {
         players.push(queue.shift());
       }
 
+      // Provjeri da svi igrači igraju isti gameType
+      const firstGameType = players[0].gameType;
+      const allSameGameType = players.every(
+        (p) => p.gameType === firstGameType
+      );
+
+      if (!allSameGameType) {
+        // Ako gameType nije isti, vrati igrače u queue
+        players.forEach((player) => queue.unshift(player));
+        socket.emit("matchmaking", {
+          status: "waiting",
+          message: `Tražimo igrače za ${gameType}...`,
+          queuePosition: queue.length,
+        });
+        return;
+      }
+
       if (gameMode === "1v1") {
-        createGameRoom1v1(players[0], players[1]);
+        createGameRoom1v1(players[0], players[1], firstGameType);
       } else {
-        createGameRoom2v2(players);
+        createGameRoom2v2(players, firstGameType);
       }
     } else {
       socket.emit("matchmaking", {
@@ -201,16 +222,32 @@ io.on("connection", (socket) => {
     const leavingPlayer = room.players.find((p) => p.id === socket.id);
     if (!leavingPlayer) return;
 
+    console.log(
+      `🚪 Igrač ${leavingPlayer.name} (${leavingPlayer.playerNumber}) je napustio ${room.gameMode} igru`
+    );
+
+    let message;
+    if (room.gameMode === "2v2") {
+      // Za 2v2 igre, prikaži tim informacije
+      const teamInfo = `Tim ${leavingPlayer.team} (igrač ${leavingPlayer.playerNumber})`;
+      message = `${leavingPlayer.name} je napustio sobu - ${teamInfo}`;
+    } else {
+      // Za 1v1 igre
+      message = `${leavingPlayer.name} je napustio sobu.`;
+    }
+
     // Obavijesti ostale igrače
     io.to(roomId).emit("playerLeft", {
       playerNumber: leavingPlayer.playerNumber,
-      message: `${leavingPlayer.name} je napustio sobu.`,
+      message: message,
+      gameMode: room.gameMode,
+      playerTeam: leavingPlayer.team || null,
     });
 
     // Obriši sobu odmah
     gameRooms.delete(roomId);
     socket.leave(roomId);
-    console.log(`Soba ${roomId} obrisana jer je igrač napustio.`);
+    console.log(`🗑️ Soba ${roomId} obrisana jer je igrač napustio.`);
   });
 
   // Disconnection - UPDATED
@@ -239,11 +276,18 @@ io.on("connection", (socket) => {
 /**
  * Kreira novu sobu za 1v1 igru
  */
-function createGameRoom1v1(player1, player2) {
+function createGameRoom1v1(player1, player2, gameType = "briskula") {
   const roomId = uuidv4();
 
-  // Importiraj 1v1 game logiku
-  const { createDeck, shuffleDeck, dealCards } = require("./gameLogic");
+  // Importiraj odgovarajuću game logiku
+  let gameLogic;
+  if (gameType === "treseta") {
+    gameLogic = require("./gameLogicTreseta");
+  } else {
+    gameLogic = require("./gameLogic");
+  }
+
+  const { createDeck, shuffleDeck, dealCards } = gameLogic;
 
   const deck = createDeck();
   const shuffledDeck = shuffleDeck(deck);
@@ -251,7 +295,8 @@ function createGameRoom1v1(player1, player2) {
 
   const gameRoom = {
     id: roomId,
-    gameMode: "1v1", // DODANO
+    gameMode: "1v1",
+    gameType: gameType, // DODANO
     players: [
       { ...player1, playerNumber: 1 },
       { ...player2, playerNumber: 2 },
@@ -261,13 +306,23 @@ function createGameRoom1v1(player1, player2) {
       player2Hand: dealt.player2Hand,
       player1Cards: [],
       player2Cards: [],
-      trump: dealt.trump,
-      trumpSuit: dealt.trump.suit, // Sačuvaj trump boju permanentno
       remainingDeck: dealt.remainingDeck,
       currentPlayer: 1,
       playedCards: [],
       gamePhase: "playing",
       winner: null,
+      gameType: gameType, // DODANO
+      // Specifične za Briskula
+      ...(gameType === "briskula" && {
+        trump: dealt.trump,
+        trumpSuit: dealt.trump.suit,
+      }),
+      // Specifične za Trešeta
+      ...(gameType === "treseta" && {
+        player1Akuze: { points: 0, details: [] },
+        player2Akuze: { points: 0, details: [] },
+        ultimaWinner: null, // Tko će dobiti zadnji punat
+      }),
     },
     createdAt: new Date(),
   };
@@ -284,15 +339,35 @@ function createGameRoom1v1(player1, player2) {
     player2Socket.join(roomId);
 
     // Pošalji početno stanje svakom igraču (personalizirano)
+    const { getPlayableCards } = gameLogic;
+
+    const player1PlayableCards =
+      gameType === "treseta"
+        ? getPlayableCards(
+            gameRoom.gameState.player1Hand,
+            gameRoom.gameState.playedCards
+          )
+        : gameRoom.gameState.player1Hand.map((card) => card.id); // Briskula - sve karte igrive
+
+    const player2PlayableCards =
+      gameType === "treseta"
+        ? getPlayableCards(
+            gameRoom.gameState.player2Hand,
+            gameRoom.gameState.playedCards
+          )
+        : gameRoom.gameState.player2Hand.map((card) => card.id); // Briskula - sve karte igrive
+
     player1Socket.emit("gameStart", {
       roomId: roomId,
       playerNumber: 1,
       opponent: { name: player2.name },
+      gameType: gameType,
       gameState: {
         ...gameRoom.gameState,
         player2Hand: gameRoom.gameState.player2Hand.map(() => ({
           hidden: true,
         })), // Sakrij karte protivnika
+        playableCards: player1PlayableCards,
       },
     });
 
@@ -300,11 +375,13 @@ function createGameRoom1v1(player1, player2) {
       roomId: roomId,
       playerNumber: 2,
       opponent: { name: player1.name },
+      gameType: gameType,
       gameState: {
         ...gameRoom.gameState,
         player1Hand: gameRoom.gameState.player1Hand.map(() => ({
           hidden: true,
         })), // Sakrij karte protivnika
+        playableCards: player2PlayableCards,
       },
     });
 
@@ -317,17 +394,24 @@ function createGameRoom1v1(player1, player2) {
 /**
  * Kreira novu sobu za 2v2 igru - ISPRAVLJENA LOGIKA
  */
-function createGameRoom2v2(players) {
+function createGameRoom2v2(players, gameType = "briskula") {
   const roomId = uuidv4();
 
-  // Importiraj 2v2 game logiku
-  const { createGameState2v2 } = require("./gameLogic2v2");
-  const gameState = createGameState2v2();
+  // Importiraj game logiku ovisno o gameType
+  let gameState;
+  if (gameType === "treseta") {
+    const { createGameState2v2 } = require("./gameLogicTreseta2v2");
+    gameState = createGameState2v2();
+  } else {
+    const { createGameState2v2 } = require("./gameLogic2v2");
+    gameState = createGameState2v2();
+  }
 
   // ISPRAVKA: Assign teams correctly: 1&3 = team 1, 2&4 = team 2
   const gameRoom = {
     id: roomId,
     gameMode: "2v2",
+    gameType: gameType, // DODANO
     players: players.map((player, index) => {
       const playerNumber = index + 1;
       const team = playerNumber === 1 || playerNumber === 3 ? 1 : 2; // 1&3=tim1, 2&4=tim2
@@ -361,6 +445,7 @@ function createGameRoom2v2(players) {
         roomId: roomId,
         playerNumber: playerNumber,
         myTeam: team,
+        gameType: gameType, // DODANO
         players: gameRoom.players.map((p) => ({
           name: p.name,
           playerNumber: p.playerNumber,
@@ -385,6 +470,11 @@ function createGameRoom2v2(players) {
             playerNumber === 4
               ? gameState.player4Hand
               : new Array(gameState.player4Hand.length).fill({}),
+          // Dodaj playableCards za Trešetu 2v2
+          playableCards:
+            gameType === "treseta"
+              ? gameState[`player${playerNumber}PlayableCards`] || []
+              : [],
         },
       });
     }
@@ -417,17 +507,56 @@ function createGameRoom2v2(players) {
 }
 
 /**
- * Obrađuje igranje karte za 1v1 - POSTOJEĆA LOGIKA
+ * Obrađuje igranje karte za 1v1 - AŽURIRANO za gameType
  */
 function processCardPlay1v1(roomId, playerId, card) {
   const room = gameRooms.get(roomId);
   if (!room) return;
 
+  // Importiraj odgovarajuću logiku
+  let gameLogic;
+  if (room.gameType === "treseta") {
+    gameLogic = require("./gameLogicTreseta");
+  } else {
+    gameLogic = require("./gameLogic");
+  }
+
   const {
     determineRoundWinner,
     calculatePoints,
     checkGameEnd,
-  } = require("./gameLogic");
+    isValidMove,
+    getPlayableCards,
+  } = gameLogic;
+
+  // Za Trešetu - provjeri je li potez valjan
+  if (room.gameType === "treseta") {
+    const playerNumber = room.players.find(
+      (p) => p.id === playerId
+    ).playerNumber;
+    const playerHand =
+      playerNumber === 1
+        ? room.gameState.player1Hand
+        : room.gameState.player2Hand;
+
+    const moveValidation = isValidMove(
+      card,
+      playerHand,
+      room.gameState.playedCards
+    );
+
+    if (!moveValidation.isValid) {
+      console.log(`❌ Nevaljan potez: ${moveValidation.reason}`);
+      const playerSocket = io.sockets.sockets.get(playerId);
+      if (playerSocket) {
+        playerSocket.emit("invalidMove", {
+          message: moveValidation.reason,
+          card: card,
+        });
+      }
+      return;
+    }
+  }
 
   // Dodaj kartu u odigrane karte
   room.gameState.playedCards.push(card);
@@ -463,6 +592,37 @@ function processCardPlay1v1(roomId, playerId, card) {
     const currentPlayerName = room.players.find(
       (p) => p.playerNumber === room.gameState.currentPlayer
     ).name;
+
+    // Za Trešetu - pošaljite ažurirane playableCards svakom igraču
+    if (room.gameType === "treseta") {
+      const player1PlayableCards = getPlayableCards(
+        room.gameState.player1Hand,
+        room.gameState.playedCards
+      );
+      const player2PlayableCards = getPlayableCards(
+        room.gameState.player2Hand,
+        room.gameState.playedCards
+      );
+
+      const player1Socket = io.sockets.sockets.get(
+        room.players.find((p) => p.playerNumber === 1)?.id
+      );
+      const player2Socket = io.sockets.sockets.get(
+        room.players.find((p) => p.playerNumber === 2)?.id
+      );
+
+      if (player1Socket) {
+        player1Socket.emit("playableCardsUpdate", {
+          playableCards: player1PlayableCards,
+        });
+      }
+      if (player2Socket) {
+        player2Socket.emit("playableCardsUpdate", {
+          playableCards: player2PlayableCards,
+        });
+      }
+    }
+
     io.to(roomId).emit("turnChange", {
       currentPlayer: room.gameState.currentPlayer,
       currentPlayerName: currentPlayerName,
@@ -477,14 +637,46 @@ function processCardPlay2v2(roomId, playerId, card) {
   const room = gameRooms.get(roomId);
   if (!room) return;
 
-  const { getNextPlayer2v2 } = require("./gameLogic2v2");
+  // Import correct logic based on gameType
+  let getNextPlayer2v2, isValidMove, getPlayableCards;
+  if (room.gameType === "treseta") {
+    ({
+      getNextPlayer2v2,
+      isValidMove,
+      getPlayableCards,
+    } = require("./gameLogicTreseta2v2"));
+  } else {
+    ({ getNextPlayer2v2 } = require("./gameLogic2v2"));
+  }
+
+  const playerNumber = room.players.find((p) => p.id === playerId).playerNumber;
+  const playerHand = room.gameState[`player${playerNumber}Hand`];
+
+  // Validate move for Trešeta
+  if (room.gameType === "treseta") {
+    const playedCardsOnly = room.gameState.playedCards.map((pc) => pc.card);
+    const validation = isValidMove(card, playerHand, playedCardsOnly);
+
+    if (!validation.isValid) {
+      console.log(`❌ Invalid move: ${validation.reason}`);
+      const playerSocket = io.sockets.sockets.get(playerId);
+      if (playerSocket) {
+        playerSocket.emit("invalidMove", { reason: validation.reason });
+      }
+      return;
+    }
+  }
+
+  // Ako je prva karta u rundi, zapišii tko je počeo
+  if (room.gameState.playedCards.length === 0) {
+    room.gameState.roundStartPlayer = playerNumber;
+  }
 
   room.gameState.playedCards.push({
     card: card,
-    playerNumber: room.players.find((p) => p.id === playerId).playerNumber,
+    playerNumber: playerNumber,
   });
 
-  const playerNumber = room.players.find((p) => p.id === playerId).playerNumber;
   room.gameState[`player${playerNumber}Hand`] = room.gameState[
     `player${playerNumber}Hand`
   ].filter((c) => c.id !== card.id);
@@ -504,6 +696,38 @@ function processCardPlay2v2(roomId, playerId, card) {
     room.gameState.currentPlayer = getNextPlayer2v2(
       room.gameState.currentPlayer
     );
+
+    // Ažuriraj playableCards za Trešetu nakon odigrane karte
+    if (room.gameType === "treseta") {
+      const tresetaLogic = require("./gameLogicTreseta2v2");
+      const playedCardsOnly = room.gameState.playedCards.map((pc) => pc.card);
+
+      room.gameState.player1PlayableCards = tresetaLogic.getPlayableCards(
+        room.gameState.player1Hand,
+        playedCardsOnly
+      );
+      room.gameState.player2PlayableCards = tresetaLogic.getPlayableCards(
+        room.gameState.player2Hand,
+        playedCardsOnly
+      );
+      room.gameState.player3PlayableCards = tresetaLogic.getPlayableCards(
+        room.gameState.player3Hand,
+        playedCardsOnly
+      );
+      room.gameState.player4PlayableCards = tresetaLogic.getPlayableCards(
+        room.gameState.player4Hand,
+        playedCardsOnly
+      );
+
+      // Pošalji ažurirane playableCards svim igračima
+      io.to(roomId).emit("playableCardsUpdate", {
+        player1PlayableCards: room.gameState.player1PlayableCards,
+        player2PlayableCards: room.gameState.player2PlayableCards,
+        player3PlayableCards: room.gameState.player3PlayableCards,
+        player4PlayableCards: room.gameState.player4PlayableCards,
+      });
+    }
+
     const currentPlayerName = room.players.find(
       (p) => p.playerNumber === room.gameState.currentPlayer
     ).name;
@@ -515,37 +739,48 @@ function processCardPlay2v2(roomId, playerId, card) {
 }
 
 /**
- * Završava rundu za 1v1 - POSTOJEĆA LOGIKA
+ * Završava rundu za 1v1 - AŽURIRANO za gameType
  */
 function finishRound1v1(roomId) {
   const room = gameRooms.get(roomId);
   if (!room || room.gameState.playedCards.length !== 2) return;
 
-  const {
-    determineRoundWinner,
-    calculatePoints,
-    checkGameEnd,
-  } = require("./gameLogic");
+  // Importiraj odgovarajuću logiku
+  let gameLogic;
+  if (room.gameType === "treseta") {
+    gameLogic = require("./gameLogicTreseta");
+  } else {
+    gameLogic = require("./gameLogic");
+  }
+
+  const { determineRoundWinner, calculatePoints, checkGameEnd } = gameLogic;
 
   const [cardA, cardB] = room.gameState.playedCards;
   const firstPlayer = room.gameState.currentPlayer === 1 ? 2 : 1;
-  // Ensure card1 is always the card played by firstPlayer
-  const card1 = firstPlayer === 1 ? cardA : cardB;
-  const card2 = firstPlayer === 1 ? cardB : cardA;
+  // cardA je prva karta (igrao ju je firstPlayer), cardB je druga karta
+  const card1 = cardA; // Karta koju je igrao firstPlayer
+  const card2 = cardB; // Karta koju je igrao drugi igrač
 
-  console.log("🎯 Pozivam determineRoundWinner s:", {
+  console.log(`🎯 Pozivam determineRoundWinner za ${room.gameType}:`, {
     card1: `${card1.name} ${card1.suit}`,
     card2: `${card2.name} ${card2.suit}`,
     firstPlayer: firstPlayer,
     explanation: `Igrač ${firstPlayer} je igrao prvi (${card1.name} ${card1.suit})`,
   });
 
-  const roundWinner = determineRoundWinner(
-    card1,
-    card2,
-    room.gameState.trumpSuit,
-    firstPlayer
-  );
+  let roundWinner;
+  if (room.gameType === "treseta") {
+    // Trešeta nema trump suit
+    roundWinner = determineRoundWinner(card1, card2, firstPlayer);
+  } else {
+    // Briskula ima trump suit
+    roundWinner = determineRoundWinner(
+      card1,
+      card2,
+      room.gameState.trumpSuit,
+      firstPlayer
+    );
+  }
 
   // Dodijeli karte pobjedniku
   if (roundWinner === 1) {
@@ -554,41 +789,104 @@ function finishRound1v1(roomId) {
     room.gameState.player2Cards.push(...room.gameState.playedCards);
   }
 
-  // Uzmi nove karte iz špila
+  // Uzmi nove karte iz špila i čuvaj informacije o pokupljenim kartama
+  let newCards = { player1: null, player2: null };
+
   if (room.gameState.remainingDeck.length >= 2) {
     // Normalno uzimanje - pobjednik uzima prvu, drugi uzima drugu
     if (roundWinner === 1) {
-      room.gameState.player1Hand.push(room.gameState.remainingDeck[0]);
-      room.gameState.player2Hand.push(room.gameState.remainingDeck[1]);
+      const card1 = room.gameState.remainingDeck[0];
+      const card2 = room.gameState.remainingDeck[1];
+      room.gameState.player1Hand.push(card1);
+      room.gameState.player2Hand.push(card2);
+      newCards = { player1: card1, player2: card2 };
     } else {
-      room.gameState.player2Hand.push(room.gameState.remainingDeck[0]);
-      room.gameState.player1Hand.push(room.gameState.remainingDeck[1]);
+      const card1 = room.gameState.remainingDeck[0];
+      const card2 = room.gameState.remainingDeck[1];
+      room.gameState.player2Hand.push(card1);
+      room.gameState.player1Hand.push(card2);
+      newCards = { player1: card2, player2: card1 };
     }
     room.gameState.remainingDeck = room.gameState.remainingDeck.slice(2);
   } else if (room.gameState.remainingDeck.length === 1) {
-    // Zadnja karta u špilu - pobjednik uzima tu kartu, drugi uzima trump
-    if (roundWinner === 1) {
-      room.gameState.player1Hand.push(room.gameState.remainingDeck[0]);
-      room.gameState.player2Hand.push(room.gameState.trump);
+    // Zadnja karta u špilu
+    if (room.gameType === "briskula") {
+      // Briskula: pobjednik uzima zadnju kartu, drugi uzima trump
+      if (roundWinner === 1) {
+        const lastCard = room.gameState.remainingDeck[0];
+        const trumpCard = room.gameState.trump;
+        room.gameState.player1Hand.push(lastCard);
+        room.gameState.player2Hand.push(trumpCard);
+        newCards = { player1: lastCard, player2: trumpCard };
+      } else {
+        const lastCard = room.gameState.remainingDeck[0];
+        const trumpCard = room.gameState.trump;
+        room.gameState.player2Hand.push(lastCard);
+        room.gameState.player1Hand.push(trumpCard);
+        newCards = { player1: trumpCard, player2: lastCard };
+      }
+      room.gameState.trump = null;
     } else {
-      room.gameState.player2Hand.push(room.gameState.remainingDeck[0]);
-      room.gameState.player1Hand.push(room.gameState.trump);
+      // Trešeta: samo pobjednik uzima zadnju kartu
+      const lastCard = room.gameState.remainingDeck[0];
+      if (roundWinner === 1) {
+        room.gameState.player1Hand.push(lastCard);
+        newCards = { player1: lastCard, player2: null };
+      } else {
+        room.gameState.player2Hand.push(lastCard);
+        newCards = { player1: null, player2: lastCard };
+      }
     }
     room.gameState.remainingDeck = [];
-    // Trump se više ne prikazuje jer je uzet
-    room.gameState.trump = null;
   }
 
-  // Provjeri završetak igre
-  const player1Points = calculatePoints(room.gameState.player1Cards);
-  const player2Points = calculatePoints(room.gameState.player2Cards);
-  const gameEnd = checkGameEnd(
-    player1Points,
-    player2Points,
-    room.gameState.remainingDeck,
-    room.gameState.player1Hand,
-    room.gameState.player2Hand
-  );
+  // Provjeri završetak igre - različito za Briskula/Trešeta
+  let gameEnd;
+  let player1Points, player2Points;
+
+  if (room.gameType === "treseta") {
+    // Trešeta logika
+    player1Points = calculatePoints(
+      room.gameState.player1Cards,
+      room.gameState.ultimaWinner,
+      1
+    );
+    player2Points = calculatePoints(
+      room.gameState.player2Cards,
+      room.gameState.ultimaWinner,
+      2
+    );
+
+    // Izračunaj akuže ako su sve karte odigrane
+    if (
+      room.gameState.remainingDeck.length === 0 &&
+      room.gameState.player1Hand.length === 0 &&
+      room.gameState.player2Hand.length === 0
+    ) {
+      room.gameState.ultimaWinner = roundWinner; // Zadnja ruka
+    }
+
+    gameEnd = checkGameEnd(
+      player1Points,
+      player2Points,
+      room.gameState.player1Akuze,
+      room.gameState.player2Akuze,
+      room.gameState.remainingDeck,
+      room.gameState.player1Hand,
+      room.gameState.player2Hand
+    );
+  } else {
+    // Briskula logika
+    player1Points = calculatePoints(room.gameState.player1Cards);
+    player2Points = calculatePoints(room.gameState.player2Cards);
+    gameEnd = checkGameEnd(
+      player1Points,
+      player2Points,
+      room.gameState.remainingDeck,
+      room.gameState.player1Hand,
+      room.gameState.player2Hand
+    );
+  }
 
   // Ažuriraj stanje
   room.gameState.playedCards = [];
@@ -600,7 +898,7 @@ function finishRound1v1(roomId) {
   }
 
   // Pošalji ažuriranje
-  io.to(roomId).emit("roundFinished", {
+  const roundFinishedData = {
     roundWinner: roundWinner,
     player1Points: player1Points,
     player2Points: player2Points,
@@ -609,8 +907,38 @@ function finishRound1v1(roomId) {
     remainingCards: room.gameState.remainingDeck.length,
     player1Hand: room.gameState.player1Hand,
     player2Hand: room.gameState.player2Hand,
-    trump: room.gameState.trump, // Može biti null ako je uzeta
-  });
+    gameType: room.gameType,
+    newCards: newCards, // Dodano: karte pokupljene iz špila
+  };
+
+  // Dodaj specifične podatke ovisno o gameType
+  if (room.gameType === "treseta") {
+    roundFinishedData.player1Akuze = room.gameState.player1Akuze;
+    roundFinishedData.player2Akuze = room.gameState.player2Akuze;
+    roundFinishedData.ultimaWinner = room.gameState.ultimaWinner;
+  } else {
+    roundFinishedData.trump = room.gameState.trump; // Može biti null ako je uzeta
+    roundFinishedData.trumpSuit = room.gameState.trumpSuit;
+  }
+
+  // Za Trešetu - pošaljite ažurirane playableCards ako igra nije završena
+  if (room.gameType === "treseta" && !gameEnd.isGameOver) {
+    const { getPlayableCards } = gameLogic;
+
+    const player1PlayableCards = getPlayableCards(
+      room.gameState.player1Hand,
+      room.gameState.playedCards
+    );
+    const player2PlayableCards = getPlayableCards(
+      room.gameState.player2Hand,
+      room.gameState.playedCards
+    );
+
+    roundFinishedData.player1PlayableCards = player1PlayableCards;
+    roundFinishedData.player2PlayableCards = player2PlayableCards;
+  }
+
+  io.to(roomId).emit("roundFinished", roundFinishedData);
 
   // Ako je igra završena, ukloni sobu nakon 30 sekundi
   if (gameEnd.isGameOver) {
@@ -628,16 +956,29 @@ function finishRound2v2(roomId) {
   const room = gameRooms.get(roomId);
   if (!room || room.gameState.playedCards.length !== 4) return;
 
-  const {
-    determineRoundWinner2v2,
-    getPlayerTeam,
-    calculatePoints,
-    checkGameEnd2v2,
-  } = require("./gameLogic2v2");
+  // Import correct logic based on gameType
+  let determineRoundWinner2v2, getPlayerTeam, calculatePoints, checkGameEnd2v2;
 
-  // Find who played first in this round
-  const firstPlayerInRound =
-    room.gameState.currentPlayer === 1 ? 4 : room.gameState.currentPlayer - 1;
+  if (room.gameType === "treseta") {
+    const tresetaLogic = require("./gameLogicTreseta2v2");
+    // Za Trešetu proslijedi playedCards direktno
+    determineRoundWinner2v2 = (playedCards, firstPlayer) => {
+      return tresetaLogic.determineRoundWinner(playedCards, firstPlayer);
+    };
+    getPlayerTeam = tresetaLogic.getWinningTeam;
+    calculatePoints = tresetaLogic.calculateTeamPoints;
+    checkGameEnd2v2 = () => ({ isGameOver: false }); // Trešeta end game logic
+  } else {
+    ({
+      determineRoundWinner2v2,
+      getPlayerTeam,
+      calculatePoints,
+      checkGameEnd2v2,
+    } = require("./gameLogic2v2"));
+  }
+
+  // Tko je počeo ovu rundu
+  const firstPlayerInRound = room.gameState.roundStartPlayer;
 
   console.log(`🎯 Round analysis: First player was ${firstPlayerInRound}`);
   console.log(
@@ -699,13 +1040,6 @@ function finishRound2v2(roomId) {
     room.gameState.trump = null;
   }
 
-  const team1Points = calculatePoints(room.gameState.team1Cards);
-  const team2Points = calculatePoints(room.gameState.team2Cards);
-
-  console.log(
-    `📊 Current score: Team 1: ${team1Points}, Team 2: ${team2Points}`
-  );
-
   const allHands = [
     room.gameState.player1Hand,
     room.gameState.player2Hand,
@@ -713,15 +1047,84 @@ function finishRound2v2(roomId) {
     room.gameState.player4Hand,
   ];
 
-  const gameEnd = checkGameEnd2v2(
-    team1Points,
-    team2Points,
-    room.gameState.remainingDeck,
-    allHands
+  // Calculate points - check if all cards are played for ultima bonus
+  const allCardsPlayed =
+    room.gameState.remainingDeck.length === 0 &&
+    allHands.every((hand) => hand.length === 0);
+
+  const ultimaWinner = allCardsPlayed ? winningTeam : null;
+
+  const team1Points = calculatePoints(
+    room.gameState.team1Cards,
+    ultimaWinner,
+    1
+  );
+  const team2Points = calculatePoints(
+    room.gameState.team2Cards,
+    ultimaWinner,
+    2
   );
 
+  console.log(
+    `📊 Current score: Team 1: ${team1Points.points}, Team 2: ${team2Points.points}`
+  );
+
+  let gameEnd;
+  if (room.gameType === "treseta") {
+    // Provjeri kraj igre za Trešetu - cilj je 11 bodova
+    const team1Score = team1Points.points;
+    const team2Score = team2Points.points;
+    const allCardsPlayed =
+      room.gameState.remainingDeck.length === 0 &&
+      allHands.every((hand) => hand.length === 0);
+
+    if (allCardsPlayed) {
+      if (team1Score > team2Score) {
+        gameEnd = {
+          isGameOver: true,
+          winner: 1,
+          reason: `Pobjeda ${team1Score} - ${team2Score}`,
+        };
+      } else if (team2Score > team1Score) {
+        gameEnd = {
+          isGameOver: true,
+          winner: 2,
+          reason: `Pobjeda ${team2Score} - ${team1Score}`,
+        };
+      } else {
+        gameEnd = {
+          isGameOver: true,
+          winner: null,
+          reason: `Neriješeno ${team1Score} - ${team2Score}`,
+        };
+      }
+    } else if (team1Score >= 11) {
+      gameEnd = {
+        isGameOver: true,
+        winner: 1,
+        reason: `Pobjeda ${team1Score} - ${team2Score} (dosegnut cilj)`,
+      };
+    } else if (team2Score >= 11) {
+      gameEnd = {
+        isGameOver: true,
+        winner: 2,
+        reason: `Pobjeda ${team2Score} - ${team1Score} (dosegnut cilj)`,
+      };
+    } else {
+      gameEnd = { isGameOver: false };
+    }
+  } else {
+    gameEnd = checkGameEnd2v2(
+      team1Points,
+      team2Points,
+      room.gameState.remainingDeck,
+      allHands
+    );
+  }
+
   room.gameState.playedCards = [];
-  room.gameState.currentPlayer = roundWinner;
+  room.gameState.currentPlayer = roundWinner; // Pobjednik počinje sljedeću rundu
+  room.gameState.roundStartPlayer = roundWinner; // I on je početni igrač sljedeće runde
   room.gameState.roundNumber++;
 
   if (gameEnd.isGameOver) {
@@ -734,7 +1137,7 @@ function finishRound2v2(roomId) {
     );
   }
 
-  io.to(roomId).emit("roundFinished", {
+  const roundFinishedData = {
     roundWinner: roundWinner,
     roundWinningTeam: winningTeam,
     team1Points: team1Points,
@@ -749,7 +1152,31 @@ function finishRound2v2(roomId) {
     team1Cards: room.gameState.team1Cards,
     team2Cards: room.gameState.team2Cards,
     trump: room.gameState.trump,
-  });
+  };
+
+  // Add playableCards for Trešeta
+  if (room.gameType === "treseta") {
+    const tresetaLogic = require("./gameLogicTreseta2v2");
+
+    roundFinishedData.player1PlayableCards = tresetaLogic.getPlayableCards(
+      room.gameState.player1Hand,
+      room.gameState.playedCards.map((pc) => pc.card)
+    );
+    roundFinishedData.player2PlayableCards = tresetaLogic.getPlayableCards(
+      room.gameState.player2Hand,
+      room.gameState.playedCards.map((pc) => pc.card)
+    );
+    roundFinishedData.player3PlayableCards = tresetaLogic.getPlayableCards(
+      room.gameState.player3Hand,
+      room.gameState.playedCards.map((pc) => pc.card)
+    );
+    roundFinishedData.player4PlayableCards = tresetaLogic.getPlayableCards(
+      room.gameState.player4Hand,
+      room.gameState.playedCards.map((pc) => pc.card)
+    );
+  }
+
+  io.to(roomId).emit("roundFinished", roundFinishedData);
 
   if (gameEnd.isGameOver) {
     setTimeout(() => {
@@ -767,15 +1194,34 @@ function handlePlayerDisconnect(socketId) {
   for (const [roomId, room] of gameRooms.entries()) {
     const disconnectedPlayer = room.players.find((p) => p.id === socketId);
     if (disconnectedPlayer) {
+      console.log(
+        `🚪 Igrač ${disconnectedPlayer.name} (${disconnectedPlayer.playerNumber}) se odspojio iz ${room.gameMode} igre`
+      );
+
+      let message;
+      if (room.gameMode === "2v2") {
+        // Za 2v2 igre, prikaži tim informacije
+        const teamInfo = `Tim ${disconnectedPlayer.team} (igrač ${disconnectedPlayer.playerNumber})`;
+        message = `${disconnectedPlayer.name} se odspojio - ${teamInfo}`;
+      } else {
+        // Za 1v1 igre
+        message = `${disconnectedPlayer.name} se odspojio`;
+      }
+
       // Obavijesti ostale igrače
       io.to(roomId).emit("playerDisconnected", {
         disconnectedPlayer: disconnectedPlayer.playerNumber,
-        message: `${disconnectedPlayer.name} se odspojio`,
+        message: message,
+        gameMode: room.gameMode,
+        playerTeam: disconnectedPlayer.team || null,
       });
 
       // Za sada samo obriši sobu, kasnije možemo dodati reconnect logiku
       setTimeout(() => {
-        gameRooms.delete(roomId);
+        if (gameRooms.has(roomId)) {
+          gameRooms.delete(roomId);
+          console.log(`🗑️ Soba ${roomId} obrisana nakon disconnection`);
+        }
       }, 5000);
 
       break;
