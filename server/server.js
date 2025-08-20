@@ -14,6 +14,8 @@ const allowedOrigins = [
   "http://localhost:5173", // Local development
   "https://briskula-card-game.vercel.app", // Production Vercel
   "https://briskula-card-game-*.vercel.app", // Vercel preview deployments
+  "https://briskula-treseta.games", // Production domain
+  "https://*.briskula-treseta.games", // Production subdomains
 ];
 
 app.use(
@@ -39,6 +41,15 @@ const waitingQueue2v2 = []; // korisnici koji čekaju 2v2 protivnike
 
 app.use(express.json());
 
+// Root endpoint - jednostavan ping za provjeru servera
+app.get("/", (req, res) => {
+  res.json({
+    message: "Briskula Card Game Server",
+    status: "running",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Osnovni endpoint za provjeru servera
 app.get("/api/status", (req, res) => {
   res.json({
@@ -48,6 +59,40 @@ app.get("/api/status", (req, res) => {
     waitingQueue1v1: waitingQueue1v1.length,
     waitingQueue2v2: waitingQueue2v2.length,
   });
+});
+
+// Health check endpoint za UptimeRobot - sprječava spavanje na Render free tier
+app.get("/healthz", (req, res) => {
+  try {
+    // Provjeri osnovnu funkcionalnost servera
+    const serverStatus = {
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      connectedUsers: connectedUsers.size,
+      activeRooms: gameRooms.size,
+      memory: process.memoryUsage(),
+    };
+
+    // Jednostavna provjera da li server radi normalno
+    if (connectedUsers !== undefined && gameRooms !== undefined) {
+      res.status(200).json(serverStatus);
+    } else {
+      res.status(500).json({
+        status: "unhealthy",
+        message: "Server internal state error",
+        timestamp: new Date().toISOString(),
+      });
+    }
+  } catch (error) {
+    console.error("Health check failed:", error);
+    res.status(500).json({
+      status: "unhealthy",
+      message: "Health check failed",
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 // Socket.io logika
@@ -559,10 +604,13 @@ function processCardPlay1v1(roomId, playerId, card) {
   }
 
   // Dodaj kartu u odigrane karte
-  room.gameState.playedCards.push(card);
+  const playerNumber = room.players.find((p) => p.id === playerId).playerNumber;
+  room.gameState.playedCards.push({
+    card: card,
+    playerNumber: playerNumber,
+  });
 
   // Ukloni kartu iz ruke igrača
-  const playerNumber = room.players.find((p) => p.id === playerId).playerNumber;
   if (playerNumber === 1) {
     room.gameState.player1Hand = room.gameState.player1Hand.filter(
       (c) => c.id !== card.id
@@ -580,7 +628,12 @@ function processCardPlay1v1(roomId, playerId, card) {
     playerNumber: playerNumber,
     playerName: playerName,
     card: card,
-    playedCards: room.gameState.playedCards,
+    playedCards: room.gameState.playedCards.map((pc) => ({
+      ...pc.card,
+      playerNumber: pc.playerNumber,
+      playerName: room.players.find((p) => p.playerNumber === pc.playerNumber)
+        ?.name,
+    })),
   });
 
   // Ako su odigrane 2 karte, završi rundu
@@ -687,7 +740,12 @@ function processCardPlay2v2(roomId, playerId, card) {
     playerNumber: playerNumber,
     playerName: playerName,
     card: card,
-    playedCards: room.gameState.playedCards.map((pc) => pc.card),
+    playedCards: room.gameState.playedCards.map((pc) => ({
+      ...pc.card,
+      playerNumber: pc.playerNumber,
+      playerName: room.players.find((p) => p.playerNumber === pc.playerNumber)
+        ?.name,
+    })),
   });
 
   if (room.gameState.playedCards.length === 4) {
