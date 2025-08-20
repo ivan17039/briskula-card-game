@@ -3,6 +3,12 @@
   padding: 8px 16px;
 }
 
+/* Make sure desktop controls are visible in 2v2 */
+.game-2v2 .desktop-controls {
+  z-index: 15;
+  position: relative;
+}
+
 .team-scores {
   position: absolute;
   left: 50%;
@@ -123,9 +129,11 @@
   flex: 1;
   display: grid;
   grid-template-rows: auto 1fr auto;
-  padding: 20px;
-  gap: 20px;
+  padding: 15px; /* Smanjeno s 20px */
+  gap: 15px; /* Smanjeno s 20px */
   overflow: hidden;
+  transform: scale(0.85); /* General scaling kao 80% zoom */
+  transform-origin: center;
 }
 
 /* Player positions */
@@ -138,6 +146,7 @@
 
 .top-player {
   justify-self: center;
+  margin-bottom: 20px;
 }
 
 .bottom-player {
@@ -259,6 +268,157 @@
   margin-bottom: 5px;
 }
 
+/* Cross layout za odigrane karte - poboljšan spacing */
+.played-cards-cross {
+  position: relative;
+  width: 400px;
+  height: 250px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+}
+
+.played-card-position {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 11; /* Above the cross container */
+}
+
+.played-card-position.top {
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.played-card-position.right {
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.played-card-position.bottom {
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.played-card-position.left {
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.played-card-position.center {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.card-player-label {
+  margin-top: 5px;
+  font-size: 0.7em;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+/* Mobile optimizacija za cross layout */
+@media (max-width: 768px) {
+  .played-cards-cross {
+    width: 300px;
+    height: 300px;
+  }
+
+  .played-card-position.top {
+    top: 15px;
+  }
+
+  .played-card-position.right {
+    right: 15px;
+  }
+
+  .played-card-position.bottom {
+    bottom: 15px;
+  }
+
+  .played-card-position.left {
+    left: 15px;
+  }
+}
+
+/* Extra small screens - hide team scores and use icon buttons */
+@media (max-width: 476px) {
+  .team-scores {
+    display: none !important;
+  }
+
+  /* Use icon-style buttons */
+  .game-2v2 .desktop-controls .game-btn {
+    padding: 6px 8px;
+    font-size: 1.2rem;
+    min-width: 36px;
+    text-align: center;
+  }
+
+  .game-2v2 .desktop-controls .btn-primary::before {
+    content: "🔍";
+  }
+
+  .game-2v2 .desktop-controls .btn-danger::before {
+    content: "🚪";
+  }
+
+  .game-2v2 .desktop-controls .btn-secondary::before {
+    content: "↩️";
+  }
+
+  /* Hide button text, keep only icons */
+  .game-2v2 .desktop-controls .game-btn {
+    text-indent: -9999px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .game-2v2 .desktop-controls .game-btn::before {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    text-indent: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .played-cards-cross {
+    width: 190px;
+    height: 190px;
+  }
+
+  .played-card-position.top {
+    top: 10px;
+  }
+
+  .played-card-position.right {
+    right: 10px;
+  }
+
+  .played-card-position.bottom {
+    bottom: 10px;
+  }
+
+  .played-card-position.left {
+    left: 10px;
+  }
+}
+
+/* Zadržava stari layout kao fallback */
 .played-cards-area-2v2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -446,8 +606,9 @@
   }
 
   .game-area-2v2 {
-    padding: 12px;
-    gap: 15px;
+    padding: 10px;
+    gap: 12px;
+    transform: scale(0.9); /* Manje scaling za tablete */
   }
 
   .middle-section {
@@ -481,13 +642,40 @@
 
 /* Mobile devices - up to 767px - OPTIMIZED LAYOUT */
 @media (max-width: 767px) {
+  /* Show team scores in compact format on mobile */
   .team-scores {
-    display: none;
+    position: static;
+    transform: none;
+    gap: 12px;
+    font-size: 0.8rem;
+    margin: 4px 0;
+  }
+
+  .team-score {
+    padding: 2px 6px;
+    font-size: 0.75rem;
+  }
+
+  .team-points {
+    font-size: 1rem;
+  }
+
+  .vs-divider {
+    font-size: 0.75rem;
+  }
+
+  /* Show desktop controls on mobile for 2v2 */
+  .game-2v2 .desktop-controls {
+    display: flex !important;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .game-area-2v2 {
     padding: 8px;
     gap: 8px;
+    transform: scale(0.95); /* Minimalno scaling za mobile */
   }
 
   /* MOBILE: 3-column layout with more space for left/right players */
@@ -497,7 +685,7 @@
     gap: 12px;
     min-height: 180px;
     justify-items: center;
-    top: 50px;
+    top: -30px;
   }
 
   .left-player,
@@ -602,11 +790,12 @@
     padding: 4px 8px;
     margin-bottom: 4px;
     max-width: 90vw;
+    z-index: 1; /* Ensure it stays below played cards */
   }
 
   .player-cards {
     gap: 4px;
-    margin-top: 26px;
+    margin-top: 2px;
   }
 
   /* MOBILE: Selection info */
@@ -640,7 +829,7 @@
   }
   .player-position.bottom-player {
     position: relative;
-    top: -20px;
+    bottom: 75px;
   }
 }
 
@@ -678,7 +867,11 @@
   }
   .player-position.bottom-player {
     position: relative;
-    top: -90px;
+    top: -50px;
+  }
+  .player-position.top-player {
+    position: relative;
+    top: -10px;
   }
 }
 
@@ -715,10 +908,13 @@
   /* Extra small cards for very small screens */
   .game-2v2 .card-medium .card-image,
   .game-2v2 .card-small .card-image {
-    width: 35px !important; /* Further reduced from 30px */
-    height: 65px !important; /* Further reduced from 60px */
+    width: 55px;
+    height: 105px;
   }
-
+  .card-played .card-image {
+    width: 35px;
+    height: 65px;
+  }
   /* Smaller player icons for very small screens */
   .player-icon-display {
     padding: 6px;
@@ -753,6 +949,8 @@
   .middle-section.no-deck {
     grid-template-columns: 1fr 3fr 1fr;
     gap: 15px;
+    margin-bottom: 150px;
+    top: 25px;
   }
 
   /* Adjust deck stack for smaller cards */
@@ -826,5 +1024,14 @@
     margin-top: 2px;
     opacity: 0.9;
     font-size: 0.5rem;
+  }
+}
+
+/* Very small screens - iPhone SE, etc */
+@media (max-height: 670px) {
+  .game-2v2 .card-medium .card-image,
+  .game-2v2 .card-small .card-image {
+    width: 42px;
+    height: 80px;
   }
 }

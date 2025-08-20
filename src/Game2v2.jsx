@@ -131,6 +131,19 @@ function Game2v2({ gameData, onGameEnd }) {
   const [showScores, setShowScores] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+  // Function to get relative position for cross layout
+  const getRelativePosition = (cardPlayerNumber, myPlayerNumber) => {
+    // Map actual player positions relative to current player
+    const relativePositions = {
+      1: { 1: "bottom", 2: "left", 3: "top", 4: "right" },
+      2: { 1: "right", 2: "bottom", 3: "left", 4: "top" },
+      3: { 1: "top", 2: "right", 3: "bottom", 4: "left" },
+      4: { 1: "left", 2: "top", 3: "right", 4: "bottom" },
+    };
+
+    return relativePositions[myPlayerNumber]?.[cardPlayerNumber] || "center";
+  };
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -537,10 +550,27 @@ function Game2v2({ gameData, onGameEnd }) {
           <div className="center-area">
             <div className="played-cards-section">
               <div className="played-cards-label">Odigrane karte</div>
-              <div className="played-cards-area-2v2">
-                {gameState.playedCards.map((card, index) => (
-                  <Card key={`played-${card.id}`} card={card} size="small" />
-                ))}
+              <div className="played-cards-cross">
+                {gameState.playedCards.map((card, index) => {
+                  const position = getRelativePosition(
+                    card.playerNumber,
+                    gameState.playerNumber
+                  );
+                  const playerName =
+                    gameState.players?.find(
+                      (p) => p.playerNumber === card.playerNumber
+                    )?.name || `Igrač ${card.playerNumber}`;
+
+                  return (
+                    <div
+                      key={`played-${card.id}`}
+                      className={`played-card-position ${position}`}
+                    >
+                      <Card card={card} size="played" />
+                      <div className="card-player-label">{playerName}</div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
