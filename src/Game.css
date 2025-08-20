@@ -405,7 +405,7 @@ body,
   gap: 16px;
   min-height: 280px;
   position: relative;
-  bottom: 50px;
+  bottom: 10px;
 }
 
 /* Game status - ABOVE PLAYER NAME */
