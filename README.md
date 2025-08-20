@@ -1,24 +1,51 @@
-# Briskula Card Game
+# Briskula & Trešeta Card Games
 
-A real-time multiplayer Croatian card game built with React.js and Socket.io, featuring both 1v1 and 2v2 game modes with traditional Briskula gameplay.
+A real-time multiplayer Croatian card game platform built with React.js and Socket.io, featuring both **Briskula** and **Trešeta** in 1v1 and 2v2 game modes with traditional gameplay mechanics.
 
-## 🎮 About Briskula
+## 🎮 About the Games
 
-Briskula (Briškula/Briscola) is a popular traditional card game from the Balkans. This digital version brings the authentic experience online with:
+### Briskula (Briškula/Briscola)
 
-- **1v1 Mode**: Classic head-to-head gameplay
-- **2v2 Mode**: Team-based competitive matches
+Traditional Croatian card game with trump-based mechanics:
+
+- **Trump System**: One suit dominates others
+- **Point Collection**: Win valuable cards to score points
+- **Strategic Play**: Master trump timing and card counting
+
+### Trešeta
+
+Popular Balkan card game with trick-taking mechanics:
+
+- **No Trump**: Pure skill-based card strength
+- **Trick Taking**: Win tricks with higher-value cards
+- **Point Strategy**: Collect high-value cards (A=11, 3=10)
+
+## 🃏 Game Features
+
+- **Multiple Game Types**: Choose between Briskula or Trešeta
+- **Multiple Modes**: 1v1 or 2v2 gameplay
 - **Real-time Multiplayer**: Instant gameplay powered by Socket.io
-- **Mobile-First Design**: Optimized for all devices
-- **Traditional Rules**: Authentic Croatian card game mechanics
+- **Cross Layout**: Cards positioned relative to each player's perspective
+- **Mobile-Optimized**: Responsive design with touch-friendly controls
+- **Traditional Rules**: Authentic Croatian game mechanics
 
-## 🃏 Game Rules
+## � Game Rules
+
+### Briskula Rules
 
 - **Deck**: 40 cards (A, 2, 3, 4, 5, 6, 7, J, Q, K) in 4 suits
-- **Trump Card**: One card determines the trump suit
-- **Objective**: Score the most points by winning valuable cards
+- **Trump Card**: Determines winning suit hierarchy
 - **Card Values**: A=11, 3=10, K=4, Q=3, J=2, others=0
-- **Winning**: Player/team with most points after all cards are played
+- **Winning**: Trump beats non-trump, higher value wins
+- **Objective**: Score 61+ points to win
+
+### Trešeta Rules
+
+- **Deck**: Same 40-card deck, no trump system
+- **Card Hierarchy**: 3 > 2 > A > K > Q > J > 7 > 6 > 5 > 4
+- **Card Values**: A=11, 3=10, K=4, Q=3, J=2, others=0
+- **Follow Suit**: Must follow the led suit when possible
+- **Objective**: Score most points when all cards played
 
 ## 🛠️ Technology Stack
 
@@ -27,65 +54,59 @@ Briskula (Briškula/Briscola) is a popular traditional card game from the Balkan
 - React.js with Vite build system
 - Responsive CSS with mobile-first approach
 - Socket.io client for real-time communication
+- Cross-platform card positioning system
+- Touch-optimized mobile interface
 
 **Backend**
 
 - Node.js with Express framework
 - Socket.io server for multiplayer functionality
-- Game logic handling for both 1v1 and 2v2 modes
+- Separate game logic engines for Briskula and Trešeta
+- Real-time matchmaking system
+- Support for 1v1 and 2v2 game modes
 
 **Deployment**
 
 - Vercel (Frontend hosting)
-- Render (Backend hosting)
-- Supabase (Database & Authentication)
+- Render/Railway (Backend hosting)
+- Environment-based configuration
 
-## 🎯 Features
+## 🎯 Key Features
 
-- **Multiple Game Modes**: Choose between 1v1 or 2v2 gameplay
-- **Real-time Multiplayer**: Seamless online experience
-- **Responsive Design**: Works perfectly on desktop and mobile
-- **User Authentication**: Secure login system
-- **Game Rooms**: Join or create custom game sessions
-- **Traditional Gameplay**: Authentic Briskula rules and mechanics
+- **Dual Game Support**: Both Briskula and Trešeta gameplay
+- **Smart Card Layout**: Cards positioned relative to each player
+- **Responsive Design**: Optimized for desktop, tablet, and mobile
+- **Real-time Communication**: Instant multiplayer experience
+- **Game State Management**: Persistent game sessions
+- **Mobile Controls**: Touch-friendly card selection
+- **Cross-Browser Support**: Works on all modern browsers
 
 ## 📱 Game Components
 
-- **Login**: User authentication and profile management
+- **Login**: User authentication and guest play
+- **GameTypeSelector**: Choose between Briskula and Trešeta
 - **GameModeSelector**: Choose between 1v1 and 2v2 modes
 - **Matchmaking**: Find players and join game rooms
-- **Game**: Main 1v1 game interface
-- **Game2v2**: Team-based 2v2 game interface
-- **Card System**: Interactive card playing mechanics
+- **Game**: Main 1v1 game interface with cross layout
+- **Game2v2**: Team-based 2v2 interface with player positioning
+- **Card System**: Interactive card playing with validation
 
-## 📁 Project Structure
+## 🌐 Live Demo
 
-```
-CardGame/
-├── src/
-│   ├── App.jsx              # Main application component
-│   ├── Login.jsx            # User authentication
-│   ├── GameModeSelector.jsx # Game mode selection
-│   ├── Matchmaking.jsx      # Room joining/creation
-│   ├── Game.jsx             # 1v1 game interface
-│   ├── Game2v2.jsx          # 2v2 game interface
-│   ├── Card.jsx             # Card component
-│   ├── SocketContext.jsx    # Socket.io context
-│   └── *.css               # Component styles
-├── server/
-│   ├── server.js           # Express server setup
-│   ├── gameLogic.js        # 1v1 game logic
-│   └── gameLogic2v2.js     # 2v2 game logic
-```
+**Production URL**: [https://briskula-treseta.games](https://briskula-treseta.games)
 
-## � Live Demo
+Experience both Briskula and Trešeta online with players from around the world!
 
-Coming soon - currently in development for web deployment
+## �‍💻 Development Notes
 
-## 👨‍💻 Development
+This project combines traditional Croatian card game mechanics with modern web technologies. The implementation features:
 
-This project was built with modern web technologies to provide a smooth, real-time gaming experience that honors the traditional Croatian Briskula card game while making it accessible to players worldwide.
+- **Real-time synchronization** between multiple players
+- **Responsive card positioning** that adapts to each player's perspective
+- **Game validation logic** ensuring fair play and rule enforcement
+- **Mobile-first design** with touch-optimized controls
+- **Scalable architecture** supporting both game types seamlessly
 
 ---
 
-**Made with ❤️ for Briskula enthusiasts**
+**Made with ❤️ for Croatian card game enthusiasts worldwide**
