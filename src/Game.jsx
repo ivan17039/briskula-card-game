@@ -357,7 +357,7 @@ function Game({ gameData, onGameEnd }) {
 
   // Determine card sizes based on screen size
   const cardSize = isMobile ? "small" : "medium";
-  const playedCardSize = "small"; // Always small for played cards
+  const playedCardSize = "played"; // Special size for played cards
   const trumpCardSize = isMobile ? "small" : "medium";
 
   return (

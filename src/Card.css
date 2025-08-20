@@ -16,12 +16,6 @@
   display: block;
 }
 
-/* Different card sizes */
-.card-small .card-image {
-  width: 55px;
-  height: 100px;
-}
-
 .card-medium .card-image {
   width: 80px;
   height: 150px;
@@ -30,6 +24,18 @@
 .card-large .card-image {
   width: 80px;
   height: 150px;
+}
+
+/* Specific class for played cards in cross layout */
+.card-played .card-image {
+  width: 45px;
+  height: 80px;
+}
+
+/* Small cards for mobile or other uses */
+.card-small .card-image {
+  width: 60px;
+  height: 110px;
 }
 
 /* Card states - hover effect on ENTIRE CARD */
@@ -88,4 +94,19 @@
   border-radius: 8px;
   z-index: 1;
   pointer-events: none;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .card-played .card-image {
+    width: 35px;
+    height: 65px;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-played .card-image {
+    width: 30px;
+    height: 55px;
+  }
 }
