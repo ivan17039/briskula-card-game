@@ -816,8 +816,8 @@ function finishRound1v1(roomId) {
   const [cardA, cardB] = room.gameState.playedCards;
   const firstPlayer = room.gameState.currentPlayer === 1 ? 2 : 1;
   // cardA je prva karta (igrao ju je firstPlayer), cardB je druga karta
-  const card1 = cardA; // Karta koju je igrao firstPlayer
-  const card2 = cardB; // Karta koju je igrao drugi igrač
+  const card1 = cardA.card; // Karta koju je igrao firstPlayer
+  const card2 = cardB.card; // Karta koju je igrao drugi igrač
 
   console.log(`🎯 Pozivam determineRoundWinner za ${room.gameType}:`, {
     card1: `${card1.name} ${card1.suit}`,

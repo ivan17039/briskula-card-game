@@ -110,31 +110,33 @@ function determineRoundWinner(card1, card2, trumpSuit, firstPlayer) {
 
   // Provjeri da li su obje karte adut
   if (trumpSuit && card1.suit === trumpSuit && card2.suit === trumpSuit) {
-    const winner = card1.strength > card2.strength ? 1 : 2;
+    const winner = card1.strength > card2.strength ? firstPlayer : (firstPlayer === 1 ? 2 : 1);
     console.log("🏆 Obje karte su adut - pobjednik:", winner);
     return winner;
   }
 
   // Provjeri da li je prva karta adut
   if (trumpSuit && card1.suit === trumpSuit) {
-    console.log("🏆 Karta 1 je adut - pobjednik: 1");
-    return 1;
+    console.log("🏆 Karta 1 je adut - pobjednik:", firstPlayer);
+    return firstPlayer;
   }
 
   // Provjeri da li je druga karta adut
   if (trumpSuit && card2.suit === trumpSuit) {
-    console.log("🏆 Karta 2 je adut - pobjednik: 2");
-    return 2;
+    const secondPlayer = firstPlayer === 1 ? 2 : 1;
+    console.log("🏆 Karta 2 je adut - pobjednik:", secondPlayer);
+    return secondPlayer;
   }
 
   // Ako su obje karte iste boje (nisu adut)
   if (card1.suit === card2.suit) {
     if (card1.strength > card2.strength) {
-      console.log("🏆 Ista boja, card1 jača - pobjednik: 1");
-      return 1;
+      console.log("🏆 Ista boja, card1 jača - pobjednik:", firstPlayer);
+      return firstPlayer;
     } else {
-      console.log("🏆 Ista boja, card2 jača - pobjednik: 2");
-      return 2;
+      const secondPlayer = firstPlayer === 1 ? 2 : 1;
+      console.log("🏆 Ista boja, card2 jača - pobjednik:", secondPlayer);
+      return secondPlayer;
     }
   }
   console.log("🏆 Različite boje - pobjednik je prvi igrač:", firstPlayer);

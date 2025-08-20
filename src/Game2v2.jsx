@@ -71,7 +71,7 @@ function sortCards(cards, gameType = "briskula") {
 }
 
 function Game2v2({ gameData, onGameEnd }) {
-  const { socket, user, playCard, leaveRoom } = useSocket();
+  const { socket, user, playCard, leaveRoom, findMatch } = useSocket();
 
   const initializeGameState = () => {
     if (!gameData) return null;
@@ -242,9 +242,7 @@ function Game2v2({ gameData, onGameEnd }) {
         return newState;
       });
 
-      if (data.gameEnd.isGameOver) {
-        setTimeout(() => onGameEnd(), 5000);
-      }
+      // Ne automatski preusmjeravaj na glavni ekran - neka igrač sam odluči
     });
 
     socket.on("playerDisconnected", (data) => {
@@ -256,9 +254,9 @@ function Game2v2({ gameData, onGameEnd }) {
       setGameState((prev) => ({
         ...prev,
         gamePhase: "finished",
-        message: `${displayMessage} Vraćamo vas na početak...`,
+        message: `${displayMessage} Kliknite 'Glavni meni' za povratak.`,
       }));
-      setTimeout(() => onGameEnd(), 4000);
+      // Ne automatski preusmjeravaj - neka igrač sam odluči
     });
 
     socket.on("playerLeft", (data) => {
@@ -270,9 +268,9 @@ function Game2v2({ gameData, onGameEnd }) {
       setGameState((prev) => ({
         ...prev,
         gamePhase: "finished",
-        message: `${displayMessage} Vraćamo vas na početak...`,
+        message: `${displayMessage} Kliknite 'Glavni meni' za povratak.`,
       }));
-      setTimeout(() => onGameEnd(), 4000);
+      // Ne automatski preusmjeravaj - neka igrač sam odluči
     });
 
     // Trešeta specific events
@@ -750,6 +748,105 @@ function Game2v2({ gameData, onGameEnd }) {
             >
               Zatvori
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Final Score Screen for 2v2 */}
+      {gameState.gamePhase === "finished" && (
+        <div className="final-score-overlay">
+          <div className="final-score-container">
+            <div className="final-score-header">
+              <h2>🎮 Partija završena!</h2>
+              {gameState.winner === gameState.myTeam && (
+                <div className="result-emoji">🎉</div>
+              )}
+              {gameState.winner === null && (
+                <div className="result-emoji">🤝</div>
+              )}
+              {gameState.winner && gameState.winner !== gameState.myTeam && (
+                <div className="result-emoji">😔</div>
+              )}
+            </div>
+
+            <div className="final-teams-grid">
+              <div className="final-team-score">
+                <div className="team-header">
+                  <h3>Tim A</h3>
+                  {gameState.winner === "A" && (
+                    <div className="winner-badge">👑 POBJEDNIK</div>
+                  )}
+                </div>
+                <div className="team-points">
+                  {gameState.gameType === "treseta" ? gameState.teamAPoints : calculatePoints(gameState.teamACards || [])} bodova
+                </div>
+                <div className="team-cards">
+                  {(gameState.teamACards || []).length} karata
+                </div>
+                <div className="team-players">
+                  {gameState.players
+                    ?.filter(p => p.team === "A")
+                    .map(player => (
+                      <div 
+                        key={player.playerNumber} 
+                        className={`team-player ${player.playerNumber === gameState.playerNumber ? 'current-player' : ''}`}
+                      >
+                        {player.name} {player.playerNumber === gameState.playerNumber && "(Vi)"}
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              <div className="vs-divider">VS</div>
+
+              <div className="final-team-score">
+                <div className="team-header">
+                  <h3>Tim B</h3>
+                  {gameState.winner === "B" && (
+                    <div className="winner-badge">👑 POBJEDNIK</div>
+                  )}
+                </div>
+                <div className="team-points">
+                  {gameState.gameType === "treseta" ? gameState.teamBPoints : calculatePoints(gameState.teamBCards || [])} bodova
+                </div>
+                <div className="team-cards">
+                  {(gameState.teamBCards || []).length} karata
+                </div>
+                <div className="team-players">
+                  {gameState.players
+                    ?.filter(p => p.team === "B")
+                    .map(player => (
+                      <div 
+                        key={player.playerNumber} 
+                        className={`team-player ${player.playerNumber === gameState.playerNumber ? 'current-player' : ''}`}
+                      >
+                        {player.name} {player.playerNumber === gameState.playerNumber && "(Vi)"}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="game-result">
+              <p>{gameState.message}</p>
+            </div>
+
+            <div className="final-score-actions">
+              <button 
+                onClick={() => {
+                  findMatch("2v2", gameState.gameType);
+                }} 
+                className="btn-primary-large"
+              >
+                🔄 Revanš
+              </button>
+              <button 
+                onClick={onGameEnd} 
+                className="btn-secondary-large"
+              >
+                🏠 Glavni meni
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1035,3 +1035,90 @@
     height: 80px;
   }
 }
+
+/* 2v2 Final Score Screen Styles */
+.final-teams-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 30px;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.final-team-score {
+  background: rgba(15, 81, 50, 0.1);
+  border-radius: 15px;
+  padding: 25px;
+  position: relative;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.team-header {
+  margin-bottom: 15px;
+}
+
+.team-header h3 {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #0f5132;
+  margin-bottom: 10px;
+}
+
+.final-team-score .team-points {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #198754;
+  margin-bottom: 10px;
+}
+
+.final-team-score .team-cards {
+  font-size: 1rem;
+  color: #6c757d;
+  margin-bottom: 15px;
+}
+
+.team-players {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.team-player {
+  font-size: 0.9rem;
+  color: #495057;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(108, 117, 125, 0.1);
+}
+
+.team-player.current-player {
+  background: rgba(25, 135, 84, 0.2);
+  color: #0f5132;
+  font-weight: bold;
+}
+
+/* Mobile responsiveness for 2v2 final score */
+@media (max-width: 768px) {
+  .final-teams-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .vs-divider {
+    order: 2;
+    font-size: 1.2rem;
+  }
+
+  .final-team-score {
+    padding: 20px;
+  }
+
+  .final-team-score .team-points {
+    font-size: 1.5rem;
+  }
+
+  .team-header h3 {
+    font-size: 1.2rem;
+  }
+}

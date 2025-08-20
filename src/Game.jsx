@@ -69,7 +69,7 @@ function sortCards(cards, gameType = "briskula") {
 }
 
 function Game({ gameData, onGameEnd }) {
-  const { socket, user, playCard, leaveRoom } = useSocket();
+  const { socket, user, playCard, leaveRoom, findMatch } = useSocket();
 
   const initializeGameState = () => {
     if (!gameData) return null;
@@ -83,8 +83,8 @@ function Game({ gameData, onGameEnd }) {
 
     const opponentHandCount =
       gameData.playerNumber === 1
-        ? gameData.gameState.player2Hand.length
-        : gameData.gameState.player1Hand.length;
+        ? (gameData.gameState.player2Hand || []).length
+        : (gameData.gameState.player1Hand || []).length;
 
     const state = {
       roomId: gameData.roomId,
@@ -104,7 +104,7 @@ function Game({ gameData, onGameEnd }) {
         gameData.gameState.currentPlayer === gameData.playerNumber
           ? "Vaš red! Odaberite kartu za igranje."
           : "Protivnikov red. Čekajte...",
-      remainingCardsCount: gameData.gameState.remainingDeck.length,
+      remainingCardsCount: (gameData.gameState.remainingDeck || []).length,
       playableCards: gameData.gameState.playableCards || [], // Lista ID-jeva karata koje se mogu igrati
       myPoints: 0, // Bodovi igrača
       opponentPoints: 0, // Bodovi protivnika
@@ -174,8 +174,8 @@ function Game({ gameData, onGameEnd }) {
           myHand: prev.playerNumber === 1 ? data.player1Hand : data.player2Hand,
           opponentHandCount:
             prev.playerNumber === 1
-              ? data.player2Hand.length
-              : data.player1Hand.length,
+              ? (data.player2Hand || []).length
+              : (data.player1Hand || []).length,
           trump: data.trump,
           myCards:
             prev.playerNumber === data.roundWinner
@@ -200,12 +200,12 @@ function Game({ gameData, onGameEnd }) {
           // Ažuriraj bodove
           myPoints:
             prev.playerNumber === 1
-              ? data.player1Points.points
-              : data.player2Points.points,
+              ? data.player1Points?.points || 0
+              : data.player2Points?.points || 0,
           opponentPoints:
             prev.playerNumber === 1
-              ? data.player2Points.points
-              : data.player1Points.points,
+              ? data.player2Points?.points || 0
+              : data.player1Points?.points || 0,
         };
 
         if (data.gameEnd.isGameOver) {
@@ -257,27 +257,25 @@ function Game({ gameData, onGameEnd }) {
         return newState;
       });
 
-      if (data.gameEnd.isGameOver) {
-        setTimeout(() => onGameEnd(), 5000);
-      }
+      // Ne automatski preusmjeravaj na glavni ekran - neka igrač sam odluči
     });
 
     socket.on("playerDisconnected", (data) => {
       setGameState((prev) => ({
         ...prev,
         gamePhase: "finished",
-        message: `${data.message}. Vraćamo vas na početak...`,
+        message: `${data.message}. Kliknite 'Glavni meni' za povratak.`,
       }));
-      setTimeout(() => onGameEnd(), 3000);
+      // Ne automatski preusmjeravaj - neka igrač sam odluči
     });
 
     socket.on("playerLeft", (data) => {
       setGameState((prev) => ({
         ...prev,
         gamePhase: "finished",
-        message: `${data.message} Vraćamo vas na početak...`,
+        message: `${data.message} Kliknite 'Glavni meni' za povratak.`,
       }));
-      setTimeout(() => onGameEnd(), 3000);
+      // Ne automatski preusmjeravaj - neka igrač sam odluči
     });
 
     // Trešeta - ažuriranje igrljivih karata
@@ -352,12 +350,12 @@ function Game({ gameData, onGameEnd }) {
     );
   }
 
-  const myPoints = calculatePoints(gameState.myCards);
-  const opponentPoints = calculatePoints(gameState.opponentCards);
+  const myPoints = calculatePoints(gameState.myCards || []);
+  const opponentPoints = calculatePoints(gameState.opponentCards || []);
 
   // Determine card sizes based on screen size
   const cardSize = isMobile ? "small" : "medium";
-  const playedCardSize = "played"; // Special size for played cards
+  const playedCardSize = "small"; // Always small for played cards
   const trumpCardSize = isMobile ? "small" : "medium";
 
   return (
@@ -560,7 +558,7 @@ function Game({ gameData, onGameEnd }) {
           {selectedCard && (
             <div className="selection-info">
               Odabrana: {selectedCard.name} {selectedCard.suit} (
-              {selectedCard.points} bodova)
+              {selectedCard.points || 0} bodova)
               <br />
               <small>Kliknite ponovno za igranje</small>
             </div>
@@ -593,7 +591,7 @@ function Game({ gameData, onGameEnd }) {
                 </div>
                 <div className="stat-item">
                   <span>Osvojene karte:</span>
-                  <span>{gameState.myCards.length}</span>
+                  <span>{(gameState.myCards || []).length}</span>
                 </div>
               </div>
 
@@ -630,7 +628,7 @@ function Game({ gameData, onGameEnd }) {
                 </div>
                 <div className="stat-item">
                   <span>Osvojene karte:</span>
-                  <span>{gameState.opponentCards.length}</span>
+                  <span>{(gameState.opponentCards || []).length}</span>
                 </div>
               </div>
             </div>
@@ -674,6 +672,77 @@ function Game({ gameData, onGameEnd }) {
               cardPickupAnimation.playerNumber
                 ? "🎉 Vi ste uzeli rundu!"
                 : "😔 Protivnik je uzeo rundu"}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Final Score Screen */}
+      {gameState.gamePhase === "finished" && (
+        <div className="final-score-overlay">
+          <div className="final-score-container">
+            <div className="final-score-header">
+              <h2>🎮 Partija završena!</h2>
+              {gameState.winner === gameState.playerNumber && (
+                <div className="result-emoji">🎉</div>
+              )}
+              {gameState.winner === null && (
+                <div className="result-emoji">🤝</div>
+              )}
+              {gameState.winner && gameState.winner !== gameState.playerNumber && (
+                <div className="result-emoji">😔</div>
+              )}
+            </div>
+
+            <div className="final-scores-grid">
+              <div className="final-player-score">
+                <div className="player-name">{user?.name}</div>
+                <div className="player-points">
+                  {gameState.gameType === "treseta" ? gameState.myPoints : myPoints} bodova
+                </div>
+                <div className="player-cards">
+                  {(gameState.myCards || []).length} karata
+                </div>
+                {gameState.winner === gameState.playerNumber && (
+                  <div className="winner-badge">👑 POBJEDNIK</div>
+                )}
+              </div>
+
+              <div className="vs-divider">VS</div>
+
+              <div className="final-player-score">
+                <div className="player-name">{gameState.opponent?.name}</div>
+                <div className="player-points">
+                  {gameState.gameType === "treseta" ? gameState.opponentPoints : opponentPoints} bodova
+                </div>
+                <div className="player-cards">
+                  {(gameState.opponentCards || []).length} karata
+                </div>
+                {gameState.winner && gameState.winner !== gameState.playerNumber && gameState.winner !== null && (
+                  <div className="winner-badge">👑 POBJEDNIK</div>
+                )}
+              </div>
+            </div>
+
+            <div className="game-result">
+              <p>{gameState.message}</p>
+            </div>
+
+            <div className="final-score-actions">
+              <button 
+                onClick={() => {
+                  findMatch("1v1", gameState.gameType);
+                }} 
+                className="btn-primary-large"
+              >
+                🔄 Revanš
+              </button>
+              <button 
+                onClick={onGameEnd} 
+                className="btn-secondary-large"
+              >
+                🏠 Glavni meni
+              </button>
             </div>
           </div>
         </div>
