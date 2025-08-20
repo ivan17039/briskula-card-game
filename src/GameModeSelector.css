@@ -351,7 +351,7 @@
   }
 
   .game-icon {
-    margin-bottom: 12px;
+    margin-top: 12px;
     gap: 0;
   }
 
@@ -398,7 +398,7 @@
   }
 
   .game-mode-card {
-    padding: 8px;
+    padding: 20px;
     margin: 2px;
     max-height: 85vh;
   }
