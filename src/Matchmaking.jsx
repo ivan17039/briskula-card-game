@@ -139,7 +139,17 @@ function Matchmaking({ onGameStart, gameMode, gameType, onBackToModeSelect }) {
                   className="suit-icon"
                 />
               </div>
-              <h3>Spremni za {gameMode} igru?</h3>
+              <h3>
+                Spremni za{" "}
+                {gameMode === "1v1"
+                  ? gameType === "treseta"
+                    ? "Trešeta"
+                    : "Briskula"
+                  : gameType === "treseta"
+                  ? "Timska Trešeta"
+                  : "2v2 Briskula"}{" "}
+                igru?
+              </h3>
               <p>Trebamo {getPlayersNeeded()} igrača za početak</p>
               <button className="find-match-btn" onClick={handleFindMatch}>
                 🔍 Pronađi protivnike
@@ -150,15 +160,8 @@ function Matchmaking({ onGameStart, gameMode, gameType, onBackToModeSelect }) {
           {matchmakingState === "searching" && (
             <div className="searching-state">
               <div className="loading-spinner"></div>
-              <h3>Tražimo {gameMode === "1v1" ? "protivnika" : "igrače"}...</h3>
-              <p>{message}</p>
-              {queuePosition > 0 && (
-                <div className="queue-info">
-                  <span>Pozicija u redu: #{queuePosition}</span>
-                  <br />
-                  <small>Potrebno još {getPlayersNeeded() - 1} igrača</small>
-                </div>
-              )}
+              <h3>Tražim protivnika...</h3>
+              <p>Molimo pričekajte</p>
               <button className="cancel-btn" onClick={handleCancelMatch}>
                 ❌ Otkaži
               </button>
@@ -236,24 +239,23 @@ function Matchmaking({ onGameStart, gameMode, gameType, onBackToModeSelect }) {
         </div>
 
         <div className="matchmaking-info">
-          <h4>ℹ️ Informacije o {gameMode} igri</h4>
-          <ul>
-            <li>🂡 Klasična Briskula s 40 karata</li>
-            <li>🎯 Cilj: Osvojiti 61+ bodova</li>
-            <li>⚡ Realtime multiplayer</li>
-            {gameMode === "2v2" && (
-              <>
-                <li>👥 Timska igra - surađujte s partnerom</li>
-                <li>🔄 Redoslijed: Tim 1 → Tim 2 → Tim 1 → Tim 2</li>
-              </>
-            )}
-            <li>
-              🏆{" "}
-              {gameMode === "1v1"
-                ? "Pobjednik uzima svu slavu!"
-                : "Pobjednički tim dijeli slavu!"}
-            </li>
-          </ul>
+          <h4>
+            ℹ️{" "}
+            {gameMode === "1v1"
+              ? gameType === "treseta"
+                ? "1v1 Trešeta"
+                : "1v1 Briskula"
+              : gameType === "treseta"
+              ? "Timska Trešeta"
+              : "2v2 Briskula"}
+          </h4>
+          <p>
+            🎯 Cilj:{" "}
+            {gameType === "treseta"
+              ? "Skupiti 31 ili 41 punta"
+              : "Prvi ostane bez karata"}{" "}
+            | ⚡ Realtime multiplayer
+          </p>
         </div>
 
         {message && matchmakingState === "idle" && (

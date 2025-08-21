@@ -10,6 +10,21 @@ function calculatePoints(cards) {
 }
 
 /**
+ * Vraća pravilnu riječ za broj karata u hrvatskom jeziku
+ * @param {number} count - Broj karata
+ * @returns {string} - Pravilna riječ (karta/karte/karata)
+ */
+function getCardCountText(count) {
+  if (count === 1) {
+    return `${count} karta`;
+  } else if (count >= 2 && count <= 4) {
+    return `${count} karte`;
+  } else {
+    return `${count} karata`;
+  }
+}
+
+/**
  * Sortira karte po boji i jačini
  * @param {Array} cards - Array karata za sortiranje
  * @param {string} gameType - Tip igre (briskula ili treseta)
@@ -299,6 +314,7 @@ function Game({ gameData, onGameEnd }) {
       setGameState((prev) => ({
         ...prev,
         gamePhase: "finished",
+        gameInterrupted: true, // Dodaj flag da je igra prekinuta
         message: `${data.message}. Kliknite 'Glavni meni' za povratak.`,
       }));
       // Ne automatski preusmjeravaj - neka igrač sam odluči
@@ -308,6 +324,7 @@ function Game({ gameData, onGameEnd }) {
       setGameState((prev) => ({
         ...prev,
         gamePhase: "finished",
+        gameInterrupted: true, // Dodaj flag da je igra prekinuta
         message: `${data.message} Kliknite 'Glavni meni' za povratak.`,
       }));
       // Ne automatski preusmjeravaj - neka igrač sam odluči
@@ -623,11 +640,13 @@ function Game({ gameData, onGameEnd }) {
                 </div>
                 <div className="stat-item">
                   <span>Karte u ruci:</span>
-                  <span>{gameState.myHand.length}</span>
+                  <span>{getCardCountText(gameState.myHand.length)}</span>
                 </div>
                 <div className="stat-item">
                   <span>Osvojene karte:</span>
-                  <span>{(gameState.myCards || []).length}</span>
+                  <span>
+                    {getCardCountText((gameState.myCards || []).length)}
+                  </span>
                 </div>
               </div>
 
@@ -660,11 +679,13 @@ function Game({ gameData, onGameEnd }) {
                 </div>
                 <div className="stat-item">
                   <span>Karte u ruci:</span>
-                  <span>{gameState.opponentHandCount}</span>
+                  <span>{getCardCountText(gameState.opponentHandCount)}</span>
                 </div>
                 <div className="stat-item">
                   <span>Osvojene karte:</span>
-                  <span>{(gameState.opponentCards || []).length}</span>
+                  <span>
+                    {getCardCountText((gameState.opponentCards || []).length)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -717,86 +738,109 @@ function Game({ gameData, onGameEnd }) {
       {gameState.gamePhase === "finished" && (
         <div className="final-score-overlay">
           <div className="final-score-container">
-            <div className="final-score-header">
-              <h2>🎮 Partija završena!</h2>
-              {gameState.winner === gameState.playerNumber && (
-                <div className="result-emoji">🎉</div>
-              )}
-              {gameState.winner === null && (
-                <div className="result-emoji">🤝</div>
-              )}
-              {gameState.winner &&
-                gameState.winner !== gameState.playerNumber && (
-                  <div className="result-emoji">😔</div>
-                )}
-            </div>
-
-            <div className="final-scores-grid">
-              <div className="final-player-score">
-                <div className="player-name">{user?.name}</div>
-                <div className="player-points">
-                  {gameState.gameType === "treseta"
-                    ? gameState.myPoints
-                    : myPoints}{" "}
-                  bodova
+            {gameState.gameInterrupted ? (
+              // Prikaz za prekinutu igru
+              <>
+                <div className="final-score-header">
+                  <h2>⚠️ Igra prekinuta</h2>
+                  <div className="result-emoji">😕</div>
                 </div>
-                <div className="player-cards">
-                  {(gameState.myCards || []).length} karata
+                <div className="game-result">
+                  <p>{gameState.message}</p>
                 </div>
-                {gameState.winner === gameState.playerNumber && (
-                  <div className="winner-badge">👑 POBJEDNIK</div>
-                )}
-              </div>
-
-              <div className="vs-divider">VS</div>
-
-              <div className="final-player-score">
-                <div className="player-name">{gameState.opponent?.name}</div>
-                <div className="player-points">
-                  {gameState.gameType === "treseta"
-                    ? gameState.opponentPoints
-                    : opponentPoints}{" "}
-                  bodova
+                <div className="final-score-actions">
+                  <button onClick={onGameEnd} className="btn-secondary-large">
+                    � Glavni meni
+                  </button>
                 </div>
-                <div className="player-cards">
-                  {(gameState.opponentCards || []).length} karata
-                </div>
-                {gameState.winner &&
-                  gameState.winner !== gameState.playerNumber &&
-                  gameState.winner !== null && (
-                    <div className="winner-badge">👑 POBJEDNIK</div>
+              </>
+            ) : (
+              // Normalni prikaz rezultata
+              <>
+                <div className="final-score-header">
+                  <h2>�🎮 Partija završena!</h2>
+                  {gameState.winner === gameState.playerNumber && (
+                    <div className="result-emoji">🎉</div>
                   )}
-              </div>
-            </div>
+                  {gameState.winner === null && (
+                    <div className="result-emoji">🤝</div>
+                  )}
+                  {gameState.winner &&
+                    gameState.winner !== gameState.playerNumber && (
+                      <div className="result-emoji">😔</div>
+                    )}
+                </div>
 
-            <div className="game-result">
-              <p>{gameState.message}</p>
-            </div>
+                <div className="final-scores-grid">
+                  <div className="final-player-score">
+                    <div className="player-name">{user?.name}</div>
+                    <div className="player-points">
+                      {gameState.gameType === "treseta"
+                        ? gameState.myPoints
+                        : myPoints}{" "}
+                      bodova
+                    </div>
+                    <div className="player-cards">
+                      {getCardCountText((gameState.myCards || []).length)}
+                    </div>
+                    {gameState.winner === gameState.playerNumber && (
+                      <div className="winner-badge">👑 POBJEDNIK</div>
+                    )}
+                  </div>
 
-            <div className="final-score-actions">
-              <button
-                onClick={() => {
-                  // Resetuj game state za novi match
-                  setGameState((prev) => ({
-                    ...prev,
-                    gamePhase: "matchmaking", // Postaviti na matchmaking dok čeka novi match
-                    message: "Tražim revanš s istim protivnikom...",
-                  }));
-                  // Pokreni rematch s istim protivnikom
-                  rematch(
-                    gameData.gameMode || "1v1",
-                    gameState.gameType,
-                    gameState.opponent?.id // proslijedi opponent ID
-                  );
-                }}
-                className="btn-primary-large"
-              >
-                🔄 Revanš
-              </button>
-              <button onClick={onGameEnd} className="btn-secondary-large">
-                🏠 Glavni meni
-              </button>
-            </div>
+                  <div className="vs-divider">VS</div>
+
+                  <div className="final-player-score">
+                    <div className="player-name">
+                      {gameState.opponent?.name}
+                    </div>
+                    <div className="player-points">
+                      {gameState.gameType === "treseta"
+                        ? gameState.opponentPoints
+                        : opponentPoints}{" "}
+                      bodova
+                    </div>
+                    <div className="player-cards">
+                      {getCardCountText((gameState.opponentCards || []).length)}
+                    </div>
+                    {gameState.winner &&
+                      gameState.winner !== gameState.playerNumber &&
+                      gameState.winner !== null && (
+                        <div className="winner-badge">👑 POBJEDNIK</div>
+                      )}
+                  </div>
+                </div>
+
+                <div className="game-result">
+                  <p>{gameState.message}</p>
+                </div>
+
+                <div className="final-score-actions">
+                  <button
+                    onClick={() => {
+                      // Resetuj game state za novi match
+                      setGameState((prev) => ({
+                        ...prev,
+                        gamePhase: "matchmaking", // Postaviti na matchmaking dok čeka novi match
+                        message: "Tražim revanš s istim protivnikom...",
+                      }));
+                      // Pokreni rematch s istim protivnikom
+                      rematch(
+                        gameData.gameMode || "1v1",
+                        gameState.gameType,
+                        gameState.opponent?.id // proslijedi opponent ID
+                      );
+                    }}
+                    className="btn-primary-large"
+                  >
+                    🔄 Revanš
+                  </button>
+                  <button onClick={onGameEnd} className="btn-secondary-large">
+                    🏠 Glavni meni
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -12,6 +12,21 @@ function calculatePoints(cards) {
 }
 
 /**
+ * Vraća pravilnu riječ za broj karata u hrvatskom jeziku
+ * @param {number} count - Broj karata
+ * @returns {string} - Pravilna riječ (karta/karte/karata)
+ */
+function getCardCountText(count) {
+  if (count === 1) {
+    return `${count} karta`;
+  } else if (count >= 2 && count <= 4) {
+    return `${count} karte`;
+  } else {
+    return `${count} karata`;
+  }
+}
+
+/**
  * Sortira karte po boji i jačini i grupiraj po bojama
  * @param {Array} cards - Array karata za sortiranje
  * @param {string} gameType - Tip igre (briskula ili treseta)
@@ -254,6 +269,7 @@ function Game2v2({ gameData, onGameEnd }) {
       setGameState((prev) => ({
         ...prev,
         gamePhase: "finished",
+        gameInterrupted: true, // Dodaj flag da je igra prekinuta
         message: `${displayMessage} Kliknite 'Glavni meni' za povratak.`,
       }));
       // Ne automatski preusmjeravaj - neka igrač sam odluči
@@ -268,6 +284,7 @@ function Game2v2({ gameData, onGameEnd }) {
       setGameState((prev) => ({
         ...prev,
         gamePhase: "finished",
+        gameInterrupted: true, // Dodaj flag da je igra prekinuta
         message: `${displayMessage} Kliknite 'Glavni meni' za povratak.`,
       }));
       // Ne automatski preusmjeravaj - neka igrač sam odluči
@@ -420,7 +437,7 @@ function Game2v2({ gameData, onGameEnd }) {
             alt="Dinari"
             className="title-suit-icon"
           />
-          {gameState.gameType === "treseta" ? "Trešeta 2v2" : "Briskula 2v2"}
+          {gameState.gameType === "treseta" ? "Timska Trešeta" : "Briskula 2v2"}
         </h1>
 
         {/* Team scores */}
@@ -495,10 +512,11 @@ function Game2v2({ gameData, onGameEnd }) {
               {getPlayerName(getPlayerByPosition("top"))}
             </div>
             <div className="player-cards-indicator">
-              <div className="cards-icon">
-                {gameState.handCounts[`player${getPlayerByPosition("top")}`]}
-              </div>
-              <span>karata</span>
+              <span>
+                {getCardCountText(
+                  gameState.handCounts[`player${getPlayerByPosition("top")}`]
+                )}
+              </span>
             </div>
           </div>
         </div>
@@ -536,10 +554,11 @@ function Game2v2({ gameData, onGameEnd }) {
                 {getPlayerName(getPlayerByPosition("left"))}
               </div>
               <div className="player-cards-indicator">
-                <div className="cards-icon">
-                  {gameState.handCounts[`player${getPlayerByPosition("left")}`]}
-                </div>
-                <span>karata</span>
+                <span>
+                  {getCardCountText(
+                    gameState.handCounts[`player${getPlayerByPosition("left")}`]
+                  )}
+                </span>
               </div>
             </div>
           </div>
@@ -617,14 +636,13 @@ function Game2v2({ gameData, onGameEnd }) {
                 {getPlayerName(getPlayerByPosition("right"))}
               </div>
               <div className="player-cards-indicator">
-                <div className="cards-icon">
-                  {
+                <span>
+                  {getCardCountText(
                     gameState.handCounts[
                       `player${getPlayerByPosition("right")}`
                     ]
-                  }
-                </div>
-                <span>karata</span>
+                  )}
+                </span>
               </div>
             </div>
           </div>
@@ -692,8 +710,9 @@ function Game2v2({ gameData, onGameEnd }) {
                       <div key={player.playerNumber} className="player-stat">
                         <span>{player.name}:</span>
                         <span>
-                          {gameState.handCounts[`player${player.playerNumber}`]}{" "}
-                          karata
+                          {getCardCountText(
+                            gameState.handCounts[`player${player.playerNumber}`]
+                          )}
                         </span>
                       </div>
                     ))}
@@ -733,8 +752,9 @@ function Game2v2({ gameData, onGameEnd }) {
                       <div key={player.playerNumber} className="player-stat">
                         <span>{player.name}:</span>
                         <span>
-                          {gameState.handCounts[`player${player.playerNumber}`]}{" "}
-                          karata
+                          {getCardCountText(
+                            gameState.handCounts[`player${player.playerNumber}`]
+                          )}
                         </span>
                       </div>
                     ))}
@@ -756,112 +776,134 @@ function Game2v2({ gameData, onGameEnd }) {
       {gameState.gamePhase === "finished" && (
         <div className="final-score-overlay">
           <div className="final-score-container">
-            <div className="final-score-header">
-              <h2>🎮 Partija završena!</h2>
-              {gameState.winner === gameState.myTeam && (
-                <div className="result-emoji">🎉</div>
-              )}
-              {gameState.winner === null && (
-                <div className="result-emoji">🤝</div>
-              )}
-              {gameState.winner && gameState.winner !== gameState.myTeam && (
-                <div className="result-emoji">😔</div>
-              )}
-            </div>
-
-            <div className="final-teams-grid">
-              <div className="final-team-score">
-                <div className="team-header">
-                  <h3>Tim A</h3>
-                  {gameState.winner === "A" && (
-                    <div className="winner-badge">👑 POBJEDNIK</div>
+            {gameState.gameInterrupted ? (
+              // Prikaz za prekinutu igru
+              <>
+                <div className="final-score-header">
+                  <h2>⚠️ Igra prekinuta</h2>
+                  <div className="result-emoji">😕</div>
+                </div>
+                <div className="game-result">
+                  <p>{gameState.message}</p>
+                </div>
+                <div className="final-score-actions">
+                  <button onClick={onGameEnd} className="btn-secondary-large">
+                    � Glavni meni
+                  </button>
+                </div>
+              </>
+            ) : (
+              // Normalni prikaz rezultata
+              <>
+                <div className="final-score-header">
+                  <h2>�🎮 Partija završena!</h2>
+                  {gameState.winner === gameState.myTeam && (
+                    <div className="result-emoji">🎉</div>
                   )}
-                </div>
-                <div className="team-points">
-                  {gameState.gameType === "treseta"
-                    ? gameState.teamAPoints
-                    : calculatePoints(gameState.teamACards || [])}{" "}
-                  bodova
-                </div>
-                <div className="team-cards">
-                  {(gameState.teamACards || []).length} karata
-                </div>
-                <div className="team-players">
-                  {gameState.players
-                    ?.filter((p) => p.team === "A")
-                    .map((player) => (
-                      <div
-                        key={player.playerNumber}
-                        className={`team-player ${
-                          player.playerNumber === gameState.playerNumber
-                            ? "current-player"
-                            : ""
-                        }`}
-                      >
-                        {player.name}{" "}
-                        {player.playerNumber === gameState.playerNumber &&
-                          "(Vi)"}
-                      </div>
-                    ))}
-                </div>
-              </div>
-
-              <div className="vs-divider">VS</div>
-
-              <div className="final-team-score">
-                <div className="team-header">
-                  <h3>Tim B</h3>
-                  {gameState.winner === "B" && (
-                    <div className="winner-badge">👑 POBJEDNIK</div>
+                  {gameState.winner === null && (
+                    <div className="result-emoji">🤝</div>
                   )}
+                  {gameState.winner &&
+                    gameState.winner !== gameState.myTeam && (
+                      <div className="result-emoji">😔</div>
+                    )}
                 </div>
-                <div className="team-points">
-                  {gameState.gameType === "treseta"
-                    ? gameState.teamBPoints
-                    : calculatePoints(gameState.teamBCards || [])}{" "}
-                  bodova
-                </div>
-                <div className="team-cards">
-                  {(gameState.teamBCards || []).length} karata
-                </div>
-                <div className="team-players">
-                  {gameState.players
-                    ?.filter((p) => p.team === "B")
-                    .map((player) => (
-                      <div
-                        key={player.playerNumber}
-                        className={`team-player ${
-                          player.playerNumber === gameState.playerNumber
-                            ? "current-player"
-                            : ""
-                        }`}
-                      >
-                        {player.name}{" "}
-                        {player.playerNumber === gameState.playerNumber &&
-                          "(Vi)"}
-                      </div>
-                    ))}
-                </div>
-              </div>
-            </div>
 
-            <div className="game-result">
-              <p>{gameState.message}</p>
-            </div>
+                <div className="final-teams-grid">
+                  <div className="final-team-score">
+                    <div className="team-header">
+                      <h3>Tim A</h3>
+                      {gameState.winner === "A" && (
+                        <div className="winner-badge">👑 POBJEDNIK</div>
+                      )}
+                    </div>
+                    <div className="team-points">
+                      {gameState.gameType === "treseta"
+                        ? gameState.teamAPoints
+                        : calculatePoints(gameState.teamACards || [])}{" "}
+                      bodova
+                    </div>
+                    <div className="team-cards">
+                      {getCardCountText((gameState.teamACards || []).length)}
+                    </div>
+                    <div className="team-players">
+                      {gameState.players
+                        ?.filter((p) => p.team === "A")
+                        .map((player) => (
+                          <div
+                            key={player.playerNumber}
+                            className={`team-player ${
+                              player.playerNumber === gameState.playerNumber
+                                ? "current-player"
+                                : ""
+                            }`}
+                          >
+                            {player.name}{" "}
+                            {player.playerNumber === gameState.playerNumber &&
+                              "(Vi)"}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
 
-            <div className="final-score-actions">
-              <button
-                onClick={() => {
-                  findMatch("2v2", gameState.gameType);
-                }}
-                className="btn-primary-large"
-              >
-                🔄 Revanš
-              </button>
-              <button onClick={onGameEnd} className="btn-secondary-large">
-                🏠 Glavni meni
-              </button>
-            </div>
+                  <div className="vs-divider">VS</div>
+
+                  <div className="final-team-score">
+                    <div className="team-header">
+                      <h3>Tim B</h3>
+                      {gameState.winner === "B" && (
+                        <div className="winner-badge">👑 POBJEDNIK</div>
+                      )}
+                    </div>
+                    <div className="team-points">
+                      {gameState.gameType === "treseta"
+                        ? gameState.teamBPoints
+                        : calculatePoints(gameState.teamBCards || [])}{" "}
+                      bodova
+                    </div>
+                    <div className="team-cards">
+                      {getCardCountText((gameState.teamBCards || []).length)}
+                    </div>
+                    <div className="team-players">
+                      {gameState.players
+                        ?.filter((p) => p.team === "B")
+                        .map((player) => (
+                          <div
+                            key={player.playerNumber}
+                            className={`team-player ${
+                              player.playerNumber === gameState.playerNumber
+                                ? "current-player"
+                                : ""
+                            }`}
+                          >
+                            {player.name}{" "}
+                            {player.playerNumber === gameState.playerNumber &&
+                              "(Vi)"}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="game-result">
+                  <p>{gameState.message}</p>
+                </div>
+
+                <div className="final-score-actions">
+                  <button
+                    onClick={() => {
+                      findMatch("2v2", gameState.gameType);
+                    }}
+                    className="btn-primary-large"
+                  >
+                    🔄 Revanš
+                  </button>
+                  <button onClick={onGameEnd} className="btn-secondary-large">
+                    🏠 Glavni meni
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
