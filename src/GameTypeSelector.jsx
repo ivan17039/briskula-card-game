@@ -17,26 +17,12 @@ function GameTypeSelector({ onGameTypeSelect, onBack }) {
     {
       id: "briskula",
       name: "Briskula",
-      description: "Klasična hrvatska igra",
-      details: [
-        "Prvi do 61+ bodova",
-        "As(11), Trica(10), Kralj(4)",
-        "Jednostavna pravila",
-      ],
       icon: "🃏",
-      badge: "Klasična",
     },
     {
       id: "treseta",
       name: "Trešeta",
-      description: "Strategijska igra s akužama",
-      details: [
-        "Prvi do 31/41 bodova",
-        "Trica > Duja > As",
-        "Akužavanje kombinacija",
-      ],
       icon: "🎯",
-      badge: "Strategijska",
     },
   ];
 
@@ -86,30 +72,8 @@ function GameTypeSelector({ onGameTypeSelect, onBack }) {
             >
               <div className="type-icon">{type.icon}</div>
               <h3>{type.name}</h3>
-              <p>{type.description}</p>
-              <ul>
-                {type.details.map((detail, index) => (
-                  <li key={index}>{detail}</li>
-                ))}
-              </ul>
-              <div className="type-badge">{type.badge}</div>
             </div>
           ))}
-        </div>
-
-        <div className="type-info">
-          <h4>ℹ️ Općenito o igrama</h4>
-          <div className="rules-grid">
-            <div className="rule-item">
-              <strong>Karte:</strong> 40 karata (1-7, 11-13)
-            </div>
-            <div className="rule-item">
-              <strong>Boje:</strong> Kupe, Bati, Spadi, Dinari
-            </div>
-            <div className="rule-item">
-              <strong>Način:</strong> 1v1 ili 2v2 timski
-            </div>
-          </div>
         </div>
       </div>
     </div>

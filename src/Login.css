@@ -95,6 +95,7 @@
   font-size: 0.95em;
   transition: all 0.3s ease;
   background: white;
+  color: #495057;
 }
 
 .form-group input:focus {

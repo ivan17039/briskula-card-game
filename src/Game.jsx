@@ -69,7 +69,7 @@ function sortCards(cards, gameType = "briskula") {
 }
 
 function Game({ gameData, onGameEnd }) {
-  const { socket, user, playCard, leaveRoom, findMatch } = useSocket();
+  const { socket, user, playCard, leaveRoom, findMatch, rematch } = useSocket();
 
   const initializeGameState = () => {
     if (!gameData) return null;
@@ -136,6 +136,41 @@ function Game({ gameData, onGameEnd }) {
   // Socket event listeners (keeping the same logic as original)
   useEffect(() => {
     if (!socket || !gameState?.roomId) return;
+
+    // Listener za novu igru nakon revanša
+    socket.on("gameStart", (newGameData) => {
+      console.log("🎮 Nova igra počinje (revanš):", newGameData);
+      // Reset game state s novim podacima
+      const newState = initializeGameState();
+      if (newState) {
+        // Ažuriraj s novim game data
+        setGameState({
+          ...newState,
+          roomId: newGameData.roomId,
+          playerNumber: newGameData.playerNumber,
+          opponent: newGameData.opponent,
+          gameType: newGameData.gameType,
+          myHand:
+            newGameData.playerNumber === 1
+              ? newGameData.gameState.player1Hand
+              : newGameData.gameState.player2Hand,
+          opponentHandCount:
+            newGameData.playerNumber === 1
+              ? (newGameData.gameState.player2Hand || []).length
+              : (newGameData.gameState.player1Hand || []).length,
+          trump: newGameData.gameState.trump,
+          currentPlayer: newGameData.gameState.currentPlayer,
+          remainingCardsCount: (newGameData.gameState.remainingDeck || [])
+            .length,
+          playableCards: newGameData.gameState.playableCards || [],
+          gamePhase: "playing",
+          message:
+            newGameData.gameState.currentPlayer === newGameData.playerNumber
+              ? "Vaš red! Odaberite kartu za igranje."
+              : "Protivnikov red. Čekajte...",
+        });
+      }
+    });
 
     socket.on("cardPlayed", (data) => {
       setGameState((prev) => ({
@@ -294,6 +329,7 @@ function Game({ gameData, onGameEnd }) {
     });
 
     return () => {
+      socket.off("gameStart");
       socket.off("cardPlayed");
       socket.off("turnChange");
       socket.off("roundFinished");
@@ -689,16 +725,20 @@ function Game({ gameData, onGameEnd }) {
               {gameState.winner === null && (
                 <div className="result-emoji">🤝</div>
               )}
-              {gameState.winner && gameState.winner !== gameState.playerNumber && (
-                <div className="result-emoji">😔</div>
-              )}
+              {gameState.winner &&
+                gameState.winner !== gameState.playerNumber && (
+                  <div className="result-emoji">😔</div>
+                )}
             </div>
 
             <div className="final-scores-grid">
               <div className="final-player-score">
                 <div className="player-name">{user?.name}</div>
                 <div className="player-points">
-                  {gameState.gameType === "treseta" ? gameState.myPoints : myPoints} bodova
+                  {gameState.gameType === "treseta"
+                    ? gameState.myPoints
+                    : myPoints}{" "}
+                  bodova
                 </div>
                 <div className="player-cards">
                   {(gameState.myCards || []).length} karata
@@ -713,14 +753,19 @@ function Game({ gameData, onGameEnd }) {
               <div className="final-player-score">
                 <div className="player-name">{gameState.opponent?.name}</div>
                 <div className="player-points">
-                  {gameState.gameType === "treseta" ? gameState.opponentPoints : opponentPoints} bodova
+                  {gameState.gameType === "treseta"
+                    ? gameState.opponentPoints
+                    : opponentPoints}{" "}
+                  bodova
                 </div>
                 <div className="player-cards">
                   {(gameState.opponentCards || []).length} karata
                 </div>
-                {gameState.winner && gameState.winner !== gameState.playerNumber && gameState.winner !== null && (
-                  <div className="winner-badge">👑 POBJEDNIK</div>
-                )}
+                {gameState.winner &&
+                  gameState.winner !== gameState.playerNumber &&
+                  gameState.winner !== null && (
+                    <div className="winner-badge">👑 POBJEDNIK</div>
+                  )}
               </div>
             </div>
 
@@ -729,19 +774,64 @@ function Game({ gameData, onGameEnd }) {
             </div>
 
             <div className="final-score-actions">
-              <button 
+              <button
                 onClick={() => {
-                  findMatch("1v1", gameState.gameType);
-                }} 
+                  // Resetuj game state za novi match
+                  setGameState((prev) => ({
+                    ...prev,
+                    gamePhase: "matchmaking", // Postaviti na matchmaking dok čeka novi match
+                    message: "Tražim revanš s istim protivnikom...",
+                  }));
+                  // Pokreni rematch s istim protivnikom
+                  rematch(
+                    gameData.gameMode || "1v1",
+                    gameState.gameType,
+                    gameState.opponent?.id // proslijedi opponent ID
+                  );
+                }}
                 className="btn-primary-large"
               >
                 🔄 Revanš
               </button>
-              <button 
-                onClick={onGameEnd} 
+              <button onClick={onGameEnd} className="btn-secondary-large">
+                🏠 Glavni meni
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Matchmaking Screen for Rematch */}
+      {gameState.gamePhase === "matchmaking" && (
+        <div className="final-score-overlay">
+          <div className="final-score-container">
+            <div className="final-score-header">
+              <h2>🔄 Tražim revanš...</h2>
+              <div className="result-emoji">⏳</div>
+            </div>
+            <div className="game-result">
+              <p>{gameState.message}</p>
+            </div>
+            <div className="final-score-actions">
+              <button
+                onClick={() => {
+                  // Odustani od revanša i vrati se na finished screen
+                  setGameState((prev) => ({
+                    ...prev,
+                    gamePhase: "finished",
+                    message:
+                      prev.winner === prev.playerNumber
+                        ? "🎉 Pobijedili ste! (Dosegnuli ste 61 bod)"
+                        : prev.winner === null
+                        ? "🤝 Neriješeno!"
+                        : "😔 Izgubili ste.",
+                  }));
+                  // Otkaži matchmaking
+                  socket?.emit("cancelMatch");
+                }}
                 className="btn-secondary-large"
               >
-                🏠 Glavni meni
+                🚫 Odustani
               </button>
             </div>
           </div>

@@ -778,20 +778,29 @@ function Game2v2({ gameData, onGameEnd }) {
                   )}
                 </div>
                 <div className="team-points">
-                  {gameState.gameType === "treseta" ? gameState.teamAPoints : calculatePoints(gameState.teamACards || [])} bodova
+                  {gameState.gameType === "treseta"
+                    ? gameState.teamAPoints
+                    : calculatePoints(gameState.teamACards || [])}{" "}
+                  bodova
                 </div>
                 <div className="team-cards">
                   {(gameState.teamACards || []).length} karata
                 </div>
                 <div className="team-players">
                   {gameState.players
-                    ?.filter(p => p.team === "A")
-                    .map(player => (
-                      <div 
-                        key={player.playerNumber} 
-                        className={`team-player ${player.playerNumber === gameState.playerNumber ? 'current-player' : ''}`}
+                    ?.filter((p) => p.team === "A")
+                    .map((player) => (
+                      <div
+                        key={player.playerNumber}
+                        className={`team-player ${
+                          player.playerNumber === gameState.playerNumber
+                            ? "current-player"
+                            : ""
+                        }`}
                       >
-                        {player.name} {player.playerNumber === gameState.playerNumber && "(Vi)"}
+                        {player.name}{" "}
+                        {player.playerNumber === gameState.playerNumber &&
+                          "(Vi)"}
                       </div>
                     ))}
                 </div>
@@ -807,20 +816,29 @@ function Game2v2({ gameData, onGameEnd }) {
                   )}
                 </div>
                 <div className="team-points">
-                  {gameState.gameType === "treseta" ? gameState.teamBPoints : calculatePoints(gameState.teamBCards || [])} bodova
+                  {gameState.gameType === "treseta"
+                    ? gameState.teamBPoints
+                    : calculatePoints(gameState.teamBCards || [])}{" "}
+                  bodova
                 </div>
                 <div className="team-cards">
                   {(gameState.teamBCards || []).length} karata
                 </div>
                 <div className="team-players">
                   {gameState.players
-                    ?.filter(p => p.team === "B")
-                    .map(player => (
-                      <div 
-                        key={player.playerNumber} 
-                        className={`team-player ${player.playerNumber === gameState.playerNumber ? 'current-player' : ''}`}
+                    ?.filter((p) => p.team === "B")
+                    .map((player) => (
+                      <div
+                        key={player.playerNumber}
+                        className={`team-player ${
+                          player.playerNumber === gameState.playerNumber
+                            ? "current-player"
+                            : ""
+                        }`}
                       >
-                        {player.name} {player.playerNumber === gameState.playerNumber && "(Vi)"}
+                        {player.name}{" "}
+                        {player.playerNumber === gameState.playerNumber &&
+                          "(Vi)"}
                       </div>
                     ))}
                 </div>
@@ -832,18 +850,15 @@ function Game2v2({ gameData, onGameEnd }) {
             </div>
 
             <div className="final-score-actions">
-              <button 
+              <button
                 onClick={() => {
                   findMatch("2v2", gameState.gameType);
-                }} 
+                }}
                 className="btn-primary-large"
               >
                 🔄 Revanš
               </button>
-              <button 
-                onClick={onGameEnd} 
-                className="btn-secondary-large"
-              >
+              <button onClick={onGameEnd} className="btn-secondary-large">
                 🏠 Glavni meni
               </button>
             </div>

@@ -282,18 +282,57 @@
   }
 
   .type-option {
-    padding: 10px 8px;
+    padding: 20px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
   }
 
   .type-option h3 {
-    font-size: 1em;
+    font-size: 1.2em;
+    margin: 10px 0 0 0;
   }
 
-  .type-option p {
-    font-size: 0.85em;
+  .type-icon {
+    font-size: 2.5rem;
+  }
+}
+
+/* Extra compact mobile styles */
+@media (max-width: 480px) {
+  .game-type-card {
+    padding: 15px;
+    max-width: 90%;
   }
 
-  .type-option li {
-    font-size: 0.75em;
+  .type-header h2 {
+    font-size: 1.3rem;
+    margin: 10px 0;
+  }
+
+  .type-header p {
+    font-size: 0.9rem;
+    margin: 5px 0;
+  }
+
+  .type-options {
+    gap: 15px;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .type-option {
+    padding: 15px;
+    min-height: 100px;
+  }
+
+  .type-icon {
+    font-size: 2rem;
+  }
+
+  .type-option h3 {
+    font-size: 1rem;
+    margin: 8px 0 0 0;
   }
 }

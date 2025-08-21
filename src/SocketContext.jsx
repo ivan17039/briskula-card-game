@@ -98,6 +98,22 @@ export const SocketProvider = ({ children }) => {
     }
   };
 
+  const rematch = (
+    gameMode = "1v1",
+    gameType = "briskula",
+    opponentId = null
+  ) => {
+    if (socket && user) {
+      // Ako imamo opponent ID, pokušaj s istim protivnikom
+      if (opponentId) {
+        socket.emit("requestRematch", { gameMode, gameType, opponentId });
+      } else {
+        // Inače traži novog protivnika
+        socket.emit("findMatch", { gameMode, gameType });
+      }
+    }
+  };
+
   const cancelMatch = () => {
     if (socket) {
       socket.emit("cancelMatch");
@@ -123,6 +139,7 @@ export const SocketProvider = ({ children }) => {
     user,
     registerUser,
     findMatch,
+    rematch,
     cancelMatch,
     playCard,
     leaveRoom,

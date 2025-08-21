@@ -968,23 +968,31 @@ body,
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
-  from { 
+  from {
     opacity: 0;
     transform: translateY(50px);
   }
-  to { 
+  to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
 @keyframes bounce {
-  0%, 20%, 50%, 80%, 100% {
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
     transform: translateY(0);
   }
   40% {
@@ -1007,44 +1015,84 @@ body,
 /* Mobile responsiveness for final score */
 @media (max-width: 768px) {
   .final-score-container {
-    padding: 30px 20px;
-    margin: 20px;
+    padding: 15px;
+    margin: 10px;
+    max-width: 95%;
+    width: 95%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .final-score-header {
+    margin-bottom: 15px;
   }
 
   .final-score-header h2 {
-    font-size: 2rem;
+    font-size: 1.4rem;
+    margin-bottom: 5px;
   }
 
   .result-emoji {
-    font-size: 3rem;
+    font-size: 2.5rem;
+    margin-bottom: 10px;
   }
 
   .final-scores-grid {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 12px;
+    margin-bottom: 15px;
   }
 
   .vs-divider {
     order: 2;
-    font-size: 1.2rem;
+    font-size: 1rem;
+    margin: 5px 0;
   }
 
   .final-player-score {
-    padding: 20px;
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .final-player-score .player-name {
+    font-size: 1rem;
+    margin-bottom: 6px;
   }
 
   .final-player-score .player-points {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
+    margin-bottom: 4px;
+  }
+
+  .final-player-score .player-cards {
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+  }
+
+  .winner-badge {
+    padding: 4px 12px;
+    font-size: 0.75rem;
+    margin-top: 6px;
+  }
+
+  .game-result {
+    padding: 12px;
+    margin-bottom: 15px;
+  }
+
+  .game-result p {
+    font-size: 0.95rem;
   }
 
   .final-score-actions {
     flex-direction: column;
-    gap: 15px;
+    gap: 10px;
   }
 
   .btn-primary-large,
   .btn-secondary-large {
     width: 100%;
-    padding: 12px 20px;
+    padding: 10px 16px;
+    font-size: 0.95rem;
   }
 }

@@ -110,7 +110,8 @@ function determineRoundWinner(card1, card2, trumpSuit, firstPlayer) {
 
   // Provjeri da li su obje karte adut
   if (trumpSuit && card1.suit === trumpSuit && card2.suit === trumpSuit) {
-    const winner = card1.strength > card2.strength ? firstPlayer : (firstPlayer === 1 ? 2 : 1);
+    const winner =
+      card1.strength > card2.strength ? firstPlayer : firstPlayer === 1 ? 2 : 1;
     console.log("🏆 Obje karte su adut - pobjednik:", winner);
     return winner;
   }
