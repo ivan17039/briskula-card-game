@@ -174,10 +174,15 @@ function Game({ gameData, onGameEnd }) {
           },
         });
       }, 1000); // Debounce saving to prevent too frequent calls
-      
+
       return () => clearTimeout(timeoutId);
     }
-  }, [gameState?.gamePhase, gameState?.roomId, gameState?.currentPlayer, gameState?.playedCards?.length]);
+  }, [
+    gameState?.gamePhase,
+    gameState?.roomId,
+    gameState?.currentPlayer,
+    gameState?.playedCards?.length,
+  ]);
 
   // Socket event listeners (keeping the same logic as original)
   useEffect(() => {

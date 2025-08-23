@@ -26,10 +26,8 @@ body,
   position: relative;
   overflow: hidden;
   /* Add safe area padding for mobile notches and home indicators */
-  padding: env(safe-area-inset-top, 0px) 
-           env(safe-area-inset-right, 0px) 
-           env(safe-area-inset-bottom, 0px) 
-           env(safe-area-inset-left, 0px);
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
 /* Game header - compact and clean */

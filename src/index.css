@@ -11,13 +11,13 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  
+
   /* Custom properties for safe areas and responsive design */
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
-  
+
   /* Responsive spacing */
   --mobile-padding: max(20px, var(--safe-area-top));
   --mobile-padding-horizontal: max(20px, var(--safe-area-right));
@@ -39,10 +39,8 @@ body {
   min-width: 320px;
   min-height: 100svh; /* Safe viewport height */
   /* Add safe area padding for mobile browsers */
-  padding: env(safe-area-inset-top, 0px) 
-           env(safe-area-inset-right, 0px) 
-           env(safe-area-inset-bottom, 0px) 
-           env(safe-area-inset-left, 0px);
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
 h1 {

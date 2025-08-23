@@ -6,10 +6,10 @@
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   /* Add safe area padding */
-  padding: max(20px, env(safe-area-inset-top, 0px)) 
-           max(20px, env(safe-area-inset-right, 0px)) 
-           max(20px, env(safe-area-inset-bottom, 0px)) 
-           max(20px, env(safe-area-inset-left, 0px));
+  padding: max(20px, env(safe-area-inset-top, 0px))
+    max(20px, env(safe-area-inset-right, 0px))
+    max(20px, env(safe-area-inset-bottom, 0px))
+    max(20px, env(safe-area-inset-left, 0px));
 }
 
 .matchmaking-card {
