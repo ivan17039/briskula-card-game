@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import { auth } from "./supabase.js";
+import { useSocket } from "./SocketContext";
 import "./Login.css";
 
 function Login({ onLogin }) {
+  const { user } = useSocket();
   const [loginMode, setLoginMode] = useState("guest"); // 'guest', 'login', ili 'register'
   const [formData, setFormData] = useState({
     name: "",
@@ -16,19 +18,25 @@ function Login({ onLogin }) {
 
   // Check if user is already logged in
   useEffect(() => {
+    if (user) {
+      // User is already logged in, skip to next screen
+      onLogin(user);
+      return;
+    }
+    
     const checkUser = async () => {
-      const { user } = await auth.getUser();
-      if (user) {
+      const { user: supabaseUser } = await auth.getUser();
+      if (supabaseUser) {
         onLogin({
-          name: user.user_metadata?.username || user.email,
-          email: user.email,
+          name: supabaseUser.user_metadata?.username || supabaseUser.email,
+          email: supabaseUser.email,
           isGuest: false,
-          userId: user.id,
+          userId: supabaseUser.id,
         });
       }
     };
     checkUser();
-  }, [onLogin]);
+  }, [onLogin, user]);
 
   const handleInputChange = (e) => {
     setFormData({
@@ -56,7 +64,17 @@ function Login({ onLogin }) {
           formData.email,
           formData.password
         );
-        if (error) throw error;
+        
+        if (error) {
+          // Handleuj specifične login greške
+          if (error.message.includes('Invalid login credentials') || error.message.includes('invalid')) {
+            throw new Error("Neispravni podaci za prijavu");
+          } else if (error.message.includes('too many')) {
+            throw new Error("Previše pokušaja. Pokušajte kasnije.");
+          } else {
+            throw new Error(error.message || "Greška pri prijavi");
+          }
+        }
 
         await onLogin({
           name: data.user.user_metadata?.username || data.user.email,
@@ -69,9 +87,16 @@ function Login({ onLogin }) {
         if (!formData.name.trim()) {
           throw new Error("Ime je obavezno");
         }
-        if (!formData.email.trim() || !formData.email.includes("@")) {
-          throw new Error("Unesite važeću email adresu");
+        
+        // Poboljšana email validacija
+        const emailRegex = /^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]@[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]\.[a-zA-Z]{2,}$/;
+        if (!formData.email.trim()) {
+          throw new Error("Email je obavezan");
         }
+        if (!emailRegex.test(formData.email.trim())) {
+          throw new Error("Unesite važeću email adresu (npr. ime@domena.com)");
+        }
+        
         if (formData.password.length < 6) {
           throw new Error("Password mora imati najmanje 6 karaktera");
         }
@@ -81,7 +106,19 @@ function Login({ onLogin }) {
           formData.password,
           formData.name
         );
-        if (error) throw error;
+        
+        if (error) {
+          // Handleuj specifične Supabase greške
+          if (error.message.includes('already registered') || error.message.includes('already been registered')) {
+            throw new Error("Korisnik sa ovim emailom već postoji");
+          } else if (error.message.includes('invalid email')) {
+            throw new Error("Email adresa nije važeća");
+          } else if (error.message.includes('password')) {
+            throw new Error("Password nije dovoljno jak");
+          } else {
+            throw new Error(error.message || "Greška pri registraciji");
+          }
+        }
 
         if (data.user) {
           await onLogin({
@@ -98,6 +135,20 @@ function Login({ onLogin }) {
       setIsLoading(false);
     }
   };
+
+  // If user is already logged in, show loading or redirect
+  if (user) {
+    return (
+      <div className="login-container">
+        <div className="login-card">
+          <div className="loading-state">
+            <h2>Već ste ulogirani</h2>
+            <p>Preusmjeravam vas...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="login-container">
