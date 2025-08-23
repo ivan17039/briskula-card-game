@@ -86,7 +86,15 @@ function sortCards(cards, gameType = "briskula") {
 }
 
 function Game2v2({ gameData, onGameEnd }) {
-  const { socket, user, playCard, leaveRoom, findMatch } = useSocket();
+  const {
+    socket,
+    user,
+    playCard,
+    leaveRoom,
+    findMatch,
+    saveGameState,
+    clearGameState,
+  } = useSocket();
 
   const initializeGameState = () => {
     if (!gameData) return null;
@@ -240,11 +248,11 @@ function Game2v2({ gameData, onGameEnd }) {
 
         if (data.gameEnd.isGameOver) {
           if (data.gameEnd.winner === prev.myTeam) {
-            newState.message = `🎉 Vaš tim je pobijedio! (${data.gameEnd.reason})`;
+            newState.message = `🎉 Vaš tim je pobijedio!`;
           } else if (data.gameEnd.winner === null) {
             newState.message = `🤝 Neriješeno! (${data.gameEnd.reason})`;
           } else {
-            newState.message = `😔 Vaš tim je izgubio. (${data.gameEnd.reason})`;
+            newState.message = `😔 Vaš tim je izgubio.`;
           }
         } else {
           const winningTeam = data.roundWinningTeam;
