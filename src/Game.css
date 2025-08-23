@@ -11,17 +11,25 @@ body,
   height: 100%;
   width: 100%;
   overflow: hidden;
+  /* Ensure safe area support */
+  padding: 0;
+  margin: 0;
 }
 
-/* Main game wrapper - full screen */
+/* Main game wrapper - full screen with safe areas */
 .game-wrapper {
   width: 100vw;
-  height: 100vh;
+  height: 100svh; /* Safe viewport height - avoids mobile browser UI */
   background: linear-gradient(135deg, #0f5132 0%, #198754 50%, #0f5132 100%);
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
+  /* Add safe area padding for mobile notches and home indicators */
+  padding: env(safe-area-inset-top, 0px) 
+           env(safe-area-inset-right, 0px) 
+           env(safe-area-inset-bottom, 0px) 
+           env(safe-area-inset-left, 0px);
 }
 
 /* Game header - compact and clean */
@@ -815,7 +823,7 @@ body,
   top: 0;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: 100svh; /* Safe viewport height */
   background: rgba(0, 0, 0, 0.9);
   display: flex;
   justify-content: center;

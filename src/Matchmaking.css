@@ -1,11 +1,15 @@
 /* Matchmaking.css - Stilovi za matchmaking komponentu */
 .matchmaking-container {
-  min-height: 100vh;
+  min-height: 100svh; /* Safe viewport height */
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
+  /* Add safe area padding */
+  padding: max(20px, env(safe-area-inset-top, 0px)) 
+           max(20px, env(safe-area-inset-right, 0px)) 
+           max(20px, env(safe-area-inset-bottom, 0px)) 
+           max(20px, env(safe-area-inset-left, 0px));
 }
 
 .matchmaking-card {

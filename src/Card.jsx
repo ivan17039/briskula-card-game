@@ -15,12 +15,6 @@ function Card({
     }
     if (!card || !card.suit || !card.value) return null;
 
-    console.log(`🎴 Card.jsx getCardImage:`, {
-      card,
-      suit: card.suit,
-      value: card.value,
-    });
-
     const suitFolders = {
       Kupe: "Kupe",
       Bati: "Bati",
@@ -45,8 +39,6 @@ function Card({
     else return null;
 
     const imagePath = `/cards_img/${folder}/${fileName}`;
-    console.log(`🎴 Card.jsx final path:`, imagePath);
-
     return imagePath;
   };
 

@@ -157,25 +157,31 @@ function Game({ gameData, onGameEnd }) {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Separate useEffect for saving game state to avoid infinite loops
+  useEffect(() => {
+    if (gameState?.gamePhase === "playing" && gameState?.roomId) {
+      const timeoutId = setTimeout(() => {
+        saveGameState({
+          ...gameState,
+          roomId: gameState.roomId,
+          gameMode: gameData?.gameMode || "1v1",
+          gameType: gameState.gameType,
+          opponent: gameState.opponent,
+          playerNumber: gameState.playerNumber,
+          gameState: {
+            ...gameState,
+            playableCards: gameState.playableCards,
+          },
+        });
+      }, 1000); // Debounce saving to prevent too frequent calls
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [gameState?.gamePhase, gameState?.roomId, gameState?.currentPlayer, gameState?.playedCards?.length]);
+
   // Socket event listeners (keeping the same logic as original)
   useEffect(() => {
     if (!socket || !gameState?.roomId) return;
-
-    // Save game state when it's in playing phase
-    if (gameState.gamePhase === "playing") {
-      saveGameState({
-        ...gameState,
-        roomId: gameState.roomId,
-        gameMode: gameData?.gameMode || "1v1",
-        gameType: gameState.gameType,
-        opponent: gameState.opponent, // Preserve opponent info
-        playerNumber: gameState.playerNumber, // Preserve player number
-        gameState: {
-          ...gameState,
-          playableCards: gameState.playableCards, // Preserve playableCards for Treseta
-        },
-      });
-    }
 
     // Listener za novu igru nakon revanša
     socket.on("gameStart", (newGameData) => {
@@ -580,10 +586,6 @@ function Game({ gameData, onGameEnd }) {
               gameState.gameType === "treseta" ? "treseta-deck" : ""
             }`}
           >
-            {console.log("🎮 Game type check:", {
-              gameType: gameState.gameType,
-              isTreseta: gameState.gameType === "treseta",
-            })}
             <div className="deck-label">
               Špil ({gameState.remainingCardsCount})
             </div>
