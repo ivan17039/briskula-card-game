@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SocketProvider, useSocket } from "./SocketContext";
 import Login from "./Login";
 import GameTypeSelector from "./GameTypeSelector";
@@ -8,14 +8,49 @@ import GameModeSelector from "./GameModeSelector";
 import Matchmaking from "./Matchmaking";
 import Game from "./Game";
 import Game2v2 from "./Game2v2";
+import ReconnectDialog from "./ReconnectDialog";
 import "./App.css";
 
 function AppContent() {
-  const { isConnected, connectionError, user, registerUser } = useSocket();
+  const {
+    isConnected,
+    connectionError,
+    user,
+    registerUser,
+    logout,
+    savedGameState,
+    clearGameState,
+    reconnectToGame,
+  } = useSocket();
   const [appState, setAppState] = useState("login");
   const [gameType, setGameType] = useState(null); // 'briskula' | 'treseta'
   const [gameMode, setGameMode] = useState("1v1");
   const [gameData, setGameData] = useState(null);
+  const [showReconnectDialog, setShowReconnectDialog] = useState(false);
+
+  // Check if user is already logged in when component mounts
+  useEffect(() => {
+    if (user && appState === "login") {
+      setAppState("gameSelect");
+    } else if (!user && appState !== "login") {
+      // If user is logged out, go back to login
+      setAppState("login");
+      setGameData(null);
+      setGameType(null);
+      setGameMode("1v1");
+    }
+  }, [user, appState]);
+
+  // Check for saved game state when user connects - only show if not currently in a game
+  useEffect(() => {
+    if (isConnected && user && savedGameState && appState !== "game") {
+      // Only show reconnect dialog if we're not currently in a game
+      setShowReconnectDialog(true);
+    } else if (appState === "game") {
+      // If we're in a game, don't show reconnect dialog
+      setShowReconnectDialog(false);
+    }
+  }, [isConnected, user, savedGameState, appState]);
 
   const handleLogin = async (userData) => {
     await registerUser(userData);
@@ -51,7 +86,40 @@ function AppContent() {
   };
 
   const handleBackToLogin = () => {
+    // Only allow going back to login if user logs out
+    logout();
     setAppState("login");
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    // useEffect će automatski prebaciti na login state
+  };
+
+  const handleReconnectToGame = async () => {
+    try {
+      const result = await reconnectToGame();
+      if (result.success) {
+        setGameData(result);
+        setGameType(result.gameType);
+        setGameMode(result.gameMode);
+        setAppState("game");
+        setShowReconnectDialog(false);
+      }
+    } catch (error) {
+      console.error("Reconnection failed:", error);
+      // Dialog će pokazati grešku, ne zatvaramo ga
+    }
+  };
+
+  const handleDismissReconnect = () => {
+    clearGameState();
+    setShowReconnectDialog(false);
+    // Reset sve i vrati na game select
+    setGameData(null);
+    setGameType(null);
+    setGameMode("1v1");
+    setAppState("gameSelect");
   };
 
   if (connectionError) {
@@ -79,33 +147,72 @@ function AppContent() {
 
   switch (appState) {
     case "login":
-      return <Login onLogin={handleLogin} />;
+      return (
+        <>
+          <Login onLogin={handleLogin} />
+          {showReconnectDialog && (
+            <ReconnectDialog
+              gameState={savedGameState}
+              onReconnect={handleReconnectToGame}
+              onDismiss={handleDismissReconnect}
+            />
+          )}
+        </>
+      );
 
     case "gameSelect":
       return (
-        <GameTypeSelector
-          onGameTypeSelect={handleGameTypeSelect}
-          onBack={handleBackToLogin}
-        />
+        <>
+          <GameTypeSelector
+            onGameTypeSelect={handleGameTypeSelect}
+            onLogout={handleLogout}
+            user={user}
+          />
+          {showReconnectDialog && (
+            <ReconnectDialog
+              gameState={savedGameState}
+              onReconnect={handleReconnectToGame}
+              onDismiss={handleDismissReconnect}
+            />
+          )}
+        </>
       );
 
     case "modeSelect":
       return (
-        <GameModeSelector
-          onModeSelect={handleModeSelect}
-          onBack={handleBackToGameSelect}
-          gameType={gameType}
-        />
+        <>
+          <GameModeSelector
+            onModeSelect={handleModeSelect}
+            onBack={handleBackToGameSelect}
+            gameType={gameType}
+          />
+          {showReconnectDialog && (
+            <ReconnectDialog
+              gameState={savedGameState}
+              onReconnect={handleReconnectToGame}
+              onDismiss={handleDismissReconnect}
+            />
+          )}
+        </>
       );
 
     case "matchmaking":
       return (
-        <Matchmaking
-          onGameStart={handleGameStart}
-          gameMode={gameMode}
-          gameType={gameType}
-          onBackToModeSelect={handleBackToModeSelect}
-        />
+        <>
+          <Matchmaking
+            onGameStart={handleGameStart}
+            gameMode={gameMode}
+            gameType={gameType}
+            onBackToModeSelect={handleBackToModeSelect}
+          />
+          {showReconnectDialog && (
+            <ReconnectDialog
+              gameState={savedGameState}
+              onReconnect={handleReconnectToGame}
+              onDismiss={handleDismissReconnect}
+            />
+          )}
+        </>
       );
 
     case "game":
@@ -116,7 +223,18 @@ function AppContent() {
       );
 
     default:
-      return <Login onLogin={handleLogin} />;
+      return (
+        <>
+          <Login onLogin={handleLogin} />
+          {showReconnectDialog && (
+            <ReconnectDialog
+              gameState={savedGameState}
+              onReconnect={handleReconnectToGame}
+              onDismiss={handleDismissReconnect}
+            />
+          )}
+        </>
+      );
   }
 }
 
