@@ -84,7 +84,16 @@ function sortCards(cards, gameType = "briskula") {
 }
 
 function Game({ gameData, onGameEnd }) {
-  const { socket, user, playCard, leaveRoom, findMatch, rematch } = useSocket();
+  const {
+    socket,
+    user,
+    playCard,
+    leaveRoom,
+    findMatch,
+    rematch,
+    saveGameState,
+    clearGameState,
+  } = useSocket();
 
   const initializeGameState = () => {
     if (!gameData) return null;
@@ -151,6 +160,22 @@ function Game({ gameData, onGameEnd }) {
   // Socket event listeners (keeping the same logic as original)
   useEffect(() => {
     if (!socket || !gameState?.roomId) return;
+
+    // Save game state when it's in playing phase
+    if (gameState.gamePhase === "playing") {
+      saveGameState({
+        ...gameState,
+        roomId: gameState.roomId,
+        gameMode: gameData?.gameMode || "1v1",
+        gameType: gameState.gameType,
+        opponent: gameState.opponent, // Preserve opponent info
+        playerNumber: gameState.playerNumber, // Preserve player number
+        gameState: {
+          ...gameState,
+          playableCards: gameState.playableCards, // Preserve playableCards for Treseta
+        },
+      });
+    }
 
     // Listener za novu igru nakon revanša
     socket.on("gameStart", (newGameData) => {
@@ -259,12 +284,15 @@ function Game({ gameData, onGameEnd }) {
         };
 
         if (data.gameEnd.isGameOver) {
+          // Clear saved game state when game ends
+          clearGameState();
+
           if (data.gameEnd.winner === prev.playerNumber) {
-            newState.message = `🎉 Pobijedili ste! (${data.gameEnd.reason})`;
+            newState.message = `🎉 Pobijedili ste!`;
           } else if (data.gameEnd.winner === null) {
             newState.message = `🤝 Neriješeno! (${data.gameEnd.reason})`;
           } else {
-            newState.message = `😔 Izgubili ste. (${data.gameEnd.reason})`;
+            newState.message = `😔 Izgubili ste.`;
           }
         } else {
           // Pokreni animaciju pokupljenih karata iz špila (samo za Trešetu)
@@ -455,6 +483,7 @@ function Game({ gameData, onGameEnd }) {
           {gameState.gamePhase === "playing" && (
             <button
               onClick={() => {
+                clearGameState(); // Clear saved state on manual leave
                 leaveRoom(gameState.roomId);
                 onGameEnd();
               }}
@@ -484,6 +513,7 @@ function Game({ gameData, onGameEnd }) {
           {gameState.gamePhase === "playing" && (
             <button
               onClick={() => {
+                clearGameState(); // Clear saved state on manual leave
                 leaveRoom(gameState.roomId);
                 onGameEnd();
               }}
@@ -514,8 +544,7 @@ function Game({ gameData, onGameEnd }) {
             {gameState.opponent?.name}
             {gameState.gameType === "treseta" && (
               <span className="points-display">
-                {" "}
-                ({gameState.opponentPoints} bodova)
+                {/* ({gameState.opponentPoints} bodova) */}
               </span>
             )}
           </div>
@@ -582,8 +611,7 @@ function Game({ gameData, onGameEnd }) {
             {user?.name}
             {gameState.gameType === "treseta" && (
               <span className="points-display">
-                {" "}
-                ({gameState.myPoints} bodova)
+                {/* ({gameState.myPoints} bodova) */}
               </span>
             )}
             {gameState.currentPlayer === gameState.playerNumber && (
@@ -591,21 +619,24 @@ function Game({ gameData, onGameEnd }) {
             )}
           </div>
           <div className="player-cards">
-            {sortCards(gameState.myHand, gameState.gameType).map((card) => (
-              <Card
-                key={card.id}
-                card={card}
-                isPlayable={
-                  gameState.gamePhase === "playing" &&
-                  gameState.currentPlayer === gameState.playerNumber &&
-                  (gameState.gameType !== "treseta" ||
-                    gameState.playableCards.includes(card.id))
-                }
-                isSelected={selectedCard && selectedCard.id === card.id}
-                onClick={handleCardClick}
-                size={cardSize}
-              />
-            ))}
+            {sortCards(gameState.myHand, gameState.gameType).map((card) => {
+              const isPlayable =
+                gameState.gamePhase === "playing" &&
+                gameState.currentPlayer === gameState.playerNumber &&
+                (gameState.gameType !== "treseta" ||
+                  gameState.playableCards.includes(card.id));
+
+              return (
+                <Card
+                  key={card.id}
+                  card={card}
+                  isPlayable={isPlayable}
+                  isSelected={selectedCard && selectedCard.id === card.id}
+                  onClick={handleCardClick}
+                  size={cardSize}
+                />
+              );
+            })}
           </div>
 
           {selectedCard && (
