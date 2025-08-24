@@ -437,7 +437,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Leave room event
+  // Leave room event (temporary - can reconnect)
   socket.on("leaveRoom", (roomId) => {
     const room = gameRooms.get(roomId);
     if (!room) return;
@@ -446,7 +446,7 @@ io.on("connection", (socket) => {
     if (!leavingPlayer) return;
 
     console.log(
-      `🚪 Igrač ${leavingPlayer.name} (${leavingPlayer.playerNumber}) je napustio ${room.gameMode} igru`
+      `🚪 Igrač ${leavingPlayer.name} (${leavingPlayer.playerNumber}) je privremeno napustio ${room.gameMode} igru (može se reconnect)`
     );
 
     let message;
@@ -471,6 +471,148 @@ io.on("connection", (socket) => {
     gameRooms.delete(roomId);
     socket.leave(roomId);
     console.log(`🗑️ Soba ${roomId} obrisana jer je igrač napustio.`);
+  });
+
+  // Leave room permanently (no reconnect possible)
+  socket.on("leaveRoomPermanently", async (roomId) => {
+    const room = gameRooms.get(roomId);
+    if (!room) return;
+
+    const leavingPlayer = room.players.find((p) => p.id === socket.id);
+    if (!leavingPlayer) return;
+
+    console.log(
+      `🚪 Igrač ${leavingPlayer.name} (${leavingPlayer.playerNumber}) je trajno napustio ${room.gameMode} igru`
+    );
+
+    // Clear any saved session/game state for this player
+    try {
+      const userSession = await sessionManager.findSessionByUser(
+        leavingPlayer.name
+      );
+      if (userSession) {
+        await sessionManager.markSessionAsLeft(userSession.id);
+        console.log(`🗑️ Cleared session for ${leavingPlayer.name}`);
+      }
+    } catch (error) {
+      console.log("Session cleanup failed:", error.message);
+    }
+
+    let message;
+    if (room.gameMode === "2v2") {
+      const teamInfo = `Tim ${leavingPlayer.team} (igrač ${leavingPlayer.playerNumber})`;
+      message = `${leavingPlayer.name} je napustio sobu - ${teamInfo}`;
+    } else {
+      message = `${leavingPlayer.name} je napustio sobu.`;
+    }
+
+    // Mark player as permanently left
+    leavingPlayer.permanentlyLeft = true;
+    leavingPlayer.isConnected = false;
+
+    // Notify other players about permanent leave
+    io.to(roomId).emit("playerLeft", {
+      playerNumber: leavingPlayer.playerNumber,
+      message: message,
+      gameMode: room.gameMode,
+      playerTeam: leavingPlayer.team || null,
+      permanent: true, // Flag to indicate this is permanent
+    });
+
+    // Delete the entire room and clean up all storage for all players
+    try {
+      await gameStateManager.deleteGame(roomId);
+      console.log(`🗑️ Deleted game storage for room ${roomId}`);
+    } catch (error) {
+      console.log("Game storage cleanup failed:", error.message);
+    }
+
+    // Clear sessions for all players in this room
+    try {
+      for (const player of room.players) {
+        const playerSession = await sessionManager.findSessionByUser(
+          player.name
+        );
+        if (playerSession) {
+          await sessionManager.markSessionAsLeft(playerSession.id);
+          console.log(`🗑️ Cleared session for ${player.name}`);
+        }
+      }
+    } catch (error) {
+      console.log("Session cleanup for room players failed:", error.message);
+    }
+
+    // Send roomDeleted event to all remaining players to force them to main menu
+    io.to(roomId).emit("roomDeleted", {
+      message: "Soba je obrisana jer je igrač trajno napustio igru.",
+      redirectToMenu: true,
+    });
+
+    // Delete room from memory
+    gameRooms.delete(roomId);
+    socket.leave(roomId);
+    console.log(`🗑️ Soba ${roomId} trajno obrisana.`);
+  });
+
+  // Handle reconnect dismissal - when player chooses to abandon reconnection
+  socket.on("dismissReconnect", async (roomId) => {
+    console.log(
+      `🚫 Player ${socket.id} dismissed reconnection to room ${roomId}`
+    );
+
+    const room = gameRooms.get(roomId);
+    if (!room) {
+      console.log(`❌ Room ${roomId} not found for dismissal`);
+      return;
+    }
+
+    // Find the player who is dismissing
+    const dismissingPlayer = room.players.find((p) => p.id === socket.id);
+    const dismissingPlayerName = dismissingPlayer
+      ? dismissingPlayer.name
+      : "Unknown Player";
+
+    console.log(
+      `🚫 ${dismissingPlayerName} odustaje od ponovnog spajanja na sobu ${roomId}`
+    );
+
+    // Delete the room and all related data since one player abandoned reconnection
+    try {
+      await gameStateManager.deleteGame(roomId);
+      console.log(`🗑️ Deleted game storage for abandoned room ${roomId}`);
+    } catch (error) {
+      console.log("Game storage cleanup failed:", error.message);
+    }
+
+    // Clear sessions for all players in this room
+    try {
+      for (const player of room.players) {
+        const playerSession = await sessionManager.findSessionByUser(
+          player.name
+        );
+        if (playerSession) {
+          await sessionManager.markSessionAsLeft(playerSession.id);
+          console.log(
+            `🗑️ Cleared session for ${player.name} due to room abandonment`
+          );
+        }
+      }
+    } catch (error) {
+      console.log("Session cleanup for abandoned room failed:", error.message);
+    }
+
+    // Notify any other players who might be trying to reconnect
+    io.to(roomId).emit("roomDeleted", {
+      message: `Protivnik je odustao od igre. Soba je obrisana.`,
+      redirectToMenu: true,
+    });
+
+    // Delete room from memory
+    gameRooms.delete(roomId);
+    socket.leave(roomId);
+    console.log(
+      `🗑️ Soba ${roomId} obrisana jer je igrač odustao od reconnection-a.`
+    );
   });
 
   // Enhanced reconnection handler
@@ -605,9 +747,43 @@ io.on("connection", (socket) => {
             name: p.name,
             userId: p.userId,
             isGuest: p.isGuest,
+            permanentlyLeft: p.permanentlyLeft,
           })),
         });
-        socket.emit("reconnectFailed", { message: "Niste dio ove igre" });
+        socket.emit("reconnectFailed", {
+          message: "Niste dio ove igre",
+          reason: "playerNotFound",
+        });
+        return;
+      }
+
+      // Check if player permanently left
+      if (playerInRoom.permanentlyLeft) {
+        console.log(`❌ Player ${playerInRoom.name} permanently left the game`);
+        socket.emit("reconnectFailed", {
+          message: "Napustili ste ovu igru i ne možete se vratiti",
+          reason: "permanentlyLeft",
+        });
+        return;
+      }
+
+      // Check if any other player permanently left (room should be deleted)
+      const someoneLeft = room.players.some((p) => p.permanentlyLeft);
+      if (someoneLeft) {
+        console.log(
+          `❌ Room ${reconnectData.roomId} has players that permanently left`
+        );
+        // Clean up the room
+        try {
+          await gameStateManager.deleteGame(reconnectData.roomId);
+          gameRooms.delete(reconnectData.roomId);
+        } catch (error) {
+          console.log("Cleanup failed:", error.message);
+        }
+        socket.emit("reconnectFailed", {
+          message: "Soba više ne postoji jer je netko napustio igru",
+          reason: "roomDeleted",
+        });
         return;
       }
 
