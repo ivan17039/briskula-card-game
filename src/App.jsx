@@ -23,7 +23,7 @@ function AppContent() {
     clearGameState,
     reconnectToGame,
   } = useSocket();
-  
+
   const { addToast } = useToast();
   const [appState, setAppState] = useState("login");
   const [gameType, setGameType] = useState(null); // 'briskula' | 'treseta'
@@ -65,7 +65,9 @@ function AppContent() {
     }
 
     // Check for reconnection failure reason
-    const reconnectFailureReason = localStorage.getItem("reconnectFailureReason");
+    const reconnectFailureReason = localStorage.getItem(
+      "reconnectFailureReason"
+    );
     if (reconnectFailureReason) {
       let message = "Reconnection failed";
       switch (reconnectFailureReason) {
