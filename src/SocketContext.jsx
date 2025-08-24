@@ -122,10 +122,31 @@ export const SocketProvider = ({ children }) => {
 
     // Reconnection failed
     newSocket.on("reconnectFailed", (data) => {
-      console.log("❌ Reconnection failed:", data.message);
+      console.log("❌ Reconnection failed:", data.message, data.reason);
       // Clear invalid game state
       clearGameState();
       setConnectionError(data.message);
+
+      // Store failure reason for UI handling
+      if (data.reason) {
+        localStorage.setItem("reconnectFailureReason", data.reason);
+      }
+    });
+
+    // Room deleted event - force return to main menu
+    newSocket.on("roomDeleted", (data) => {
+      console.log("🗑️ Room deleted:", data.message);
+      // Clear game state since room no longer exists
+      clearGameState();
+
+      // Store deletion message for Toast notification
+      localStorage.setItem("roomDeletionMessage", data.message);
+
+      // Force redirect to main menu
+      if (data.redirectToMenu) {
+        window.location.hash = "";
+        window.location.reload();
+      }
     });
 
     newSocket.on("registered", (data) => {
@@ -215,6 +236,12 @@ export const SocketProvider = ({ children }) => {
     }
   };
 
+  const leaveRoomPermanently = (roomId) => {
+    if (socket) {
+      socket.emit("leaveRoomPermanently", roomId);
+    }
+  };
+
   const logout = async () => {
     // If user is not a guest, logout from Supabase too
     if (user && !user.isGuest) {
@@ -271,8 +298,20 @@ export const SocketProvider = ({ children }) => {
         const handleReconnectFailed = (data) => {
           socket.off("reconnected", handleReconnected);
           socket.off("reconnectFailed", handleReconnectFailed);
-          console.log("❌ Reconnection failed:", data.message);
-          reject(new Error(data.message));
+          console.log("❌ Reconnection failed:", data.message, data.reason);
+
+          // Clear game state for certain failure reasons
+          if (
+            data.reason === "permanentlyLeft" ||
+            data.reason === "roomDeleted" ||
+            data.reason === "playerNotFound"
+          ) {
+            clearGameState();
+          }
+
+          const error = new Error(data.message);
+          error.reason = data.reason;
+          reject(error);
         };
 
         socket.on("reconnected", handleReconnected);
@@ -306,6 +345,14 @@ export const SocketProvider = ({ children }) => {
     });
   };
 
+  const dismissReconnect = () => {
+    if (socket && gameState) {
+      console.log("🚫 Dismissing reconnection to room:", gameState.roomId);
+      socket.emit("dismissReconnect", gameState.roomId);
+      clearGameState();
+    }
+  };
+
   const value = {
     socket,
     isConnected,
@@ -320,10 +367,12 @@ export const SocketProvider = ({ children }) => {
     cancelMatch,
     playCard,
     leaveRoom,
+    leaveRoomPermanently,
     logout,
     saveGameState,
     clearGameState,
     reconnectToGame,
+    dismissReconnect,
   };
 
   return (
