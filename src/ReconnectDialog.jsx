@@ -3,7 +3,8 @@ import { useSocket } from "./SocketContext";
 import "./ReconnectDialog.css";
 
 function ReconnectDialog({ onDismiss, onReconnect }) {
-  const { gameState, isConnected, reconnectAttempts } = useSocket();
+  const { gameState, isConnected, reconnectAttempts, dismissReconnect } =
+    useSocket();
 
   if (!gameState) return null;
 
@@ -12,6 +13,9 @@ function ReconnectDialog({ onDismiss, onReconnect }) {
   };
 
   const handleDismiss = () => {
+    // Notify server that we're dismissing reconnection (this will delete the room)
+    dismissReconnect();
+    // Call the parent dismiss handler
     onDismiss();
   };
 
