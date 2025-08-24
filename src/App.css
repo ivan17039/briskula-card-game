@@ -30,11 +30,6 @@
   color: white;
   text-align: center;
   padding: 20px;
-  /* Add safe area padding */
-  padding: max(20px, env(safe-area-inset-top, 0px))
-    max(20px, env(safe-area-inset-right, 0px))
-    max(20px, env(safe-area-inset-bottom, 0px))
-    max(20px, env(safe-area-inset-left, 0px));
 }
 
 .connection-error h2 {
@@ -79,11 +74,7 @@
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   text-align: center;
-  /* Add safe area padding */
-  padding: max(20px, env(safe-area-inset-top, 0px))
-    max(20px, env(safe-area-inset-right, 0px))
-    max(20px, env(safe-area-inset-bottom, 0px))
-    max(20px, env(safe-area-inset-left, 0px));
+  padding: 20px;
 }
 
 .loading-screen h2 {

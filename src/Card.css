@@ -39,8 +39,19 @@
 }
 
 /* Card states - hover effect on ENTIRE CARD */
-.card-playable:hover {
+.card-playable:hover:not(.card-selected) {
   transform: translateY(-12px) scale(1.05);
+}
+
+/* Completely disable hover after card interaction */
+.card:active,
+.card:focus {
+  transform: none !important;
+}
+
+/* Remove any lingering hover effects */
+.card-playable:not(:hover) {
+  transition: transform 0.2s ease-out;
 }
 
 .card-selected {

@@ -54,10 +54,22 @@ function Card({
     .filter(Boolean)
     .join(" ");
 
+  const handleCardClick = (event) => {
+    if (isPlayable) {
+      onClick(card);
+      // Remove hover state AFTER click to avoid interfering with game logic
+      setTimeout(() => {
+        if (event.currentTarget) {
+          event.currentTarget.blur();
+        }
+      }, 50);
+    }
+  };
+
   return (
     <div
       className={cardClasses}
-      onClick={() => isPlayable && onClick(card)}
+      onClick={handleCardClick}
       title={
         card?.name ? `${card.name} ${card.suit} (${card.points} bodova)` : ""
       }
