@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Card from "./Card";
 import { useSocket } from "./SocketContext";
+import { useToast } from "./ToastProvider";
 import "./Game.css";
 import "./Card.css";
 import "./Game2v2.css";
@@ -91,10 +92,13 @@ function Game2v2({ gameData, onGameEnd }) {
     user,
     playCard,
     leaveRoom,
+    leaveRoomPermanently,
     findMatch,
     saveGameState,
     clearGameState,
   } = useSocket();
+
+  const { addToast } = useToast();
 
   const initializeGameState = () => {
     if (!gameData) return null;
@@ -284,18 +288,59 @@ function Game2v2({ gameData, onGameEnd }) {
     });
 
     socket.on("playerLeft", (data) => {
-      let displayMessage = data.message;
-      if (data.gameMode === "2v2" && data.playerTeam) {
-        displayMessage += ` Igra je prekinuta.`;
-      }
+      if (data.permanent) {
+        // Permanent leave - room will be deleted, clear state and redirect
+        clearGameState();
+        addToast(`${data.message} Vraćam vas na glavni meni.`, "warning");
+        setTimeout(() => {
+          onGameEnd();
+        }, 2000);
+      } else {
+        // Temporary leave - game can continue with reconnection
+        let displayMessage = data.message;
+        if (data.gameMode === "2v2" && data.playerTeam) {
+          displayMessage += ` Igra je prekinuta.`;
+        }
 
-      setGameState((prev) => ({
-        ...prev,
-        gamePhase: "finished",
-        gameInterrupted: true, // Dodaj flag da je igra prekinuta
-        message: `${displayMessage} Kliknite 'Glavni meni' za povratak.`,
-      }));
-      // Ne automatski preusmjeravaj - neka igrač sam odluči
+        setGameState((prev) => ({
+          ...prev,
+          gamePhase: "finished",
+          gameInterrupted: true,
+          message: `${displayMessage} Kliknite 'Glavni meni' za povratak.`,
+        }));
+      }
+    });
+
+    // Handle room deletion
+    socket.on("roomDeleted", (data) => {
+      clearGameState();
+      addToast(data.message, "error");
+      setTimeout(() => {
+        onGameEnd();
+      }, 2000);
+    });
+
+    // Handle reconnection failures
+    socket.on("reconnectFailed", (data) => {
+      clearGameState();
+      let toastMessage = data.message;
+      
+      switch (data.reason) {
+        case "permanentlyLeft":
+          toastMessage = "Ne možete se vratiti u igru koju ste napustili.";
+          break;
+        case "roomDeleted":
+          toastMessage = "Soba više ne postoji.";
+          break;
+        case "playerNotFound":
+          toastMessage = "Niste dio ove igre.";
+          break;
+      }
+      
+      addToast(toastMessage, "error");
+      setTimeout(() => {
+        onGameEnd();
+      }, 2000);
     });
 
     // Trešeta specific events
@@ -310,7 +355,7 @@ function Game2v2({ gameData, onGameEnd }) {
 
     socket.on("invalidMove", (data) => {
       if (gameState?.gameType === "treseta") {
-        alert(`Neispavan potez: ${data.reason}`);
+        addToast(`Neispavan potez: ${data.reason}`, "error");
         setSelectedCard(null);
       }
     });
@@ -321,6 +366,8 @@ function Game2v2({ gameData, onGameEnd }) {
       socket.off("roundFinished");
       socket.off("playerDisconnected");
       socket.off("playerLeft");
+      socket.off("roomDeleted");
+      socket.off("reconnectFailed");
       socket.off("playableCardsUpdate");
       socket.off("invalidMove");
     };
@@ -477,7 +524,8 @@ function Game2v2({ gameData, onGameEnd }) {
           {gameState.gamePhase === "playing" && (
             <button
               onClick={() => {
-                leaveRoom(gameState.roomId);
+                clearGameState(); // Clear saved state on manual leave
+                leaveRoomPermanently(gameState.roomId); // Use permanent leave
                 onGameEnd();
               }}
               className="game-btn btn-danger"
@@ -658,14 +706,8 @@ function Game2v2({ gameData, onGameEnd }) {
 
         {/* Bottom player (current user) */}
         <div className="player-position bottom-player">
-          <div className="game-status">{gameState.message}</div>
-          <div className="player-info my-player">
-            <div className="player-name">
-              {user?.name}
-              {gameState.currentPlayer === gameState.playerNumber && (
-                <span className="turn-indicator"> (Vaš red)</span>
-              )}
-            </div>
+          <div className="player-status-combined">
+            {user?.name} - {gameState.message}
           </div>
           <div className="player-cards">
             {sortCards(gameState.myHand, gameState.gameType).map((card) => (

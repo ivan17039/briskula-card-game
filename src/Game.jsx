@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Card from "./Card";
 import { useSocket } from "./SocketContext";
+import { useToast } from "./ToastProvider";
 import "./Game.css";
 
 function calculatePoints(cards) {
@@ -89,11 +90,14 @@ function Game({ gameData, onGameEnd }) {
     user,
     playCard,
     leaveRoom,
+    leaveRoomPermanently,
     findMatch,
     rematch,
     saveGameState,
     clearGameState,
   } = useSocket();
+
+  const { addToast } = useToast();
 
   const initializeGameState = () => {
     if (!gameData) return null;
@@ -360,13 +364,54 @@ function Game({ gameData, onGameEnd }) {
     });
 
     socket.on("playerLeft", (data) => {
-      setGameState((prev) => ({
-        ...prev,
-        gamePhase: "finished",
-        gameInterrupted: true, // Dodaj flag da je igra prekinuta
-        message: `${data.message} Kliknite 'Glavni meni' za povratak.`,
-      }));
-      // Ne automatski preusmjeravaj - neka igrač sam odluči
+      if (data.permanent) {
+        // Permanent leave - room will be deleted, clear state and redirect
+        clearGameState();
+        addToast("Protivnik je trajno napustio igru. Vraćam vas na glavni meni.", "warning");
+        setTimeout(() => {
+          onGameEnd();
+        }, 2000);
+      } else {
+        // Temporary leave - game can continue with reconnection
+        setGameState((prev) => ({
+          ...prev,
+          gamePhase: "finished",
+          gameInterrupted: true,
+          message: `${data.message} Kliknite 'Glavni meni' za povratak.`,
+        }));
+      }
+    });
+
+    // Handle room deletion
+    socket.on("roomDeleted", (data) => {
+      clearGameState();
+      addToast(data.message, "error");
+      setTimeout(() => {
+        onGameEnd();
+      }, 2000);
+    });
+
+    // Handle reconnection failures
+    socket.on("reconnectFailed", (data) => {
+      clearGameState();
+      let toastMessage = data.message;
+      
+      switch (data.reason) {
+        case "permanentlyLeft":
+          toastMessage = "Ne možete se vratiti u igru koju ste napustili.";
+          break;
+        case "roomDeleted":
+          toastMessage = "Soba više ne postoji.";
+          break;
+        case "playerNotFound":
+          toastMessage = "Niste dio ove igre.";
+          break;
+      }
+      
+      addToast(toastMessage, "error");
+      setTimeout(() => {
+        onGameEnd();
+      }, 2000);
     });
 
     // Trešeta - ažuriranje igrljivih karata
@@ -381,7 +426,7 @@ function Game({ gameData, onGameEnd }) {
     // Trešeta - nevaljan potez
     socket.on("invalidMove", (data) => {
       console.log("❌ Invalid move:", data.message);
-      alert(`Nevaljan potez: ${data.message}`);
+      addToast(`Nevaljan potez: ${data.message}`, "error");
     });
 
     return () => {
@@ -391,6 +436,8 @@ function Game({ gameData, onGameEnd }) {
       socket.off("roundFinished");
       socket.off("playerDisconnected");
       socket.off("playerLeft");
+      socket.off("roomDeleted");
+      socket.off("reconnectFailed");
       socket.off("playableCardsUpdate");
       socket.off("invalidMove");
     };
@@ -495,7 +542,7 @@ function Game({ gameData, onGameEnd }) {
             <button
               onClick={() => {
                 clearGameState(); // Clear saved state on manual leave
-                leaveRoom(gameState.roomId);
+                leaveRoomPermanently(gameState.roomId); // Use permanent leave
                 onGameEnd();
               }}
               className="game-btn btn-danger"
@@ -525,7 +572,7 @@ function Game({ gameData, onGameEnd }) {
             <button
               onClick={() => {
                 clearGameState(); // Clear saved state on manual leave
-                leaveRoom(gameState.roomId);
+                leaveRoomPermanently(gameState.roomId); // Use permanent leave
                 onGameEnd();
               }}
               className="floating-btn exit-btn"
@@ -549,25 +596,26 @@ function Game({ gameData, onGameEnd }) {
 
       {/* Main game area with responsive scaling */}
       <div className="game-area game-area-responsive">
-        {/* Opponent hand */}
+        {/* Opponent hand - avatar system */}
         <div className="opponent-section">
-          <div className="opponent-label">
-            {gameState.opponent?.name}
+          <div className="opponent-avatar-display">
+            <div className="player-avatar opponent">
+              {gameState.opponent?.name?.charAt(0)?.toUpperCase() || "?"}
+            </div>
+            <div className="opponent-name">
+              {gameState.opponent?.name}
+              {gameState.currentPlayer === 2 && (
+                <span className="turn-indicator"> (Na redu)</span>
+              )}
+            </div>
+            <div className="opponent-cards-indicator">
+              <span>{getCardCountText(gameState.opponentHandCount)}</span>
+            </div>
             {gameState.gameType === "treseta" && (
-              <span className="points-display">
+              <div className="points-display">
                 {/* ({gameState.opponentPoints} bodova) */}
-              </span>
+              </div>
             )}
-          </div>
-          <div className="opponent-cards">
-            {Array.from({ length: gameState.opponentHandCount }, (_, index) => (
-              <Card
-                key={`opponent-${index}`}
-                card={{}}
-                isHidden={true}
-                size={cardSize}
-              />
-            ))}
           </div>
         </div>
 
@@ -612,17 +660,13 @@ function Game({ gameData, onGameEnd }) {
 
         {/* Player hand */}
         <div className="player-section">
-          {/* Status message */}
-          <div className="game-status">{gameState.message}</div>
-          <div className="player-label">
-            {user?.name}
+          {/* Combined player name and status */}
+          <div className="player-status-combined">
+            {user?.name} - {gameState.message}
             {gameState.gameType === "treseta" && (
               <span className="points-display">
                 {/* ({gameState.myPoints} bodova) */}
               </span>
-            )}
-            {gameState.currentPlayer === gameState.playerNumber && (
-              <span className="turn-indicator"> (Vaš red)</span>
             )}
           </div>
           <div className="player-cards">
@@ -645,15 +689,6 @@ function Game({ gameData, onGameEnd }) {
               );
             })}
           </div>
-
-          {selectedCard && (
-            <div className="selection-info">
-              Odabrana: {selectedCard.name} {selectedCard.suit} (
-              {selectedCard.points || 0} bodova)
-              <br />
-              <small>Kliknite ponovno za igranje</small>
-            </div>
-          )}
         </div>
       </div>
 

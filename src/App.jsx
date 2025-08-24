@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { SocketProvider, useSocket } from "./SocketContext";
+import { ToastProvider, useToast } from "./ToastProvider";
 import Login from "./Login";
 import GameTypeSelector from "./GameTypeSelector";
 import GameModeSelector from "./GameModeSelector";
@@ -22,6 +23,8 @@ function AppContent() {
     clearGameState,
     reconnectToGame,
   } = useSocket();
+  
+  const { addToast } = useToast();
   const [appState, setAppState] = useState("login");
   const [gameType, setGameType] = useState(null); // 'briskula' | 'treseta'
   const [gameMode, setGameMode] = useState("1v1");
@@ -51,6 +54,35 @@ function AppContent() {
       setShowReconnectDialog(false);
     }
   }, [isConnected, user, savedGameState, appState]);
+
+  // Check for stored Toast messages from reconnection failures or room deletions
+  useEffect(() => {
+    // Check for room deletion message
+    const roomDeletionMessage = localStorage.getItem("roomDeletionMessage");
+    if (roomDeletionMessage) {
+      addToast(roomDeletionMessage, "error");
+      localStorage.removeItem("roomDeletionMessage");
+    }
+
+    // Check for reconnection failure reason
+    const reconnectFailureReason = localStorage.getItem("reconnectFailureReason");
+    if (reconnectFailureReason) {
+      let message = "Reconnection failed";
+      switch (reconnectFailureReason) {
+        case "permanentlyLeft":
+          message = "Ne možete se vratiti u igru koju ste napustili.";
+          break;
+        case "roomDeleted":
+          message = "Soba više ne postoji.";
+          break;
+        case "playerNotFound":
+          message = "Niste dio ove igre.";
+          break;
+      }
+      addToast(message, "warning");
+      localStorage.removeItem("reconnectFailureReason");
+    }
+  }, [addToast]);
 
   const handleLogin = async (userData) => {
     await registerUser(userData);
@@ -240,11 +272,13 @@ function AppContent() {
 
 function App() {
   return (
-    <SocketProvider>
-      <div className="App">
-        <AppContent />
-      </div>
-    </SocketProvider>
+    <ToastProvider>
+      <SocketProvider>
+        <div className="App">
+          <AppContent />
+        </div>
+      </SocketProvider>
+    </ToastProvider>
   );
 }
 
