@@ -324,7 +324,7 @@ function Game2v2({ gameData, onGameEnd }) {
     socket.on("reconnectFailed", (data) => {
       clearGameState();
       let toastMessage = data.message;
-      
+
       switch (data.reason) {
         case "permanentlyLeft":
           toastMessage = "Ne možete se vratiti u igru koju ste napustili.";
@@ -336,7 +336,7 @@ function Game2v2({ gameData, onGameEnd }) {
           toastMessage = "Niste dio ove igre.";
           break;
       }
-      
+
       addToast(toastMessage, "error");
       setTimeout(() => {
         onGameEnd();

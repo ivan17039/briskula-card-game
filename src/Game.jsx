@@ -367,7 +367,10 @@ function Game({ gameData, onGameEnd }) {
       if (data.permanent) {
         // Permanent leave - room will be deleted, clear state and redirect
         clearGameState();
-        addToast("Protivnik je trajno napustio igru. Vraćam vas na glavni meni.", "warning");
+        addToast(
+          "Protivnik je trajno napustio igru. Vraćam vas na glavni meni.",
+          "warning"
+        );
         setTimeout(() => {
           onGameEnd();
         }, 2000);
@@ -395,7 +398,7 @@ function Game({ gameData, onGameEnd }) {
     socket.on("reconnectFailed", (data) => {
       clearGameState();
       let toastMessage = data.message;
-      
+
       switch (data.reason) {
         case "permanentlyLeft":
           toastMessage = "Ne možete se vratiti u igru koju ste napustili.";
@@ -407,7 +410,7 @@ function Game({ gameData, onGameEnd }) {
           toastMessage = "Niste dio ove igre.";
           break;
       }
-      
+
       addToast(toastMessage, "error");
       setTimeout(() => {
         onGameEnd();
