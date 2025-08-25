@@ -456,3 +456,78 @@
     margin: 8px 0 0 0;
   }
 }
+
+/* Development console - hidden by default */
+.dev-console {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 15px;
+  border-radius: 8px;
+  border: 2px solid #ffc107;
+  z-index: 1000;
+  min-width: 250px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.dev-info {
+  font-size: 0.9em;
+  color: #ffc107;
+  margin-bottom: 10px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.dev-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dev-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.8em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.dev-btn.clear-session {
+  background: #dc3545;
+  color: white;
+}
+
+.dev-btn.clear-session:hover {
+  background: #c82333;
+}
+
+.dev-btn.view-storage {
+  background: #17a2b8;
+  color: white;
+}
+
+.dev-btn.view-storage:hover {
+  background: #138496;
+}
+
+.dev-btn.close-console {
+  background: #6c757d;
+  color: white;
+}
+
+.dev-btn.close-console:hover {
+  background: #545b62;
+}
+
+/* Remove old dev-tools styles */
+.dev-tools {
+  display: none;
+}
+
+.clear-session-btn {
+  display: none;
+}

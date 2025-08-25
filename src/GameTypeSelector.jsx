@@ -1,10 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSocket } from "./SocketContext";
 import "./GameTypeSelector.css";
 
 function GameTypeSelector({ onGameTypeSelect, onBack, onLogout, user }) {
   const [selectedType, setSelectedType] = useState(null);
+  const { clearUserSession } = useSocket();
+
+  // Development console toggle (Ctrl + Shift + D)
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    const handleKeyPress = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key === "D") {
+        const console = document.getElementById("dev-console");
+        if (console) {
+          console.style.display =
+            console.style.display === "none" ? "block" : "none";
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, []);
 
   // Don't render if no user
   if (!user) {
@@ -106,6 +126,46 @@ function GameTypeSelector({ onGameTypeSelect, onBack, onLogout, user }) {
             </div>
           ))}
         </div>
+
+        {/* Development console - hidden by default */}
+        {import.meta.env.DEV && (
+          <div
+            className="dev-console"
+            style={{ display: "none" }}
+            id="dev-console"
+          >
+            <div className="dev-info">🛠️ Development Console</div>
+            <div className="dev-actions">
+              <button
+                type="button"
+                className="dev-btn clear-session"
+                onClick={clearUserSession}
+                title="Potpuno obriši session"
+              >
+                🧹 Clear Session
+              </button>
+              <button
+                type="button"
+                className="dev-btn view-storage"
+                onClick={() => console.log("localStorage:", localStorage)}
+                title="Prikaži localStorage u konzoli"
+              >
+                💾 View Storage
+              </button>
+              <button
+                type="button"
+                className="dev-btn close-console"
+                onClick={() =>
+                  (document.getElementById("dev-console").style.display =
+                    "none")
+                }
+                title="Zatvori dev konzolu"
+              >
+                ❌ Close
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
