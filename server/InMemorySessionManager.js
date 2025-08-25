@@ -7,6 +7,11 @@ class InMemorySessionManager {
     console.log("✅ InMemory session manager initialized");
   }
 
+  // Getter for activeSessions to maintain compatibility
+  get activeSessions() {
+    return this.sessions;
+  }
+
   async createSession(userData, socketId) {
     const sessionToken = `session_${Date.now()}_${Math.random()
       .toString(36)
