@@ -23,7 +23,7 @@ function Login({ onLogin }) {
       onLogin(user);
       return;
     }
-    
+
     const checkUser = async () => {
       const { user: supabaseUser } = await auth.getUser();
       if (supabaseUser) {
@@ -64,12 +64,15 @@ function Login({ onLogin }) {
           formData.email,
           formData.password
         );
-        
+
         if (error) {
           // Handleuj specifične login greške
-          if (error.message.includes('Invalid login credentials') || error.message.includes('invalid')) {
+          if (
+            error.message.includes("Invalid login credentials") ||
+            error.message.includes("invalid")
+          ) {
             throw new Error("Neispravni podaci za prijavu");
-          } else if (error.message.includes('too many')) {
+          } else if (error.message.includes("too many")) {
             throw new Error("Previše pokušaja. Pokušajte kasnije.");
           } else {
             throw new Error(error.message || "Greška pri prijavi");
@@ -87,16 +90,17 @@ function Login({ onLogin }) {
         if (!formData.name.trim()) {
           throw new Error("Ime je obavezno");
         }
-        
+
         // Poboljšana email validacija
-        const emailRegex = /^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]@[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]\.[a-zA-Z]{2,}$/;
+        const emailRegex =
+          /^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]@[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]\.[a-zA-Z]{2,}$/;
         if (!formData.email.trim()) {
           throw new Error("Email je obavezan");
         }
         if (!emailRegex.test(formData.email.trim())) {
           throw new Error("Unesite važeću email adresu (npr. ime@domena.com)");
         }
-        
+
         if (formData.password.length < 6) {
           throw new Error("Password mora imati najmanje 6 karaktera");
         }
@@ -106,14 +110,17 @@ function Login({ onLogin }) {
           formData.password,
           formData.name
         );
-        
+
         if (error) {
           // Handleuj specifične Supabase greške
-          if (error.message.includes('already registered') || error.message.includes('already been registered')) {
+          if (
+            error.message.includes("already registered") ||
+            error.message.includes("already been registered")
+          ) {
             throw new Error("Korisnik sa ovim emailom već postoji");
-          } else if (error.message.includes('invalid email')) {
+          } else if (error.message.includes("invalid email")) {
             throw new Error("Email adresa nije važeća");
-          } else if (error.message.includes('password')) {
+          } else if (error.message.includes("password")) {
             throw new Error("Password nije dovoljno jak");
           } else {
             throw new Error(error.message || "Greška pri registraciji");

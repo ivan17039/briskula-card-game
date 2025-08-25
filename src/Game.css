@@ -287,35 +287,35 @@ body,
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  margin-top: 10px; /* Спустио са -10px на 10px */
+  margin-top: 10px;
 }
 
 .opponent-avatar-display {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 12px;
+  gap: 4px;
+  padding: 6px;
   background: rgba(220, 53, 69, 0.2);
   border: 2px solid rgba(220, 53, 69, 0.5);
-  border-radius: 12px;
+  border-radius: 8px;
   transition: all 0.3s ease;
 }
 
 .opponent-avatar-display:has(.turn-indicator) {
-  box-shadow: 0 0 20px rgba(255, 193, 7, 0.8);
+  box-shadow: 0 0 15px rgba(255, 193, 7, 0.8);
   border-color: #ffc107;
 }
 
 .player-avatar {
-  width: 60px;
-  height: 60px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 16px;
   font-weight: bold;
   color: white;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -327,17 +327,18 @@ body,
 
 .opponent-name {
   color: white;
-  font-size: 1.1rem;
+  font-size: 0.85rem;
   font-weight: 600;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   text-align: center;
+  line-height: 1;
 }
 
 .opponent-cards-indicator {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 14px;
+  gap: 2px;
+  font-size: 11px;
   font-weight: 600;
   color: white;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
@@ -1203,5 +1204,27 @@ body,
     width: 100%;
     padding: 10px 16px;
     font-size: 0.95rem;
+  }
+
+  /* Mobile - još manje opponent avatar */
+  .opponent-avatar-display {
+    gap: 3px;
+    padding: 4px;
+    border-radius: 6px;
+  }
+
+  .player-avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
+  }
+
+  .opponent-name {
+    font-size: 0.75rem;
+  }
+
+  .opponent-cards-indicator {
+    font-size: 10px;
+    gap: 1px;
   }
 }
