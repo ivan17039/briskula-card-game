@@ -62,7 +62,7 @@ export const SocketProvider = ({ children }) => {
       setConnectionError(null);
       setReconnectAttempts(0);
 
-      // If we have a saved game state and user, just register user
+      // If we have a saved game state and user, register with session token
       // Don't auto-reconnect - let user choose via ReconnectDialog
       const savedGameState = localStorage.getItem("gameState");
       const savedUser = localStorage.getItem("user");
@@ -73,12 +73,19 @@ export const SocketProvider = ({ children }) => {
           const userData = JSON.parse(savedUser);
 
           console.log(
-            "🔄 User has saved game state, registering user but not auto-reconnecting"
+            "🔄 User has saved game state, registering user with session token"
           );
-          // Just register the user
-          newSocket.emit("register", userData);
+          // Include sessionToken if available for session continuity
+          const registrationData = {
+            ...userData,
+            sessionToken: userData.sessionToken,
+          };
+          newSocket.emit("register", registrationData);
         } catch (error) {
           console.error("Error during registration with saved state:", error);
+          // Clear corrupted data
+          localStorage.removeItem("user");
+          localStorage.removeItem("gameState");
         }
       }
     });
@@ -153,6 +160,70 @@ export const SocketProvider = ({ children }) => {
       if (data.success) {
         console.log("✅ Korisnik registriran:", data.user);
         setUser(data.user);
+        // Save user with session token to localStorage
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
+    });
+
+    // Handle session reconnection
+    newSocket.on("sessionReconnected", (data) => {
+      if (data.success) {
+        console.log("✅ Sesija reconnected:", data.user);
+        setUser(data.user);
+        // Update user with fresh session data
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        // Show success message
+        if (window.showToast) {
+          window.showToast(
+            data.message || "Uspješno ste se reconnectali!",
+            "success"
+          );
+        }
+      }
+    });
+
+    // Handle registration errors
+    newSocket.on("registrationError", (data) => {
+      console.error("❌ Registration error:", data.message);
+      setConnectionError(data.message);
+
+      // Clear corrupted user data
+      localStorage.removeItem("user");
+      setUser(null);
+
+      // Show error message
+      if (window.showToast) {
+        window.showToast(data.message || "Greška pri registraciji", "error");
+      }
+    });
+
+    // Handle session expiration
+    newSocket.on("sessionExpired", (data) => {
+      console.log("⏰ Session expired:", data.message);
+
+      // Clear expired session data
+      localStorage.removeItem("user");
+      setUser(null);
+
+      // Show expiration message
+      if (window.showToast) {
+        window.showToast(
+          "Sesija je istekla, molimo registrirajte se ponovno",
+          "warning"
+        );
+      }
+    });
+
+    // Handle force logout completion
+    newSocket.on("forceLogoutComplete", (data) => {
+      console.log("🧹 Force logout completed:", data.message);
+
+      if (window.showToast) {
+        window.showToast(
+          data.message || "Sesija je potpuno obrisana",
+          "success"
+        );
       }
     });
 
@@ -192,7 +263,23 @@ export const SocketProvider = ({ children }) => {
         }
       });
 
-      socket.emit("register", userData);
+      // Include existing sessionToken if available for session continuity
+      const existingUser = localStorage.getItem("user");
+      let registrationData = { ...userData };
+
+      if (existingUser) {
+        try {
+          const parsedUser = JSON.parse(existingUser);
+          if (parsedUser.sessionToken) {
+            registrationData.sessionToken = parsedUser.sessionToken;
+            console.log("🔄 Including existing session token for continuity");
+          }
+        } catch (error) {
+          console.warn("Could not parse existing user data:", error);
+        }
+      }
+
+      socket.emit("register", registrationData);
     });
   };
 
@@ -254,6 +341,31 @@ export const SocketProvider = ({ children }) => {
     // Clear locally stored user data and game state
     localStorage.removeItem("user");
     localStorage.removeItem("gameState");
+  };
+
+  // Development function for clearing session completely
+  const clearUserSession = () => {
+    console.log("🧹 Clearing complete user session for development");
+
+    // Clear all state
+    setUser(null);
+    setGameState(null);
+
+    // Clear all localStorage related to user session
+    localStorage.removeItem("user");
+    localStorage.removeItem("gameState");
+    localStorage.removeItem("reconnectFailureReason");
+    localStorage.removeItem("roomDeletionMessage");
+
+    // Optional: notify server to clean up session
+    if (socket && user?.sessionToken) {
+      socket.emit("forceLogout", { sessionToken: user.sessionToken });
+    }
+
+    // Show confirmation
+    if (window.showToast) {
+      window.showToast("Sesija je potpuno obrisana", "success");
+    }
   };
 
   const saveGameState = (gameData) => {
@@ -369,6 +481,7 @@ export const SocketProvider = ({ children }) => {
     leaveRoom,
     leaveRoomPermanently,
     logout,
+    clearUserSession, // Development function
     saveGameState,
     clearGameState,
     reconnectToGame,
