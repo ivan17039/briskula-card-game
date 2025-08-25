@@ -906,6 +906,50 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Force logout handler for development/cleanup
+  socket.on("forceLogout", async (data) => {
+    console.log(`🧹 Force logout requested from ${socket.id}`);
+
+    const user = connectedUsers.get(socket.id);
+
+    if (user && data.sessionToken) {
+      // Invalidate session completely
+      const removed = await sessionManager.invalidateSession(data.sessionToken);
+      if (removed) {
+        console.log(`✅ Session ${data.sessionToken} forcefully removed`);
+      }
+
+      // Remove from game rooms if active
+      await handlePlayerDisconnectWithReconnect(socket.id, true); // force = true
+
+      // Remove from queues
+      const queueIndex1v1 = waitingQueue1v1.findIndex(
+        (u) => u.id === socket.id
+      );
+      const queueIndex2v2 = waitingQueue2v2.findIndex(
+        (u) => u.id === socket.id
+      );
+
+      if (queueIndex1v1 !== -1) {
+        waitingQueue1v1.splice(queueIndex1v1, 1);
+      }
+      if (queueIndex2v2 !== -1) {
+        waitingQueue2v2.splice(queueIndex2v2, 1);
+      }
+
+      // Remove from connected users
+      connectedUsers.delete(socket.id);
+
+      // Confirm logout to client
+      socket.emit("forceLogoutComplete", {
+        success: true,
+        message: "Sesija je potpuno obrisana",
+      });
+
+      console.log(`🧹 Force logout completed for ${user.name}`);
+    }
+  });
+
   // Enhanced disconnection handler
   socket.on("disconnect", async (reason) => {
     console.log(`❌ Korisnik ${socket.id} se odspojio: ${reason}`);
