@@ -6,6 +6,7 @@ import { ToastProvider, useToast } from "./ToastProvider";
 import Login from "./Login";
 import GameTypeSelector from "./GameTypeSelector";
 import GameModeSelector from "./GameModeSelector";
+import GameLobby from "./GameLobby";
 import Matchmaking from "./Matchmaking";
 import Game from "./Game";
 import Game2v2 from "./Game2v2";
@@ -98,7 +99,20 @@ function AppContent() {
 
   const handleModeSelect = (mode) => {
     setGameMode(mode);
-    setAppState("matchmaking");
+    if (mode === "custom") {
+      setAppState("lobby");
+    } else {
+      setAppState("matchmaking");
+    }
+  };
+
+  const handleLobbyGameStart = (data) => {
+    setGameData(data);
+    setAppState("game");
+  };
+
+  const handleBackToLobby = () => {
+    setAppState("lobby");
   };
 
   const handleGameStart = (data) => {
@@ -219,6 +233,24 @@ function AppContent() {
             onModeSelect={handleModeSelect}
             onBack={handleBackToGameSelect}
             gameType={gameType}
+          />
+          {showReconnectDialog && (
+            <ReconnectDialog
+              gameState={savedGameState}
+              onReconnect={handleReconnectToGame}
+              onDismiss={handleDismissReconnect}
+            />
+          )}
+        </>
+      );
+
+    case "lobby":
+      return (
+        <>
+          <GameLobby
+            onGameStart={handleLobbyGameStart}
+            gameType={gameType}
+            onBack={handleBackToModeSelect}
           />
           {showReconnectDialog && (
             <ReconnectDialog

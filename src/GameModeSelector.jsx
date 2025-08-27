@@ -4,7 +4,7 @@ import { useState } from "react";
 import "./GameModeSelector.css";
 
 function GameModeSelector({ onModeSelect, onBack, gameType }) {
-  const [selectedMode, setSelectedMode] = useState(null);
+  const [selectedMode, setSelectedMode] = useState("custom");
 
   const handleModeSelect = (mode) => {
     setSelectedMode(mode);
@@ -66,36 +66,20 @@ function GameModeSelector({ onModeSelect, onBack, gameType }) {
         <div className="mode-options">
           <div
             className={`mode-option ${
-              selectedMode === "1v1" ? "selected" : ""
+              selectedMode === "custom" ? "selected" : ""
             }`}
-            onClick={() => handleModeSelect("1v1")}
+            onClick={() => handleModeSelect("custom")}
           >
-            <div className="mode-icon">👤 vs 👤</div>
-            <h3>1 vs 1</h3>
-            <p>Klasična {currentGame.name}</p>
+            <div className="mode-icon">🎮</div>
+            <h3>Stvori ili Pridruži se igri</h3>
+            <p>Igraj s prijateljima ili pridruži se postojećim igrama</p>
             <ul>
-              <li>Dva igrača</li>
-              <li>Brža igra</li>
-              <li>Individualna strategija</li>
+              <li>Stvori vlastitu sobu (1v1 ili 2v2)</li>
+              <li>Pridruži se postojećim sobama</li>
+              <li>Šifra sobe za privatnost</li>
+              <li>Pozovi prijatelje direktno</li>
             </ul>
-            <div className="mode-badge">Klasično</div>
-          </div>
-
-          <div
-            className={`mode-option ${
-              selectedMode === "2v2" ? "selected" : ""
-            }`}
-            onClick={() => handleModeSelect("2v2")}
-          >
-            <div className="mode-icon">👥 vs 👥</div>
-            <h3>2 vs 2</h3>
-            <p>Timska {currentGame.name}</p>
-            <ul>
-              <li>Četiri igrača</li>
-              <li>Timska strategija</li>
-              <li>Komunikacija s partnerom</li>
-            </ul>
-            <div className="mode-badge">Timski</div>
+            <div className="mode-badge">Sve u jednom</div>
           </div>
         </div>
 

@@ -302,6 +302,228 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Custom game handlers
+  socket.on("createGame", async (gameData) => {
+    const user = connectedUsers.get(socket.id);
+    if (!user) {
+      socket.emit("gameCreationError", {
+        message: "Korisnik nije registriran",
+      });
+      return;
+    }
+
+    console.log("🎮 Received createGame request:", gameData);
+    console.log("🎮 From user:", user);
+
+    try {
+      const roomId = uuidv4();
+      const customRoom = {
+        id: roomId,
+        name: gameData.gameName,
+        gameType: gameData.gameType,
+        gameMode: gameData.gameMode,
+        creator: user.name,
+        createdAt: new Date(),
+        isCustom: true,
+        hasPassword: !!gameData.password,
+        password: gameData.password || null,
+        maxPlayers: gameData.gameMode === "2v2" ? 4 : 2,
+        players: [
+          {
+            id: socket.id,
+            name: user.name,
+            userId: user.userId,
+            isGuest: user.isGuest,
+            playerNumber: 1,
+            isConnected: true,
+            team: gameData.gameMode === "2v2" ? 1 : null,
+          },
+        ],
+        gameState: {
+          gamePhase: "waiting", // waiting, playing, finished
+          version: 1,
+        },
+        status: "waiting", // waiting, full, playing
+      };
+
+      gameRooms.set(roomId, customRoom);
+      socket.join(roomId);
+
+      console.log(
+        `🎮 Custom game created: ${gameData.gameName} by ${user.name}`
+      );
+
+      socket.emit("gameCreated", {
+        success: true,
+        roomId: roomId,
+        gameData: customRoom,
+      });
+
+      // Broadcast updated game list to all clients in lobby
+      broadcastGameList();
+    } catch (error) {
+      console.error("Error creating custom game:", error);
+      socket.emit("gameCreationError", {
+        message: "Greška prilikom stvaranja igre",
+        error: error.message,
+      });
+    }
+  });
+
+  socket.on("joinGame", async (joinData) => {
+    const user = connectedUsers.get(socket.id);
+    if (!user) {
+      socket.emit("joinGameError", { message: "Korisnik nije registriran" });
+      return;
+    }
+
+    const { roomId, password } = joinData;
+    const room = gameRooms.get(roomId);
+
+    if (!room) {
+      socket.emit("joinGameError", { message: "Igra ne postoji" });
+      return;
+    }
+
+    if (!room.isCustom) {
+      socket.emit("joinGameError", { message: "Ova igra nije custom igra" });
+      return;
+    }
+
+    if (room.status === "playing") {
+      socket.emit("joinGameError", { message: "Igra je već u tijeku" });
+      return;
+    }
+
+    if (room.players.length >= room.maxPlayers) {
+      socket.emit("joinGameError", { message: "Igra je puna" });
+      return;
+    }
+
+    // Check if player is already in the room
+    const existingPlayer = room.players.find(
+      (p) =>
+        (p.userId === user.userId && !user.isGuest) ||
+        (p.name === user.name && user.isGuest)
+    );
+
+    if (existingPlayer) {
+      socket.emit("joinGameError", { message: "Već ste u ovoj igri" });
+      return;
+    }
+
+    if (room.hasPassword && room.password !== password) {
+      socket.emit("joinGameError", { message: "Neispravna šifra" });
+      return;
+    }
+
+    // Add player to room
+    const playerNumber = room.players.length + 1;
+    const newPlayer = {
+      id: socket.id,
+      name: user.name,
+      userId: user.userId,
+      isGuest: user.isGuest,
+      playerNumber: playerNumber,
+      isConnected: true,
+      team: room.gameMode === "2v2" ? Math.ceil(playerNumber / 2) : null,
+    };
+
+    room.players.push(newPlayer);
+    socket.join(roomId);
+
+    console.log(`👥 ${user.name} joined custom game: ${room.name}`);
+
+    // Update room status
+    if (room.players.length === room.maxPlayers) {
+      room.status = "full";
+    }
+
+    socket.emit("gameJoined", {
+      success: true,
+      roomId: roomId,
+      gameData: room,
+    });
+
+    // Notify all players in the room
+    io.to(roomId).emit("playerJoined", {
+      player: newPlayer,
+      gameData: room,
+    });
+
+    // If room is full, start the game
+    if (room.players.length === room.maxPlayers) {
+      startCustomGame(roomId);
+    }
+
+    // Broadcast updated game list
+    broadcastGameList();
+  });
+
+  socket.on("getActiveGames", () => {
+    const customGames = Array.from(gameRooms.values())
+      .filter((room) => room.isCustom && room.status !== "playing")
+      .map((room) => ({
+        id: room.id,
+        name: room.name,
+        gameType: room.gameType,
+        gameMode: room.gameMode,
+        creator: room.creator,
+        playerCount: room.players.length,
+        maxPlayers: room.maxPlayers,
+        hasPassword: room.hasPassword,
+        status: room.status,
+        createdAt: room.createdAt,
+      }));
+
+    socket.emit("activeGamesUpdate", customGames);
+  });
+
+  socket.on("leaveCustomGame", (roomId) => {
+    const user = connectedUsers.get(socket.id);
+    const room = gameRooms.get(roomId);
+
+    if (!room || !user) return;
+
+    const playerIndex = room.players.findIndex((p) => p.id === socket.id);
+    if (playerIndex === -1) return;
+
+    const leavingPlayer = room.players[playerIndex];
+    room.players.splice(playerIndex, 1);
+    socket.leave(roomId);
+
+    console.log(`🚪 ${user.name} left custom game: ${room.name}`);
+
+    // If room is empty, delete it
+    if (room.players.length === 0) {
+      gameRooms.delete(roomId);
+      console.log(`🗑️ Empty custom room deleted: ${room.name}`);
+    } else {
+      // Update player numbers and teams
+      room.players.forEach((player, index) => {
+        player.playerNumber = index + 1;
+        if (room.gameMode === "2v2") {
+          player.team = Math.ceil(player.playerNumber / 2);
+        }
+      });
+
+      // If creator left, assign new creator
+      if (leavingPlayer.name === room.creator) {
+        room.creator = room.players[0].name;
+      }
+
+      room.status = "waiting";
+
+      // Notify remaining players
+      io.to(roomId).emit("playerLeft", {
+        playerName: leavingPlayer.name,
+        gameData: room,
+      });
+    }
+
+    broadcastGameList();
+  });
+
   // Traženje protivnika (matchmaking) - UPDATED za 1v1 i 2v2 + gameType
   socket.on("findMatch", (data) => {
     const user = connectedUsers.get(socket.id);
@@ -2087,6 +2309,185 @@ function handlePlayerDisconnect(socketId) {
       break;
     }
   }
+}
+
+// Custom game helper functions
+function broadcastGameList() {
+  const customGames = Array.from(gameRooms.values())
+    .filter((room) => room.isCustom && room.status !== "playing")
+    .map((room) => ({
+      id: room.id,
+      name: room.name,
+      gameType: room.gameType,
+      gameMode: room.gameMode,
+      creator: room.creator,
+      playerCount: room.players.length,
+      maxPlayers: room.maxPlayers,
+      hasPassword: room.hasPassword,
+      status: room.status,
+      createdAt: room.createdAt,
+    }));
+
+  io.emit("activeGamesUpdate", customGames);
+}
+
+async function startCustomGame(roomId) {
+  const room = gameRooms.get(roomId);
+  if (!room) return;
+
+  console.log(
+    `🎯 Starting custom ${room.gameMode} ${room.gameType} game: ${room.name}`
+  );
+
+  room.status = "playing";
+  room.gameState.gamePhase = "playing";
+
+  // Import appropriate game logic
+  let gameLogic;
+  if (room.gameType === "treseta") {
+    if (room.gameMode === "2v2") {
+      gameLogic = require("./gameLogicTreseta2v2");
+    } else {
+      gameLogic = require("./gameLogicTreseta");
+    }
+  } else {
+    if (room.gameMode === "2v2") {
+      gameLogic = require("./gameLogic2v2");
+    } else {
+      gameLogic = require("./gameLogic");
+    }
+  }
+
+  const { createDeck, shuffleDeck, dealCards } = gameLogic;
+
+  // Create and deal cards
+  const deck = createDeck();
+  const shuffledDeck = shuffleDeck(deck);
+  const dealt = dealCards(shuffledDeck, room.gameMode === "2v2");
+
+  // Create game state based on mode
+  let gameStateData = {
+    currentPlayer: 1,
+    playedCards: [],
+    gamePhase: "playing",
+    winner: null,
+    gameType: room.gameType,
+    version: Date.now(),
+    lastMove: new Date(),
+  };
+
+  if (room.gameMode === "1v1") {
+    gameStateData = {
+      ...gameStateData,
+      player1Hand: dealt.player1Hand,
+      player2Hand: dealt.player2Hand,
+      player1Cards: [],
+      player2Cards: [],
+      remainingDeck: dealt.remainingDeck,
+    };
+
+    // Add game-specific data
+    if (room.gameType === "briskula") {
+      gameStateData.trump = dealt.trump;
+      gameStateData.trumpSuit = dealt.trump.suit;
+      gameStateData.lastTrickWinner = null;
+    } else if (room.gameType === "treseta") {
+      gameStateData.player1Akuze = { points: 0, details: [] };
+      gameStateData.player2Akuze = { points: 0, details: [] };
+      gameStateData.ultimaWinner = null;
+    }
+  } else {
+    // 2v2
+    gameStateData = {
+      ...gameStateData,
+      player1Hand: dealt.player1Hand,
+      player2Hand: dealt.player2Hand,
+      player3Hand: dealt.player3Hand,
+      player4Hand: dealt.player4Hand,
+      team1Cards: [],
+      team2Cards: [],
+      remainingDeck: dealt.remainingDeck,
+    };
+
+    // Add game-specific data
+    if (room.gameType === "briskula") {
+      gameStateData.trump = dealt.trump;
+      gameStateData.trumpSuit = dealt.trump.suit;
+      gameStateData.lastTrickWinner = null;
+    } else if (room.gameType === "treseta") {
+      gameStateData.player1Akuze = { points: 0, details: [] };
+      gameStateData.player2Akuze = { points: 0, details: [] };
+      gameStateData.player3Akuze = { points: 0, details: [] };
+      gameStateData.player4Akuze = { points: 0, details: [] };
+      gameStateData.ultimaWinner = null;
+    }
+  }
+
+  // Merge game data with room
+  room.gameState = { ...room.gameState, ...gameStateData };
+
+  try {
+    await gameStateManager.saveGameState(roomId, room);
+  } catch (error) {
+    console.error("Failed to save custom game state:", error);
+  }
+
+  // Calculate playable cards for each player
+  const { getPlayableCards } = gameLogic;
+
+  let player1PlayableCards, player2PlayableCards;
+
+  if (room.gameType === "treseta") {
+    // For Treseta, use getPlayableCards function
+    player1PlayableCards = getPlayableCards(
+      room.gameState.player1Hand,
+      room.gameState.playedCards
+    );
+    player2PlayableCards = getPlayableCards(
+      room.gameState.player2Hand,
+      room.gameState.playedCards
+    );
+  } else {
+    // For Briskula, all cards are playable
+    player1PlayableCards = room.gameState.player1Hand.map((card) => card.id);
+    player2PlayableCards = room.gameState.player2Hand.map((card) => card.id);
+  }
+
+  // Emit game start to each player individually with their playable cards
+  room.players.forEach((player) => {
+    const playerSocket = io.sockets.sockets.get(player.id);
+    if (playerSocket) {
+      const opponent = room.players.find(
+        (p) => p.playerNumber !== player.playerNumber
+      );
+      const playableCards =
+        player.playerNumber === 1 ? player1PlayableCards : player2PlayableCards;
+
+      playerSocket.emit("gameStart", {
+        gameState: {
+          ...room.gameState,
+          playableCards: playableCards,
+        },
+        roomId: roomId,
+        gameMode: room.gameMode,
+        gameType: room.gameType,
+        players: room.players,
+        playerNumber: player.playerNumber,
+        opponent: opponent ? { name: opponent.name } : null,
+      });
+    }
+  });
+
+  console.log(`📤 Sent individual gameStart events with playableCards:`, {
+    roomId: roomId,
+    player1PlayableCards: player1PlayableCards.length,
+    player2PlayableCards: player2PlayableCards.length,
+  });
+
+  // Remove from game list since it's now playing
+  broadcastGameList();
+
+  console.log(`✅ Custom game started: ${room.name}`);
 }
 
 const PORT = process.env.PORT || 3002;
