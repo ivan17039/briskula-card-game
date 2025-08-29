@@ -81,6 +81,17 @@ function GameModeSelector({ onModeSelect, onBack, gameType }) {
             </ul>
             <div className="mode-badge">Sve u jednom</div>
           </div>
+          <button
+            onClick={() => {
+              onModeSelect({
+                gameMode: "1vAI",
+                opponent: { name: "AI Bot", isAI: true },
+                gameState: {}, // Game.jsx će sam generirati špil
+              });
+            }}
+          >
+            🎮 Igraj protiv AI
+          </button>
         </div>
 
         <div className="mode-info">

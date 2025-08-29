@@ -1,15 +1,15 @@
 // gameLogic.js - Backend verzija game logike (CommonJS) - UPDATED
 
-const SUITS = {
+export const SUITS = {
   KUPE: "kupe", // Srca/Čaše
   BATE: "bate", // Štapovi/Toljage
   SPADE: "spade", // Mačevi/Listovi
   DINARE: "dinare", // Novčići/Zlatnici
 };
 
-const VALUES = [1, 2, 3, 4, 5, 6, 7, 11, 12, 13];
+export const VALUES = [1, 2, 3, 4, 5, 6, 7, 11, 12, 13];
 
-const CARD_NAMES = {
+export const CARD_NAMES = {
   1: "As",
   2: "Dva",
   3: "Trica",
@@ -22,7 +22,7 @@ const CARD_NAMES = {
   13: "Kralj",
 };
 
-const CARD_POINTS = {
+export const CARD_POINTS = {
   1: 11, // As - 11 bodova
   3: 10, // Trica - 10 bodova
   13: 4, // Kralj - 4 boda
@@ -35,7 +35,7 @@ const CARD_POINTS = {
   7: 0,
 };
 
-const CARD_STRENGTH = {
+export const CARD_STRENGTH = {
   1: 10, // As - najjača karta
   3: 9, // Trica - druga najjača
   13: 8, // Kralj - 4 boda
@@ -48,7 +48,7 @@ const CARD_STRENGTH = {
   2: 1, // Dva - najslabija
 };
 
-function createDeck() {
+export function createDeck() {
   const deck = [];
   Object.values(SUITS).forEach((suit) => {
     VALUES.forEach((value) => {
@@ -65,7 +65,7 @@ function createDeck() {
   return deck;
 }
 
-function shuffleDeck(deck) {
+export function shuffleDeck(deck) {
   const shuffled = [...deck];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -74,7 +74,7 @@ function shuffleDeck(deck) {
   return shuffled;
 }
 
-function dealCards(deck) {
+export function dealCards(deck) {
   const player1Hand = [];
   const player2Hand = [];
 
@@ -100,7 +100,7 @@ function dealCards(deck) {
   };
 }
 
-function determineRoundWinner(card1, card2, trumpSuit, firstPlayer) {
+export function determineRoundWinner(card1, card2, trumpSuit, firstPlayer) {
   console.log("🥊 Određujem pobjednika runde:", {
     card1: `${card1.name} ${card1.suit} (jačina: ${card1.strength})`,
     card2: `${card2.name} ${card2.suit} (jačina: ${card2.strength})`,
@@ -144,11 +144,11 @@ function determineRoundWinner(card1, card2, trumpSuit, firstPlayer) {
   return firstPlayer;
 }
 
-function calculatePoints(cards) {
+export function calculatePoints(cards) {
   return cards.reduce((total, card) => total + card.points, 0);
 }
 
-function checkGameEnd(
+export function checkGameEnd(
   player1Points,
   player2Points,
   remainingDeck,
@@ -179,18 +179,3 @@ function checkGameEnd(
 
   return { isGameOver: false, winner: null, reason: null };
 }
-
-// CommonJS exports
-module.exports = {
-  SUITS,
-  VALUES,
-  CARD_NAMES,
-  CARD_POINTS,
-  CARD_STRENGTH,
-  createDeck,
-  shuffleDeck,
-  dealCards,
-  determineRoundWinner,
-  calculatePoints,
-  checkGameEnd,
-};

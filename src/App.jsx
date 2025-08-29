@@ -230,10 +230,28 @@ function AppContent() {
       return (
         <>
           <GameModeSelector
-            onModeSelect={handleModeSelect}
+            onModeSelect={(modeData) => {
+              if (modeData.gameMode === "1vAI") {
+                // 👉 Direktno u Game (bez matchmakinga)
+                const aiGameData = {
+                  gameMode: "1vAI",
+                  opponent: { name: "AI Bot", isAI: true },
+                  gameType: gameType, // preuzima odabran tip (briskula/treseta)
+                  gameState: {}, // Game.jsx sam generira špil
+                };
+
+                setGameData(aiGameData);
+                setGameMode("1vAI");
+                setAppState("game");
+              } else {
+                // 👉 Sve ostalo ide normalno
+                handleModeSelect(modeData);
+              }
+            }}
             onBack={handleBackToGameSelect}
             gameType={gameType}
           />
+
           {showReconnectDialog && (
             <ReconnectDialog
               gameState={savedGameState}

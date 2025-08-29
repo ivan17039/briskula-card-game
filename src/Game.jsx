@@ -1,29 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Card from "./Card";
 import { useSocket } from "./SocketContext";
 import { useToast } from "./ToastProvider";
 import "./Game.css";
 
-function calculatePoints(cards) {
-  return cards.reduce((total, card) => total + (card.points || 0), 0);
-}
+import {
+  determineRoundWinner,
+  createDeck,
+  shuffleDeck,
+  dealCards,
+  calculatePoints,
+  checkGameEnd,
+} from "./gameLogic.js";
+
+import { chooseAiCard } from "./aiPlayer.js";
 
 /**
  * Vraća pravilnu riječ za broj karata u hrvatskom jeziku
  * @param {number} count - Broj karata
  * @returns {string} - Pravilna riječ (karta/karte/karata)
  */
-function getCardCountText(count) {
-  if (count === 1) {
-    return `${count} karta`;
-  } else if (count >= 2 && count <= 4) {
-    return `${count} karte`;
-  } else {
-    return `${count} karata`;
-  }
-}
 
 /**
  * Sortira karte po boji i jačini
@@ -99,11 +97,71 @@ function Game({ gameData, onGameEnd }) {
 
   const { addToast } = useToast();
 
+  const mode = useMemo(() => {
+    if (!gameData) return "online";
+    if (
+      gameData?.gameMode === "1vAI" ||
+      gameData?.opponent?.isAI ||
+      gameData?.opponent?.name === "AI Bot"
+    ) {
+      return "ai";
+    }
+    return "online";
+  }, [gameData]);
+
   const initializeGameState = () => {
     if (!gameData) return null;
 
-    console.log("🚀 Initializing game state with gameData:", gameData);
+    console.log("[v0] 🚀 Initializing game state with gameData:", gameData);
+    console.log("[v0] 🎯 Detected mode:", mode);
 
+    if (mode === "ai") {
+      // Lokalna partija 1v1 protiv AI-ja
+      console.log("[v0] 🤖 Setting up AI mode game");
+      const deck = shuffleDeck(createDeck());
+      console.log("[v0] 📦 Created and shuffled deck:", deck.length, "cards");
+
+      const dealt = dealCards(deck);
+      console.log(
+        "[v0] 🃏 Dealt cards - Player:",
+        dealt.player1Hand.length,
+        "AI:",
+        dealt.player2Hand.length
+      );
+      console.log("[v0] 🃏 Player hand:", dealt.player1Hand);
+      console.log("[v0] 🃏 Trump card:", dealt.trump);
+
+      const initialState = {
+        mode: "ai",
+        playerNumber: 1,
+        roomId: "local-ai",
+        opponent: { id: "ai", name: "AI Bot", isAI: true },
+        gameType: gameData.gameType || "briskula",
+        myHand: dealt.player1Hand,
+        aiHand: dealt.player2Hand,
+        myCards: [],
+        aiCards: [],
+        trump: dealt.trump,
+        trumpSuit: dealt.trumpSuit,
+        remainingDeck: dealt.remainingDeck,
+        playedCards: [],
+        currentPlayer: 1,
+        message: "Vaš red! Odaberite kartu za igranje.",
+        gamePhase: "playing",
+        winner: null,
+        lastTrickWinner: null,
+        myPoints: 0,
+        opponentPoints: 0,
+        opponentHandCount: dealt.player2Hand.length,
+        remainingCardsCount: dealt.remainingDeck.length,
+        playableCards: dealt.player1Hand.map((c) => c.id), // Za AI mod, sve karte su igrive za briskulu
+      };
+
+      console.log("[v0] ✅ AI game state initialized:", initialState);
+      return initialState;
+    }
+
+    // Online state – kompatibilno s postojećim backendom
     const myHand =
       gameData.playerNumber === 1
         ? gameData.gameState.player1Hand
@@ -115,6 +173,7 @@ function Game({ gameData, onGameEnd }) {
         : (gameData.gameState.player1Hand || []).length;
 
     const state = {
+      mode: "online",
       roomId: gameData.roomId,
       playerNumber: gameData.playerNumber,
       opponent: gameData.opponent,
@@ -149,6 +208,255 @@ function Game({ gameData, onGameEnd }) {
   const [isMobile, setIsMobile] = useState(false);
   // Animation state for picked up cards
   const [cardPickupAnimation, setCardPickupAnimation] = useState(null);
+  const roundFirstPlayerRef = useRef(null);
+  const aiThinking = useRef(false);
+  const roundResolving = useRef(false);
+
+  const playLocalCard = (card, playerNum) => {
+    console.log("[v0] 🎯 Playing card:", card, "for player:", playerNum);
+
+    setGameState((prevState) => {
+      if (prevState.gamePhase !== "playing") return prevState;
+      const newPlayedCards = [...prevState.playedCards];
+      newPlayedCards[playerNum - 1] = card;
+
+      console.log("[v0] 🃏 New played cards:", newPlayedCards);
+
+      const newMyHand =
+        playerNum === 1
+          ? prevState.myHand.filter((c) => c.id !== card.id)
+          : prevState.myHand;
+      const newAiHand =
+        playerNum === 2
+          ? prevState.aiHand.filter((c) => c.id !== card.id)
+          : prevState.aiHand;
+
+      // 👉 Ako je ovo prva karta u rundi, zapamti tko je prvi
+      if (!prevState.playedCards[0] && !prevState.playedCards[1]) {
+        roundFirstPlayerRef.current = playerNum;
+      }
+
+      if (newPlayedCards[0] && newPlayedCards[1]) {
+        aiThinking.current = true;
+        roundResolving.current = true;
+
+        // First update state to show both cards
+        const tempState = {
+          ...prevState,
+          myHand: newMyHand,
+          aiHand: newAiHand,
+          playedCards: newPlayedCards,
+          message: "Određuje se pobjednik runde...",
+          roundResolving: true,
+        };
+
+        // Add delay before resolving the round
+        // Add delay before resolving the round
+        setTimeout(() => {
+          setGameState((currentState) => {
+            console.log("[v0] 🎯 ROUND RESOLUTION STARTING:");
+            console.log(
+              "[v0] First player this round (fixed):",
+              roundFirstPlayerRef.current
+            );
+            console.log("[v0] Cards played this round:", newPlayedCards);
+
+            // 🔑 Odredi koja je prva, a koja druga karta
+            let firstCard, secondCard;
+            if (roundFirstPlayerRef.current === 1) {
+              firstCard = newPlayedCards[0]; // User je igrao prvi
+              secondCard = newPlayedCards[1]; // AI drugi
+            } else {
+              firstCard = newPlayedCards[1]; // AI je igrao prvi
+              secondCard = newPlayedCards[0]; // User drugi
+            }
+
+            const winner = determineRoundWinner(
+              firstCard,
+              secondCard,
+              prevState.trumpSuit,
+              roundFirstPlayerRef.current
+            );
+
+            console.log("[v0] 🏆 ROUND WINNER:", winner);
+            console.log("[v0] Setting currentPlayer to winner:", winner);
+            console.log(
+              "[v0] This means next round will be started by:",
+              winner === 1 ? "User" : "AI"
+            );
+
+            const winnerIsP1 = winner === 1;
+            const wonCards = [...newPlayedCards];
+            const myCards = winnerIsP1
+              ? [...(prevState.myCards || []), ...wonCards]
+              : prevState.myCards;
+            const aiCards = winnerIsP1
+              ? prevState.aiCards
+              : [...(prevState.aiCards || []), ...wonCards];
+
+            // Dvlačenje iz špila – pobjednik vuče prvi
+            let remaining = [...prevState.remainingDeck];
+            let myHandAfterDraw = [...newMyHand];
+            let aiHandAfterDraw = [...newAiHand];
+
+            if (remaining.length > 0) {
+              if (remaining.length === 1) {
+                // 🃏 Zadnja runda - poseban slučaj (1 skrivena + 1 adut)
+                if (winnerIsP1) {
+                  myHandAfterDraw = [...myHandAfterDraw, remaining[0]]; // pobjednik uzima skrivenu
+                  aiHandAfterDraw = [...aiHandAfterDraw, prevState.trump]; // gubitnik uzima aduta
+                } else {
+                  aiHandAfterDraw = [...aiHandAfterDraw, remaining[0]]; // pobjednik uzima skrivenu
+                  myHandAfterDraw = [...myHandAfterDraw, prevState.trump]; // gubitnik uzima aduta
+                }
+                remaining = []; // špil je prazan
+              } else {
+                // Normalno dijeljenje
+                if (winnerIsP1) {
+                  myHandAfterDraw = [...myHandAfterDraw, remaining[0]];
+                  if (remaining[1])
+                    aiHandAfterDraw = [...aiHandAfterDraw, remaining[1]];
+                } else {
+                  aiHandAfterDraw = [...aiHandAfterDraw, remaining[0]];
+                  if (remaining[1])
+                    myHandAfterDraw = [...myHandAfterDraw, remaining[1]];
+                }
+                remaining = remaining.slice(2);
+              }
+            }
+
+            const p1Points = calculatePoints(myCards);
+            const p2Points = calculatePoints(aiCards);
+            const end = checkGameEnd(
+              p1Points,
+              p2Points,
+              remaining,
+              myHandAfterDraw,
+              aiHandAfterDraw,
+              winner
+            );
+
+            aiThinking.current = false;
+            roundResolving.current = false;
+
+            return {
+              ...prevState,
+              myHand: myHandAfterDraw,
+              aiHand: aiHandAfterDraw,
+              myCards,
+              aiCards,
+              playedCards: [],
+              currentPlayer: winner, // Winner starts next round
+              message:
+                winner === 1
+                  ? "Uzeli ste rundu! Vaš red."
+                  : "Protivnik je uzeo rundu. Njegov red.",
+              lastTrickWinner: winner,
+              remainingDeck: remaining,
+              remainingCardsCount: remaining.length,
+              opponentHandCount: aiHandAfterDraw.length,
+              gamePhase: end.isGameOver ? "finished" : "playing",
+              winner: end.isGameOver ? end.winner : null,
+              myPoints: p1Points,
+              opponentPoints: p2Points,
+              playableCards:
+                prevState.gameType === "treseta" && !end.isGameOver
+                  ? myHandAfterDraw.map((c) => c.id) // Simplified for AI mode
+                  : myHandAfterDraw.map((c) => c.id),
+              roundResolving: false,
+            };
+          });
+        }, 1500);
+
+        return tempState;
+      }
+
+      // Inače – samo promijeni red
+      return {
+        ...prevState,
+        myHand: newMyHand,
+        aiHand: newAiHand,
+        playedCards: newPlayedCards,
+        currentPlayer: playerNum === 1 ? 2 : 1,
+        message:
+          playerNum === 1
+            ? "Čekamo potez AI bota..."
+            : "Vaš red! Odaberite kartu.",
+        opponentHandCount: newAiHand.length,
+      };
+    });
+  };
+
+  useEffect(() => {
+    console.log("[v0] 🔄 Game component mounted, gameData:", gameData);
+    const initialState = initializeGameState();
+    if (initialState) {
+      console.log("[v0] 🎮 Setting initial game state");
+      setGameState(initialState);
+    } else {
+      console.log("[v0] ❌ Failed to initialize game state");
+    }
+  }, [gameData]);
+
+  useEffect(() => {
+    console.log("[v0] 🤖 AI useEffect triggered");
+    console.log("[v0] Current player:", gameState.currentPlayer);
+    console.log("[v0] AI thinking:", aiThinking.current);
+    console.log("[v0] Round resolving:", roundResolving.current);
+    console.log("[v0] Game phase:", gameState.gamePhase);
+    console.log("[v0] Played cards:", gameState.playedCards);
+    console.log(
+      "[v0] Should AI play?",
+      gameState.currentPlayer === 2 &&
+        !aiThinking.current &&
+        !roundResolving.current &&
+        gameState.gamePhase === "playing" &&
+        gameState.playedCards.filter((c) => c).length < 2
+    );
+
+    if (
+      gameState.currentPlayer === 2 &&
+      !aiThinking.current &&
+      !roundResolving.current &&
+      gameState.gamePhase === "playing" &&
+      gameState.playedCards.filter((c) => c).length < 2
+    ) {
+      console.log("[v0] ✅ AI SHOULD PLAY - all conditions met");
+      aiThinking.current = true;
+
+      setTimeout(() => {
+        console.log("[v0] 🤖 AI is choosing card...");
+
+        const aiIsFirst = !gameState.playedCards[0]; // AI is first if no card played yet
+        console.log("[v0] AI is first:", aiIsFirst);
+        console.log("[v0] Opponent card (if any):", gameState.playedCards[0]);
+
+        const aiCard = chooseAiCard({
+          hand: gameState.aiHand,
+          opponentCard: gameState.playedCards[0] || null,
+          trumpSuit: gameState.trumpSuit,
+        });
+
+        console.log("[v0] 🎯 AI chose card:", aiCard);
+        if (aiCard) {
+          playLocalCard(aiCard, 2);
+        } else {
+          console.log("[v0] ❌ AI could not choose a card!");
+          aiThinking.current = false;
+        }
+      }, 1200);
+    } else {
+      console.log("[v0] ❌ AI should NOT play - conditions not met");
+      if (gameState.currentPlayer !== 2)
+        console.log("[v0] - currentPlayer is not 2 (AI)");
+      if (aiThinking.current) console.log("[v0] - AI is already thinking");
+      if (roundResolving.current) console.log("[v0] - Round is resolving");
+      if (gameState.gamePhase !== "playing")
+        console.log("[v0] - Game phase is not 'playing'");
+      if (gameState.playedCards.filter((c) => c).length >= 2)
+        console.log("[v0] - Already 2 cards played");
+    }
+  }, [gameState]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -163,7 +471,11 @@ function Game({ gameData, onGameEnd }) {
 
   // Separate useEffect for saving game state to avoid infinite loops
   useEffect(() => {
-    if (gameState?.gamePhase === "playing" && gameState?.roomId) {
+    if (
+      gameState?.gamePhase === "playing" &&
+      gameState?.roomId &&
+      gameState?.mode === "online"
+    ) {
       const timeoutId = setTimeout(() => {
         saveGameState({
           ...gameState,
@@ -181,18 +493,13 @@ function Game({ gameData, onGameEnd }) {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [
-    gameState?.gamePhase,
-    gameState?.roomId,
-    gameState?.currentPlayer,
-    gameState?.playedCards?.length,
-  ]);
+  }, [gameState]);
 
   // Socket event listeners (keeping the same logic as original)
   useEffect(() => {
-    if (!socket || !gameState?.roomId) return;
+    if (!socket || !gameState?.roomId || gameState?.mode !== "online") return;
 
-    // Listener za novu igru nakon revanša
+    // Listener za novu igru nakon revan��a
     socket.on("gameStart", (newGameData) => {
       console.log("🎮 Nova igra počinje (revanš):", newGameData);
       // Reset game state s novim podacima
@@ -444,7 +751,7 @@ function Game({ gameData, onGameEnd }) {
       socket.off("playableCardsUpdate");
       socket.off("invalidMove");
     };
-  }, [socket, gameState?.roomId, onGameEnd]);
+  }, [socket, gameState?.roomId, onGameEnd, mode]);
 
   const handleCardClick = (card) => {
     if (!gameState) return;
@@ -456,12 +763,35 @@ function Game({ gameData, onGameEnd }) {
       return;
     }
 
+    if (mode === "ai") {
+      // Za AI mod - jednostavna provjera za tresetu
+      if (
+        gameState.gameType === "treseta" &&
+        gameState.playedCards.length > 0
+      ) {
+        const firstCard = gameState.playedCards[0];
+        const sameSuitCards = gameState.myHand.filter(
+          (c) => c.suit === firstCard.suit
+        );
+        if (sameSuitCards.length > 0 && card.suit !== firstCard.suit) {
+          addToast("Morate baciti kartu iste boje ako je imate!", "error");
+          return;
+        }
+      }
+      playLocalCard(card, 1);
+      setSelectedCard(null);
+      return;
+    }
+
     // Za Trešetu - provjeri je li karta igriva
     if (
       gameState.gameType === "treseta" &&
       !gameState.playableCards.includes(card.id)
     ) {
-      alert("Ne možete odigrati ovu kartu. Molimo odaberite drugu kartu.");
+      addToast(
+        "Ne možete odigrati ovu kartu. Molimo odaberite drugu kartu.",
+        "error"
+      );
       return;
     }
 
@@ -492,13 +822,36 @@ function Game({ gameData, onGameEnd }) {
     );
   }
 
-  const myPoints = calculatePoints(gameState.myCards || []);
-  const opponentPoints = calculatePoints(gameState.opponentCards || []);
+  const myPoints =
+    mode === "ai"
+      ? calculatePoints(gameState.myCards || [])
+      : calculatePoints(gameState.myCards || []);
+  const opponentPoints =
+    mode === "ai"
+      ? calculatePoints(gameState.aiCards || [])
+      : calculatePoints(gameState.opponentCards || []);
+
+  const sumPoints = (cards) => {
+    return cards.reduce((total, card) => total + (card.points || 0), 0);
+  };
+
+  const getCardCountText = (count) => {
+    if (count === 1) return "1 karta";
+    if (count < 5) return `${count} karte`;
+    return `${count} karata`;
+  };
 
   // Determine card sizes based on screen size
   const cardSize = isMobile ? "small" : "medium";
   const playedCardSize = "small"; // Always small for played cards
   const trumpCardSize = isMobile ? "small" : "medium";
+
+  const opponentHandCount =
+    mode === "ai" ? gameState.aiHand?.length || 0 : gameState.opponentHandCount;
+  const remainingCount =
+    mode === "ai"
+      ? gameState.remainingDeck?.length || 0
+      : gameState.remainingCardsCount;
 
   return (
     <div className="game-wrapper">
@@ -510,7 +863,8 @@ function Game({ gameData, onGameEnd }) {
             alt="Dinari"
             className="title-suit-icon"
           />{" "}
-          {gameState.gameType === "treseta" ? "Trešeta" : "Briskula"} Online
+          {gameState.gameType === "treseta" ? "Trešeta" : "Briskula"}{" "}
+          {mode === "ai" ? "(AI)" : "Online"}
         </h1>
 
         {/* Simple player names with colors - desktop only */}
@@ -544,8 +898,10 @@ function Game({ gameData, onGameEnd }) {
           {gameState.gamePhase === "playing" && (
             <button
               onClick={() => {
-                clearGameState(); // Clear saved state on manual leave
-                leaveRoomPermanently(gameState.roomId); // Use permanent leave
+                if (mode === "online") {
+                  clearGameState(); // Clear saved state on manual leave
+                  leaveRoomPermanently(gameState.roomId); // Use permanent leave
+                }
                 onGameEnd();
               }}
               className="game-btn btn-danger"
@@ -574,8 +930,10 @@ function Game({ gameData, onGameEnd }) {
           {gameState.gamePhase === "playing" && (
             <button
               onClick={() => {
-                clearGameState(); // Clear saved state on manual leave
-                leaveRoomPermanently(gameState.roomId); // Use permanent leave
+                if (mode === "online") {
+                  clearGameState(); // Clear saved state on manual leave
+                  leaveRoomPermanently(gameState.roomId); // Use permanent leave
+                }
                 onGameEnd();
               }}
               className="floating-btn exit-btn"
@@ -612,7 +970,7 @@ function Game({ gameData, onGameEnd }) {
               )}
             </div>
             <div className="opponent-cards-indicator">
-              <span>{getCardCountText(gameState.opponentHandCount)}</span>
+              <span>{getCardCountText(opponentHandCount)}</span>
             </div>
             {gameState.gameType === "treseta" && (
               <div className="points-display">
@@ -627,13 +985,15 @@ function Game({ gameData, onGameEnd }) {
           <div className="played-cards-section">
             <div className="played-cards-label">Odigrane karte</div>
             <div className="played-cards-area">
-              {gameState.playedCards.map((card, index) => (
-                <Card
-                  key={`played-${card.id}`}
-                  card={card}
-                  size={playedCardSize}
-                />
-              ))}
+              {gameState.playedCards
+                .filter((card) => card)
+                .map((card, index) => (
+                  <Card
+                    key={`played-${card.id}`}
+                    card={card}
+                    size={playedCardSize}
+                  />
+                ))}
             </div>
           </div>
 
@@ -642,9 +1002,7 @@ function Game({ gameData, onGameEnd }) {
               gameState.gameType === "treseta" ? "treseta-deck" : ""
             }`}
           >
-            <div className="deck-label">
-              Špil ({gameState.remainingCardsCount})
-            </div>
+            <div className="deck-label">Špil ({remainingCount})</div>
             <div className="deck-trump-stack">
               {/* Trump card - positioned under deck */}
               {gameState.trump && (
@@ -730,7 +1088,7 @@ function Game({ gameData, onGameEnd }) {
                 {gameState.gameType === "treseta" ? (
                   <>
                     <h3>Špil</h3>
-                    <p>Preostalo: {gameState.remainingCardsCount}</p>
+                    <p>Preostalo: {remainingCount}</p>
                   </>
                 ) : (
                   <>
@@ -738,7 +1096,7 @@ function Game({ gameData, onGameEnd }) {
                     {gameState.trump && (
                       <Card card={gameState.trump} size="small" />
                     )}
-                    <p>Preostalo: {gameState.remainingCardsCount}</p>
+                    <p>Preostalo: {remainingCount}</p>
                   </>
                 )}
               </div>
@@ -755,12 +1113,17 @@ function Game({ gameData, onGameEnd }) {
                 </div>
                 <div className="stat-item">
                   <span>Karte u ruci:</span>
-                  <span>{getCardCountText(gameState.opponentHandCount)}</span>
+                  <span>{getCardCountText(opponentHandCount)}</span>
                 </div>
                 <div className="stat-item">
                   <span>Osvojene karte:</span>
                   <span>
-                    {getCardCountText((gameState.opponentCards || []).length)}
+                    {getCardCountText(
+                      (mode === "ai"
+                        ? gameState.aiCards
+                        : gameState.opponentCards || []
+                      ).length
+                    )}
                   </span>
                 </div>
               </div>
@@ -826,7 +1189,7 @@ function Game({ gameData, onGameEnd }) {
                 </div>
                 <div className="final-score-actions">
                   <button onClick={onGameEnd} className="btn-secondary-large">
-                    � Glavni meni
+                    🏠 Glavni meni
                   </button>
                 </div>
               </>
@@ -834,7 +1197,7 @@ function Game({ gameData, onGameEnd }) {
               // Normalni prikaz rezultata
               <>
                 <div className="final-score-header">
-                  <h2>�🎮 Partija završena!</h2>
+                  <h2>🎮 Partija završena!</h2>
                   {gameState.winner === gameState.playerNumber && (
                     <div className="result-emoji">🎉</div>
                   )}
@@ -877,7 +1240,12 @@ function Game({ gameData, onGameEnd }) {
                       bodova
                     </div>
                     <div className="player-cards">
-                      {getCardCountText((gameState.opponentCards || []).length)}
+                      {getCardCountText(
+                        (mode === "ai"
+                          ? gameState.aiCards
+                          : gameState.opponentCards || []
+                        ).length
+                      )}
                     </div>
                     {gameState.winner &&
                       gameState.winner !== gameState.playerNumber &&
@@ -888,29 +1256,69 @@ function Game({ gameData, onGameEnd }) {
                 </div>
 
                 <div className="game-result">
-                  <p>{gameState.message}</p>
+                  <p>
+                    {gameState.winner === gameState.playerNumber
+                      ? "🎉 Pobijedili ste!"
+                      : gameState.winner === 2
+                      ? "😔 Izgubili ste."
+                      : "🤝 Neriješeno!"}
+                  </p>
                 </div>
 
                 <div className="final-score-actions">
-                  <button
-                    onClick={() => {
-                      // Resetuj game state za novi match
-                      setGameState((prev) => ({
-                        ...prev,
-                        gamePhase: "matchmaking", // Postaviti na matchmaking dok čeka novi match
-                        message: "Tražim revanš s istim protivnikom...",
-                      }));
-                      // Pokreni rematch s istim protivnikom
-                      rematch(
-                        gameData.gameMode || "1v1",
-                        gameState.gameType,
-                        gameState.opponent?.id // proslijedi opponent ID
-                      );
-                    }}
-                    className="btn-primary-large"
-                  >
-                    🔄 Revanš
-                  </button>
+                  {mode === "online" ? (
+                    <button
+                      onClick={() => {
+                        // Resetuj game state za novi match
+                        setGameState((prev) => ({
+                          ...prev,
+                          gamePhase: "matchmaking", // Postaviti na matchmaking dok čeka novi match
+                          message: "Tražim revanš s istim protivnikom...",
+                        }));
+                        // Pokreni rematch s istim protivnikom
+                        rematch(
+                          gameData.gameMode || "1v1",
+                          gameState.gameType,
+                          gameState.opponent?.id // proslijedi opponent ID
+                        );
+                      }}
+                      className="btn-primary-large"
+                    >
+                      🔄 Revanš
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        const deck = shuffleDeck(createDeck());
+                        const dealt = dealCards(deck);
+                        setGameState((prev) => ({
+                          ...prev,
+                          mode: "ai",
+                          myHand: dealt.player1Hand,
+                          aiHand: dealt.player2Hand,
+                          myCards: [],
+                          aiCards: [],
+                          trump: dealt.trump,
+                          trumpSuit: dealt.trumpSuit,
+                          remainingDeck: dealt.remainingDeck,
+                          playedCards: [],
+                          currentPlayer: 1,
+                          message: "Nova partija! Vaš red.",
+                          gamePhase: "playing",
+                          winner: null,
+                          lastTrickWinner: null,
+                          myPoints: 0,
+                          opponentPoints: 0,
+                          opponentHandCount: dealt.player2Hand.length,
+                          remainingCardsCount: dealt.remainingDeck.length,
+                          playableCards: dealt.player1Hand.map((c) => c.id),
+                        }));
+                      }}
+                      className="btn-primary-large"
+                    >
+                      🔄 Revanš (AI)
+                    </button>
+                  )}
                   <button onClick={onGameEnd} className="btn-secondary-large">
                     🏠 Glavni meni
                   </button>
