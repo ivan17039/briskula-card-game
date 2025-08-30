@@ -1,13 +1,13 @@
 // gameLogicTreseta2v2.js - Logika za Trešeta 2v2
 
-const {
+import {
   createDeck,
   shuffleDeck,
   getCardStrength,
   getCardStrengthName,
   isValidMove,
   getPlayableCards,
-} = require("./tresetaCommon");
+} from "./tresetaCommon.js";
 
 /**
  * Dijeli karte za Trešeta 2v2
@@ -27,6 +27,12 @@ function dealCards2v2(deck) {
     player4Hand,
     remainingDeck: [], // Nema preostalih karata u 2v2
   };
+}
+
+// Backwards-compatible alias used by server code which expects `dealCards(deck, is2v2)`
+function dealCards(deck, is2v2 = true) {
+  // Ignore is2v2 flag here; this module is the 2v2 implementation
+  return dealCards2v2(deck);
 }
 
 /**
@@ -176,10 +182,11 @@ function getWinningTeam(winningPlayer) {
   return winningPlayer === 1 || winningPlayer === 3 ? 1 : 2;
 }
 
-module.exports = {
+export {
   createDeck,
   shuffleDeck,
   dealCards2v2,
+  dealCards,
   createGameState2v2,
   getCardStrength,
   getCardStrengthName,
