@@ -1,13 +1,13 @@
 // gameLogicTreseta.js - Logika za Trešeta 1v1
 
-const {
+import {
   createDeck,
   shuffleDeck,
   getCardStrength,
   getCardStrengthName,
   isValidMove,
   getPlayableCards,
-} = require("./tresetaCommon");
+} from "./tresetaCommon.js";
 
 /**
  * Dijeli karte za Trešeta (1v1 ili 2v2)
@@ -247,7 +247,7 @@ function checkGameEnd(
   return { isGameOver: false };
 }
 
-module.exports = {
+export {
   createDeck,
   shuffleDeck,
   dealCards,
