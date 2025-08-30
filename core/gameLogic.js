@@ -181,7 +181,7 @@ function checkGameEnd(
 }
 
 // CommonJS exports
-module.exports = {
+export {
   SUITS,
   VALUES,
   CARD_NAMES,

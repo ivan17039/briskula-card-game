@@ -1,4 +1,4 @@
-import { determineRoundWinner } from "./gameLogic";
+import { determineRoundWinner } from "./gameLogic.js";
 
 /**
  * AI bira kartu ovisno o tome igra li prvi (aiIsFirst) ili odgovara na protivničku kartu.

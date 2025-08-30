@@ -288,4 +288,4 @@ class InMemoryGameStateManager {
   }
 }
 
-module.exports = InMemoryGameStateManager;
+export default InMemoryGameStateManager;

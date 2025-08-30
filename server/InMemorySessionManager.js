@@ -143,4 +143,4 @@ class InMemorySessionManager {
   }
 }
 
-module.exports = InMemorySessionManager;
+export default InMemorySessionManager;

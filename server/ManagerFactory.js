@@ -1,17 +1,18 @@
-// ManagerFactory.js - Factory for creating session and game state managers with fallback
+// ManagerFactory.js - Factory for creating session and game state managers with fallback (ESM)
 
-const InMemorySessionManager = require("./InMemorySessionManager");
-const InMemoryGameStateManager = require("./InMemoryGameStateManager");
+import InMemorySessionManager from "./InMemorySessionManager.js";
+import InMemoryGameStateManager from "./InMemoryGameStateManager.js";
 
 class ManagerFactory {
   /**
    * Create session manager with fallback to in-memory
    */
-  static createSessionManager() {
+  static async createSessionManager() {
     // Check if Supabase environment variables are available
     if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
       try {
-        const SupabaseSessionManager = require("./SupabaseSessionManager");
+        const module = await import("./SupabaseSessionManager.js");
+        const SupabaseSessionManager = module.default;
         console.log("🟢 Using Supabase Session Manager");
         return new SupabaseSessionManager();
       } catch (error) {
@@ -31,11 +32,12 @@ class ManagerFactory {
   /**
    * Create game state manager with fallback to in-memory
    */
-  static createGameStateManager() {
+  static async createGameStateManager() {
     // Check if Supabase environment variables are available
     if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
       try {
-        const SupabaseGameStateManager = require("./SupabaseGameStateManager");
+        const module = await import("./SupabaseGameStateManager.js");
+        const SupabaseGameStateManager = module.default;
         console.log("🟢 Using Supabase Game State Manager");
         return new SupabaseGameStateManager();
       } catch (error) {
@@ -55,4 +57,4 @@ class ManagerFactory {
   }
 }
 
-module.exports = ManagerFactory;
+export default ManagerFactory;

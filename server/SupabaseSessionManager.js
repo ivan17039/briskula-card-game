@@ -1,8 +1,8 @@
-// SupabaseSessionManager.js - Session management with Supabase PostgreSQL
+// SupabaseSessionManager.js - Session management with Supabase PostgreSQL (ESM)
 
-const { createClient } = require("@supabase/supabase-js");
-const { v4: uuidv4 } = require("uuid");
-const crypto = require("crypto");
+import { createClient } from "@supabase/supabase-js";
+import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 
 class SupabaseSessionManager {
   constructor() {
@@ -362,4 +362,4 @@ class SupabaseSessionManager {
   }
 }
 
-module.exports = SupabaseSessionManager;
+export default SupabaseSessionManager;

@@ -1,19 +1,19 @@
-// SupabaseGameStateManager.js - Game state management with Supabase PostgreSQL
+// SupabaseGameStateManager.js - Game state management with Supabase PostgreSQL (ESM)
 
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from "@supabase/supabase-js";
 
 class SupabaseGameStateManager {
   constructor() {
     this.supabaseUrl = process.env.SUPABASE_URL;
     this.supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Server-side key
-    
+
     if (!this.supabaseUrl || !this.supabaseServiceKey) {
-      throw new Error('Missing Supabase environment variables for server');
+      throw new Error("Missing Supabase environment variables for server");
     }
 
     this.supabase = createClient(this.supabaseUrl, this.supabaseServiceKey);
     this.autoSaveInterval = 30000; // 30 sekundi
-    
+
     this.initializeTables();
     this.startAutoSave();
   }
@@ -25,9 +25,9 @@ class SupabaseGameStateManager {
     try {
       // Tables should be created manually via Supabase SQL Editor
       // using the provided supabase-setup.sql script
-      console.log('✅ Supabase tables ready');
+      console.log("✅ Supabase tables ready");
     } catch (error) {
-      console.error('Error initializing Supabase tables:', error);
+      console.error("Error initializing Supabase tables:", error);
     }
   }
 
@@ -40,7 +40,7 @@ class SupabaseGameStateManager {
         room_id: roomId,
         game_mode: gameData.gameMode,
         game_type: gameData.gameType,
-        players: gameData.players.map(p => ({
+        players: gameData.players.map((p) => ({
           id: p.id,
           name: p.name,
           userId: p.userId,
@@ -61,18 +61,24 @@ class SupabaseGameStateManager {
       };
 
       const { error } = await this.supabase
-        .from('game_states')
-        .upsert(gameState, { onConflict: 'room_id' });
+        .from("game_states")
+        .upsert(gameState, { onConflict: "room_id" });
 
       if (error) {
-        console.error(`Error saving game state to Supabase for ${roomId}:`, error);
+        console.error(
+          `Error saving game state to Supabase for ${roomId}:`,
+          error
+        );
         return false;
       }
 
       console.log(`💾 Game state saved to Supabase: ${roomId}`);
       return true;
     } catch (error) {
-      console.error(`Error saving game state to Supabase for ${roomId}:`, error);
+      console.error(
+        `Error saving game state to Supabase for ${roomId}:`,
+        error
+      );
       return false;
     }
   }
@@ -82,20 +88,20 @@ class SupabaseGameStateManager {
    */
   getGameExpiration(gamePhase) {
     const now = Date.now();
-    
+
     switch (gamePhase) {
-      case 'playing':
+      case "playing":
         // Active games - keep for 4 hours for reconnections
         return new Date(now + 4 * 60 * 60 * 1000).toISOString();
-      
-      case 'finished':
+
+      case "finished":
         // Finished games - keep for 1 hour for final score viewing
         return new Date(now + 1 * 60 * 60 * 1000).toISOString();
-      
-      case 'interrupted':
+
+      case "interrupted":
         // Interrupted games - keep for 2 hours for potential recovery
         return new Date(now + 2 * 60 * 60 * 1000).toISOString();
-      
+
       default:
         // Default - 24 hours
         return new Date(now + 24 * 60 * 60 * 1000).toISOString();
@@ -108,14 +114,18 @@ class SupabaseGameStateManager {
   async loadGameState(roomId) {
     try {
       const { data, error } = await this.supabase
-        .from('game_states')
-        .select('*')
-        .eq('room_id', roomId)
+        .from("game_states")
+        .select("*")
+        .eq("room_id", roomId)
         .single();
 
       if (error) {
-        if (error.code !== 'PGRST116') { // Not found error
-          console.error(`Error loading game state from Supabase for ${roomId}:`, error);
+        if (error.code !== "PGRST116") {
+          // Not found error
+          console.error(
+            `Error loading game state from Supabase for ${roomId}:`,
+            error
+          );
         }
         return null;
       }
@@ -127,7 +137,10 @@ class SupabaseGameStateManager {
 
       return null;
     } catch (error) {
-      console.error(`Error loading game state from Supabase for ${roomId}:`, error);
+      console.error(
+        `Error loading game state from Supabase for ${roomId}:`,
+        error
+      );
       return null;
     }
   }
@@ -138,19 +151,25 @@ class SupabaseGameStateManager {
   async deleteGameState(roomId) {
     try {
       const { error } = await this.supabase
-        .from('game_states')
+        .from("game_states")
         .delete()
-        .eq('room_id', roomId);
+        .eq("room_id", roomId);
 
       if (error) {
-        console.error(`Error deleting game state from Supabase for ${roomId}:`, error);
+        console.error(
+          `Error deleting game state from Supabase for ${roomId}:`,
+          error
+        );
         return false;
       }
 
       console.log(`🗑️ Game state deleted from Supabase: ${roomId}`);
       return true;
     } catch (error) {
-      console.error(`Error deleting game state from Supabase for ${roomId}:`, error);
+      console.error(
+        `Error deleting game state from Supabase for ${roomId}:`,
+        error
+      );
       return false;
     }
   }
@@ -161,9 +180,9 @@ class SupabaseGameStateManager {
   async gameExists(roomId) {
     try {
       const { data, error } = await this.supabase
-        .from('game_states')
-        .select('created_at, expires_at')
-        .eq('room_id', roomId)
+        .from("game_states")
+        .select("created_at, expires_at")
+        .eq("room_id", roomId)
         .single();
 
       if (error || !data) return false;
@@ -190,25 +209,25 @@ class SupabaseGameStateManager {
    */
   async findUserGames(userId, userName, isGuest) {
     try {
-      let query = this.supabase.from('game_states').select('*');
+      let query = this.supabase.from("game_states").select("*");
 
       if (isGuest) {
         // For guests, search by name in players array
-        query = query.contains('players', [{ name: userName, isGuest: true }]);
+        query = query.contains("players", [{ name: userName, isGuest: true }]);
       } else {
         // For registered users, search by userId
-        query = query.contains('players', [{ userId: userId, isGuest: false }]);
+        query = query.contains("players", [{ userId: userId, isGuest: false }]);
       }
 
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error finding user games:', error);
+        console.error("Error finding user games:", error);
         return [];
       }
 
-      return data.map(game => {
-        const playerInGame = game.players.find(p => {
+      return data.map((game) => {
+        const playerInGame = game.players.find((p) => {
           if (isGuest) {
             return p.name === userName && p.isGuest;
           } else {
@@ -226,7 +245,7 @@ class SupabaseGameStateManager {
         };
       });
     } catch (error) {
-      console.error('Error finding user games:', error);
+      console.error("Error finding user games:", error);
       return [];
     }
   }
@@ -243,13 +262,14 @@ class SupabaseGameStateManager {
       id: savedState.roomId,
       gameMode: savedState.gameMode,
       gameType: savedState.gameType,
-      players: savedState.players.map(p => {
+      players: savedState.players.map((p) => {
         // Check if player still exists in current room
         let currentPlayer = null;
         if (currentGameRoom) {
-          currentPlayer = currentGameRoom.players.find(cp => 
-            (cp.userId === p.userId && !p.isGuest) ||
-            (cp.name === p.name && p.isGuest)
+          currentPlayer = currentGameRoom.players.find(
+            (cp) =>
+              (cp.userId === p.userId && !p.isGuest) ||
+              (cp.name === p.name && p.isGuest)
           );
         }
 
@@ -257,7 +277,10 @@ class SupabaseGameStateManager {
           ...p,
           isConnected: currentPlayer ? currentPlayer.isConnected : false,
           id: currentPlayer ? currentPlayer.id : null,
-          disconnectedAt: currentPlayer && currentPlayer.isConnected ? null : p.disconnectedAt || new Date(),
+          disconnectedAt:
+            currentPlayer && currentPlayer.isConnected
+              ? null
+              : p.disconnectedAt || new Date(),
         };
       }),
       gameState: savedState.gameState,
@@ -269,7 +292,11 @@ class SupabaseGameStateManager {
       }),
     };
 
-    console.log(`🔄 Game restored from Supabase: ${roomId} with ${restoredGame.players.filter(p => p.isConnected).length} connected players`);
+    console.log(
+      `🔄 Game restored from Supabase: ${roomId} with ${
+        restoredGame.players.filter((p) => p.isConnected).length
+      } connected players`
+    );
     return restoredGame;
   }
 
@@ -282,13 +309,13 @@ class SupabaseGameStateManager {
       const finishedExpiresAt = new Date(now.getTime() + 1 * 60 * 60 * 1000); // 1 hour
 
       const { error } = await this.supabase
-        .from('game_states')
-        .update({ 
+        .from("game_states")
+        .update({
           expires_at: finishedExpiresAt.toISOString(),
-          'game_state->gamePhase': 'finished',
-          last_saved: now.toISOString()
+          "game_state->gamePhase": "finished",
+          last_saved: now.toISOString(),
         })
-        .eq('room_id', roomId);
+        .eq("room_id", roomId);
 
       if (error) {
         console.error(`Error marking game as finished for ${roomId}:`, error);
@@ -324,13 +351,13 @@ class SupabaseGameStateManager {
   async getStats() {
     try {
       const { count: totalGames } = await this.supabase
-        .from('game_states')
-        .select('*', { count: 'exact', head: true });
+        .from("game_states")
+        .select("*", { count: "exact", head: true });
 
       const { count: activeGames } = await this.supabase
-        .from('game_states')
-        .select('*', { count: 'exact', head: true })
-        .eq('game_state->>gamePhase', 'playing');
+        .from("game_states")
+        .select("*", { count: "exact", head: true })
+        .eq("game_state->>gamePhase", "playing");
 
       return {
         totalGames: totalGames || 0,
@@ -338,7 +365,7 @@ class SupabaseGameStateManager {
         autoSaveInterval: this.autoSaveInterval,
       };
     } catch (error) {
-      console.error('Error getting Supabase stats:', error);
+      console.error("Error getting Supabase stats:", error);
       return { totalGames: 0, activeGames: 0 };
     }
   }
@@ -351,22 +378,24 @@ class SupabaseGameStateManager {
       try {
         // Cleanup expired games
         const { error } = await this.supabase
-          .from('game_states')
+          .from("game_states")
           .delete()
-          .lt('expires_at', new Date().toISOString());
+          .lt("expires_at", new Date().toISOString());
 
         if (error) {
-          console.error('Error cleaning up expired games:', error);
+          console.error("Error cleaning up expired games:", error);
         }
 
         // Log current stats
         const stats = await this.getStats();
-        console.log(`📊 Supabase Games: ${stats.activeGames} active, ${stats.totalGames} total`);
+        console.log(
+          `📊 Supabase Games: ${stats.activeGames} active, ${stats.totalGames} total`
+        );
       } catch (error) {
-        console.error('Error in auto-save:', error);
+        console.error("Error in auto-save:", error);
       }
     }, this.autoSaveInterval);
   }
 }
 
-module.exports = SupabaseGameStateManager;
+export default SupabaseGameStateManager;

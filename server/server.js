@@ -1,23 +1,29 @@
 // server.js - Glavni Socket.io server za Briskulu (1v1 + 2v2)
 
 // Load environment variables
-require("dotenv").config();
+import dotenv from "dotenv";
+dotenv.config();
 
-const express = require("express");
-const http = require("http");
-const socketIo = require("socket.io");
-const cors = require("cors");
-const { v4: uuidv4 } = require("uuid");
+import express from "express";
+import http from "http";
+import { Server as SocketIOServer } from "socket.io";
+import cors from "cors";
+import { v4 as uuidv4 } from "uuid";
 
 // Import novih managera
-const ManagerFactory = require("./ManagerFactory");
+import ManagerFactory from "./ManagerFactory.js";
 
 const app = express();
 const server = http.createServer(app);
 
 // Inicijaliziraj managere based on environment
-const sessionManager = ManagerFactory.createSessionManager();
-const gameStateManager = ManagerFactory.createGameStateManager();
+let sessionManager;
+let gameStateManager;
+const initManagers = async () => {
+  sessionManager = await ManagerFactory.createSessionManager();
+  gameStateManager = await ManagerFactory.createGameStateManager();
+};
+await initManagers();
 
 // CORS konfiguracija
 const allowedOrigins = [
@@ -35,7 +41,7 @@ app.use(
   })
 );
 
-const io = socketIo(server, {
+const io = new SocketIOServer(server, {
   cors: {
     origin: allowedOrigins,
     methods: ["GET", "POST"],
@@ -1069,7 +1075,7 @@ io.on("connection", (socket) => {
         room.gameType === "treseta" &&
         room.gameState.gamePhase === "playing"
       ) {
-        const gameLogic = require("./gameLogicTreseta");
+        const gameLogic = await import("../core/gameLogicTreseta.js");
         const { getPlayableCards } = gameLogic;
 
         const playedCardsOnly = room.gameState.playedCards.map((pc) => pc.card);
@@ -1219,9 +1225,9 @@ async function createGameRoom1v1(player1, player2, gameType = "briskula") {
   // Importiraj odgovarajuću game logiku
   let gameLogic;
   if (gameType === "treseta") {
-    gameLogic = require("./gameLogicTreseta");
+    gameLogic = await import("../core/gameLogicTreseta.js");
   } else {
-    gameLogic = require("./gameLogic");
+    gameLogic = await import("../core/gameLogic.js");
   }
 
   const { createDeck, shuffleDeck, dealCards } = gameLogic;
@@ -1345,17 +1351,17 @@ async function createGameRoom1v1(player1, player2, gameType = "briskula") {
 /**
  * Kreira novu sobu za 2v2 igru - ISPRAVLJENA LOGIKA
  */
-function createGameRoom2v2(players, gameType = "briskula") {
+async function createGameRoom2v2(players, gameType = "briskula") {
   const roomId = uuidv4();
 
   // Importiraj game logiku ovisno o gameType
   let gameState;
   if (gameType === "treseta") {
-    const { createGameState2v2 } = require("./gameLogicTreseta2v2");
-    gameState = createGameState2v2();
+    const treseta2v2 = await import("../core/gameLogicTreseta2v2.js");
+    gameState = treseta2v2.createGameState2v2();
   } else {
-    const { createGameState2v2 } = require("./gameLogic2v2");
-    gameState = createGameState2v2();
+    const logic2v2 = await import("../core/gameLogic2v2.js");
+    gameState = logic2v2.createGameState2v2();
   }
 
   // ISPRAVKA: Assign teams correctly: 1&3 = team 1, 2&4 = team 2
@@ -1460,16 +1466,16 @@ function createGameRoom2v2(players, gameType = "briskula") {
 /**
  * Obrađuje igranje karte za 1v1 - AŽURIRANO za gameType
  */
-function processCardPlay1v1(roomId, playerId, card) {
+async function processCardPlay1v1(roomId, playerId, card) {
   const room = gameRooms.get(roomId);
   if (!room) return;
 
   // Importiraj odgovarajuću logiku
   let gameLogic;
   if (room.gameType === "treseta") {
-    gameLogic = require("./gameLogicTreseta");
+    gameLogic = await import("../core/gameLogicTreseta.js");
   } else {
-    gameLogic = require("./gameLogic");
+    gameLogic = await import("../core/gameLogic.js");
   }
 
   const {
@@ -1603,20 +1609,20 @@ function processCardPlay1v1(roomId, playerId, card) {
 /**
  * Obrađuje igranje karte za 2v2 - NOVO
  */
-function processCardPlay2v2(roomId, playerId, card) {
+async function processCardPlay2v2(roomId, playerId, card) {
   const room = gameRooms.get(roomId);
   if (!room) return;
 
   // Import correct logic based on gameType
   let getNextPlayer2v2, isValidMove, getPlayableCards;
   if (room.gameType === "treseta") {
-    ({
-      getNextPlayer2v2,
-      isValidMove,
-      getPlayableCards,
-    } = require("./gameLogicTreseta2v2"));
+    const treseta2v2 = await import("../core/gameLogicTreseta2v2.js");
+    getNextPlayer2v2 = treseta2v2.getNextPlayer2v2;
+    isValidMove = treseta2v2.isValidMove;
+    getPlayableCards = treseta2v2.getPlayableCards;
   } else {
-    ({ getNextPlayer2v2 } = require("./gameLogic2v2"));
+    const logic2v2 = await import("../core/gameLogic2v2.js");
+    getNextPlayer2v2 = logic2v2.getNextPlayer2v2;
   }
 
   const playerNumber = room.players.find((p) => p.id === playerId).playerNumber;
@@ -1674,7 +1680,7 @@ function processCardPlay2v2(roomId, playerId, card) {
 
     // Ažuriraj playableCards za Trešetu nakon odigrane karte
     if (room.gameType === "treseta") {
-      const tresetaLogic = require("./gameLogicTreseta2v2");
+      const tresetaLogic = await import("../core/gameLogicTreseta2v2.js");
       const playedCardsOnly = room.gameState.playedCards.map((pc) => pc.card);
 
       room.gameState.player1PlayableCards = tresetaLogic.getPlayableCards(
@@ -1716,16 +1722,16 @@ function processCardPlay2v2(roomId, playerId, card) {
 /**
  * Završava rundu za 1v1 - AŽURIRANO za gameType
  */
-function finishRound1v1(roomId) {
+async function finishRound1v1(roomId) {
   const room = gameRooms.get(roomId);
   if (!room || room.gameState.playedCards.length !== 2) return;
 
   // Importiraj odgovarajuću logiku
   let gameLogic;
   if (room.gameType === "treseta") {
-    gameLogic = require("./gameLogicTreseta");
+    gameLogic = await import("../core/gameLogicTreseta.js");
   } else {
-    gameLogic = require("./gameLogic");
+    gameLogic = await import("../core/gameLogic.js");
   }
 
   const { determineRoundWinner, calculatePoints, checkGameEnd } = gameLogic;
@@ -1955,7 +1961,7 @@ function finishRound1v1(roomId) {
 /**
  * Završava rundu za 2v2 - ISPRAVLJENA LOGIKA
  */
-function finishRound2v2(roomId) {
+async function finishRound2v2(roomId) {
   const room = gameRooms.get(roomId);
   if (!room || room.gameState.playedCards.length !== 4) return;
 
@@ -1963,7 +1969,7 @@ function finishRound2v2(roomId) {
   let determineRoundWinner2v2, getPlayerTeam, calculatePoints, checkGameEnd2v2;
 
   if (room.gameType === "treseta") {
-    const tresetaLogic = require("./gameLogicTreseta2v2");
+    const tresetaLogic = await import("../core/gameLogicTreseta2v2.js");
     // Za Trešetu proslijedi playedCards direktno
     determineRoundWinner2v2 = (playedCards, firstPlayer) => {
       return tresetaLogic.determineRoundWinner(playedCards, firstPlayer);
@@ -1972,12 +1978,11 @@ function finishRound2v2(roomId) {
     calculatePoints = tresetaLogic.calculateTeamPoints;
     checkGameEnd2v2 = () => ({ isGameOver: false }); // Trešeta end game logic
   } else {
-    ({
-      determineRoundWinner2v2,
-      getPlayerTeam,
-      calculatePoints,
-      checkGameEnd2v2,
-    } = require("./gameLogic2v2"));
+    const logic2v2 = await import("../core/gameLogic2v2.js");
+    determineRoundWinner2v2 = logic2v2.determineRoundWinner2v2;
+    getPlayerTeam = logic2v2.getPlayerTeam;
+    calculatePoints = logic2v2.calculatePoints;
+    checkGameEnd2v2 = logic2v2.checkGameEnd2v2;
   }
 
   // Tko je počeo ovu rundu
@@ -2164,7 +2169,7 @@ function finishRound2v2(roomId) {
 
   // Add playableCards for Trešeta
   if (room.gameType === "treseta") {
-    const tresetaLogic = require("./gameLogicTreseta2v2");
+    const tresetaLogic = await import("../core/gameLogicTreseta2v2.js");
 
     roundFinishedData.player1PlayableCards = tresetaLogic.getPlayableCards(
       room.gameState.player1Hand,
@@ -2346,15 +2351,15 @@ async function startCustomGame(roomId) {
   let gameLogic;
   if (room.gameType === "treseta") {
     if (room.gameMode === "2v2") {
-      gameLogic = require("./gameLogicTreseta2v2");
+      gameLogic = require("../core/gameLogicTreseta2v2.js");
     } else {
-      gameLogic = require("./gameLogicTreseta");
+      gameLogic = require("../core/gameLogicTreseta.js");
     }
   } else {
     if (room.gameMode === "2v2") {
-      gameLogic = require("./gameLogic2v2");
+      gameLogic = await import("../core/gameLogic2v2.js");
     } else {
-      gameLogic = require("./gameLogic");
+      gameLogic = await import("../core/gameLogic.js");
     }
   }
 

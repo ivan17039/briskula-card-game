@@ -13,9 +13,9 @@ import {
   dealCards,
   calculatePoints,
   checkGameEnd,
-} from "./gameLogic.js";
+} from "../core/gameLogic.js";
 
-import { chooseAiCard } from "./aiPlayer.js";
+import { chooseAiCard } from "../core/aiPlayer.js";
 
 /**
  * Vraća pravilnu riječ za broj karata u hrvatskom jeziku
