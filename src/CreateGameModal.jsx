@@ -8,23 +8,30 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
     name: "",
     maxPlayers: 2, // 2 for 1v1, 4 for 2v2
     password: "",
-    hasPassword: false
+    hasPassword: false,
   });
   const [errors, setErrors] = useState({});
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    setFormData(prev => ({
+    // Ensure numeric fields (like maxPlayers) are stored as numbers
+    const parsedValue =
+      type === "checkbox"
+        ? checked
+        : name === "maxPlayers"
+        ? parseInt(value, 10)
+        : value;
+
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: parsedValue,
     }));
 
     // Clear error when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        [name]: ''
+        [name]: "",
       }));
     }
   };
@@ -56,7 +63,7 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -65,7 +72,7 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
       name: formData.name.trim(),
       maxPlayers: parseInt(formData.maxPlayers),
       password: formData.hasPassword ? formData.password : null,
-      hasPassword: formData.hasPassword
+      hasPassword: formData.hasPassword,
     };
 
     onCreateGame(gameData);
@@ -84,7 +91,8 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
       <div className="create-game-modal">
         <div className="modal-header">
           <h2>
-            {getGameIcon()} Create {gameType.charAt(0).toUpperCase() + gameType.slice(1)} Game
+            {getGameIcon()} Create{" "}
+            {gameType.charAt(0).toUpperCase() + gameType.slice(1)} Game
           </h2>
           <button className="close-btn" onClick={onClose}>
             ✕
@@ -103,7 +111,7 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
               value={formData.name}
               onChange={handleInputChange}
               placeholder="Enter game name"
-              className={`form-input ${errors.name ? 'error' : ''}`}
+              className={`form-input ${errors.name ? "error" : ""}`}
               maxLength={30}
             />
             {errors.name && <span className="error-text">{errors.name}</span>}
@@ -114,7 +122,11 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
               Game Mode
             </label>
             <div className="mode-selector">
-              <label className={`mode-option ${formData.maxPlayers === 2 ? 'selected' : ''}`}>
+              <label
+                className={`mode-option ${
+                  formData.maxPlayers === 2 ? "selected" : ""
+                }`}
+              >
                 <input
                   type="radio"
                   name="maxPlayers"
@@ -131,7 +143,11 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
                 </div>
               </label>
 
-              <label className={`mode-option ${formData.maxPlayers === 4 ? 'selected' : ''}`}>
+              <label
+                className={`mode-option ${
+                  formData.maxPlayers === 4 ? "selected" : ""
+                }`}
+              >
                 <input
                   type="radio"
                   name="maxPlayers"
@@ -174,9 +190,13 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
                   value={formData.password}
                   onChange={handleInputChange}
                   placeholder="Enter password"
-                  className={`form-input password-input ${errors.password ? 'error' : ''}`}
+                  className={`form-input password-input ${
+                    errors.password ? "error" : ""
+                  }`}
                 />
-                {errors.password && <span className="error-text">{errors.password}</span>}
+                {errors.password && (
+                  <span className="error-text">{errors.password}</span>
+                )}
                 <div className="password-hint">
                   Players will need this password to join your game
                 </div>
@@ -196,7 +216,8 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
               <div className="preview-item">
                 <span className="preview-label">Type:</span>
                 <span className="preview-value">
-                  {getGameIcon()} {gameType.charAt(0).toUpperCase() + gameType.slice(1)}
+                  {getGameIcon()}{" "}
+                  {gameType.charAt(0).toUpperCase() + gameType.slice(1)}
                 </span>
               </div>
               <div className="preview-item">

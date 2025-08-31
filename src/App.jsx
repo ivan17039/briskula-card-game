@@ -107,6 +107,16 @@ function AppContent() {
   };
 
   const handleLobbyGameStart = (data) => {
+    // Ensure we set the UI game mode based on the incoming game data
+    // Server may include a explicit gameMode, otherwise infer from payload
+    if (data?.gameMode) {
+      setGameMode(data.gameMode);
+    } else if (data?.players && data.players.length === 4) {
+      setGameMode("2v2");
+    } else if (data?.opponent) {
+      setGameMode("1v1");
+    }
+
     setGameData(data);
     setAppState("game");
   };
@@ -116,6 +126,15 @@ function AppContent() {
   };
 
   const handleGameStart = (data) => {
+    // Matchmaking may not have set client-side gameMode; infer it here
+    if (data?.gameMode) {
+      setGameMode(data.gameMode);
+    } else if (data?.players && data.players.length === 4) {
+      setGameMode("2v2");
+    } else if (data?.opponent) {
+      setGameMode("1v1");
+    }
+
     setGameData(data);
     setAppState("game");
   };
