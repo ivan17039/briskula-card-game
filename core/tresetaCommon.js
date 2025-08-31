@@ -171,7 +171,7 @@ function getPlayableCards(hand, playedCards) {
   }
 }
 
-module.exports = {
+export {
   createDeck,
   getCardImage,
   shuffleDeck,
