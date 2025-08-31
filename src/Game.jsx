@@ -14,8 +14,18 @@ import {
   calculatePoints,
   checkGameEnd,
 } from "../core/gameLogicBriskula.js";
+import {
+  determineRoundWinner as determineRoundWinnerTreseta,
+  createDeck as createDeckTreseta,
+  shuffleDeck as shuffleDeckTreseta,
+  dealCards as dealCardsTreseta,
+  calculatePoints as calculatePointsTreseta,
+  calculateAkuze as calculateAkuzeTreseta,
+  checkGameEnd as checkGameEndTreseta,
+} from "../core/gameLogicTreseta.js";
 
-import { chooseAiCard } from "../core/briskulaAI.js";
+import { chooseAiCard as chooseAiBriskula } from "../core/briskulaAI.js";
+import { chooseAiCard as chooseAiTreseta } from "../core/tresetaAI.js";
 
 /**
  * Vraća pravilnu riječ za broj karata u hrvatskom jeziku
@@ -118,10 +128,20 @@ function Game({ gameData, onGameEnd }) {
     if (mode === "ai") {
       // Lokalna partija 1v1 protiv AI-ja
       console.log("[v0] 🤖 Setting up AI mode game");
-      const deck = shuffleDeck(createDeck());
-      console.log("[v0] 📦 Created and shuffled deck:", deck.length, "cards");
+      const useTreseta = (gameData.gameType || "briskula") === "treseta";
+      const deck = useTreseta
+        ? shuffleDeckTreseta(createDeckTreseta())
+        : shuffleDeck(createDeck());
+      console.log(
+        "[v0] 📦 Created and shuffled deck:",
+        deck.length,
+        "cards",
+        "useTreseta:",
+        useTreseta
+      );
 
-      const dealt = dealCards(deck);
+      // For Trešeta AI mode we must use 1v1 dealing (do NOT pass is2v2=true)
+      const dealt = useTreseta ? dealCardsTreseta(deck) : dealCards(deck);
       console.log(
         "[v0] 🃏 Dealt cards - Player:",
         dealt.player1Hand.length,
@@ -154,7 +174,7 @@ function Game({ gameData, onGameEnd }) {
         opponentPoints: 0,
         opponentHandCount: dealt.player2Hand.length,
         remainingCardsCount: dealt.remainingDeck.length,
-        playableCards: dealt.player1Hand.map((c) => c.id), // Za AI mod, sve karte su igrive za briskulu
+        playableCards: dealt.player1Hand.map((c) => c.id), // Za AI mod, sve karte su igrive
       };
 
       console.log("[v0] ✅ AI game state initialized:", initialState);
@@ -271,12 +291,19 @@ function Game({ gameData, onGameEnd }) {
               secondCard = newPlayedCards[0]; // User drugi
             }
 
-            const winner = determineRoundWinner(
-              firstCard,
-              secondCard,
-              prevState.trumpSuit,
-              roundFirstPlayerRef.current
-            );
+            const useTreseta = prevState.gameType === "treseta";
+            const winner = useTreseta
+              ? determineRoundWinnerTreseta(
+                  firstCard,
+                  secondCard,
+                  roundFirstPlayerRef.current
+                )
+              : determineRoundWinner(
+                  firstCard,
+                  secondCard,
+                  prevState.trumpSuit,
+                  roundFirstPlayerRef.current
+                );
 
             console.log("[v0] 🏆 ROUND WINNER:", winner);
             console.log("[v0] Setting currentPlayer to winner:", winner);
@@ -298,16 +325,34 @@ function Game({ gameData, onGameEnd }) {
             let remaining = [...prevState.remainingDeck];
             let myHandAfterDraw = [...newMyHand];
             let aiHandAfterDraw = [...newAiHand];
+            // Track which cards were drawn this trick (for pickup animation)
+            let newCards = { player1: null, player2: null };
 
             if (remaining.length > 0) {
               if (remaining.length === 1) {
-                // 🃏 Zadnja runda - poseban slučaj (1 skrivena + 1 adut)
-                if (winnerIsP1) {
-                  myHandAfterDraw = [...myHandAfterDraw, remaining[0]]; // pobjednik uzima skrivenu
-                  aiHandAfterDraw = [...aiHandAfterDraw, prevState.trump]; // gubitnik uzima aduta
+                // 🃏 Zadnja runda - special handling
+                if (prevState.gameType === "treseta") {
+                  // Trešeta: only one card remains -> winner takes it
+                  if (winnerIsP1) {
+                    myHandAfterDraw = [...myHandAfterDraw, remaining[0]];
+                    newCards.player1 = remaining[0];
+                  } else {
+                    aiHandAfterDraw = [...aiHandAfterDraw, remaining[0]];
+                    newCards.player2 = remaining[0];
+                  }
                 } else {
-                  aiHandAfterDraw = [...aiHandAfterDraw, remaining[0]]; // pobjednik uzima skrivenu
-                  myHandAfterDraw = [...myHandAfterDraw, prevState.trump]; // gubitnik uzima aduta
+                  // Briskula: winner takes hidden, loser takes trump
+                  if (winnerIsP1) {
+                    myHandAfterDraw = [...myHandAfterDraw, remaining[0]]; // pobjednik uzima skrivenu
+                    aiHandAfterDraw = [...aiHandAfterDraw, prevState.trump]; // gubitnik uzima aduta
+                    newCards.player1 = remaining[0];
+                    newCards.player2 = prevState.trump;
+                  } else {
+                    aiHandAfterDraw = [...aiHandAfterDraw, remaining[0]]; // pobjednik uzima skrivenu
+                    myHandAfterDraw = [...myHandAfterDraw, prevState.trump]; // gubitnik uzima aduta
+                    newCards.player2 = remaining[0];
+                    newCards.player1 = prevState.trump;
+                  }
                 }
                 remaining = []; // špil je prazan
               } else {
@@ -316,29 +361,81 @@ function Game({ gameData, onGameEnd }) {
                   myHandAfterDraw = [...myHandAfterDraw, remaining[0]];
                   if (remaining[1])
                     aiHandAfterDraw = [...aiHandAfterDraw, remaining[1]];
+                  newCards.player1 = remaining[0];
+                  newCards.player2 = remaining[1] || null;
                 } else {
                   aiHandAfterDraw = [...aiHandAfterDraw, remaining[0]];
                   if (remaining[1])
                     myHandAfterDraw = [...myHandAfterDraw, remaining[1]];
+                  newCards.player2 = remaining[0];
+                  newCards.player1 = remaining[1] || null;
                 }
                 remaining = remaining.slice(2);
               }
             }
 
-            const p1Points = calculatePoints(myCards);
-            const p2Points = calculatePoints(aiCards);
-            const end = checkGameEnd(
-              p1Points,
-              p2Points,
-              remaining,
-              myHandAfterDraw,
-              aiHandAfterDraw,
-              winner
-            );
+            const isAllCardsPlayed =
+              remaining.length === 0 &&
+              myHandAfterDraw.length === 0 &&
+              aiHandAfterDraw.length === 0;
+            const ultimaWinner = useTreseta && isAllCardsPlayed ? winner : null;
+
+            const p1Points = useTreseta
+              ? calculatePointsTreseta(myCards, ultimaWinner, 1).points
+              : calculatePoints(myCards);
+            const p2Points = useTreseta
+              ? calculatePointsTreseta(aiCards, ultimaWinner, 2).points
+              : calculatePoints(aiCards);
+            const end = useTreseta
+              ? (function () {
+                  const p1Akuze = calculateAkuzeTreseta(myCards || []);
+                  const p2Akuze = calculateAkuzeTreseta(aiCards || []);
+                  return checkGameEndTreseta(
+                    { points: p1Points },
+                    { points: p2Points },
+                    p1Akuze,
+                    p2Akuze,
+                    remaining,
+                    myHandAfterDraw,
+                    aiHandAfterDraw
+                  );
+                })()
+              : checkGameEnd(
+                  p1Points,
+                  p2Points,
+                  remaining,
+                  myHandAfterDraw,
+                  aiHandAfterDraw,
+                  winner
+                );
 
             aiThinking.current = false;
             roundResolving.current = false;
+            // For local Trešeta, show the pickup animation like server does
+            if (
+              prevState.gameType === "treseta" &&
+              (newCards.player1 || newCards.player2)
+            ) {
+              const myCard =
+                prevState.playerNumber === 1
+                  ? newCards.player1
+                  : newCards.player2;
+              const opponentCard =
+                prevState.playerNumber === 1
+                  ? newCards.player2
+                  : newCards.player1;
+              setCardPickupAnimation({
+                myCard: myCard,
+                opponentCard: opponentCard,
+                roundWinner: winner,
+                playerNumber: prevState.playerNumber,
+              });
 
+              // Ukloni animaciju nakon 2 sekunde
+              setTimeout(() => {
+                setCardPickupAnimation(null);
+              }, 2000);
+            }
             return {
               ...prevState,
               myHand: myHandAfterDraw,
@@ -431,11 +528,38 @@ function Game({ gameData, onGameEnd }) {
         console.log("[v0] AI is first:", aiIsFirst);
         console.log("[v0] Opponent card (if any):", gameState.playedCards[0]);
 
-        const aiCard = chooseAiCard({
-          hand: gameState.aiHand,
-          opponentCard: gameState.playedCards[0] || null,
-          trumpSuit: gameState.trumpSuit,
-        });
+        const firstPlayedCard =
+          (gameState.playedCards || []).find((c) => c) || null;
+
+        // For Trešeta, restrict AI's candidate hand to follow-suit if necessary
+        let aiHandForChoice = gameState.aiHand || [];
+        if (gameState.gameType === "treseta" && firstPlayedCard && !aiIsFirst) {
+          const sameSuit = (gameState.aiHand || []).filter(
+            (c) => c.suit === firstPlayedCard.suit
+          );
+          if (sameSuit.length > 0) aiHandForChoice = sameSuit;
+        }
+
+        console.log(
+          "[AI DEBUG] AI candidate hand:",
+          aiHandForChoice,
+          "firstPlayedCard:",
+          firstPlayedCard
+        );
+
+        const aiCard =
+          gameState.gameType === "treseta"
+            ? chooseAiTreseta({
+                hand: aiHandForChoice,
+                opponentCard: firstPlayedCard,
+                aiIsFirst: aiIsFirst,
+              })
+            : chooseAiBriskula({
+                hand: aiHandForChoice,
+                opponentCard: firstPlayedCard,
+                trumpSuit: gameState.trumpSuit,
+                aiIsFirst: aiIsFirst,
+              });
 
         console.log("[v0] 🎯 AI chose card:", aiCard);
         if (aiCard) {
@@ -765,17 +889,17 @@ function Game({ gameData, onGameEnd }) {
 
     if (mode === "ai") {
       // Za AI mod - jednostavna provjera za tresetu
-      if (
-        gameState.gameType === "treseta" &&
-        gameState.playedCards.length > 0
-      ) {
-        const firstCard = gameState.playedCards[0];
-        const sameSuitCards = gameState.myHand.filter(
-          (c) => c.suit === firstCard.suit
-        );
-        if (sameSuitCards.length > 0 && card.suit !== firstCard.suit) {
-          addToast("Morate baciti kartu iste boje ako je imate!", "error");
-          return;
+      if (gameState.gameType === "treseta") {
+        // find first played card (array may be sparse)
+        const firstCard = (gameState.playedCards || []).find((c) => c);
+        if (firstCard) {
+          const sameSuitCards = (gameState.myHand || []).filter(
+            (c) => c.suit === firstCard.suit
+          );
+          if (sameSuitCards.length > 0 && card.suit !== firstCard.suit) {
+            addToast("Morate baciti kartu iste boje ako je imate!", "error");
+            return;
+          }
         }
       }
       playLocalCard(card, 1);
@@ -823,12 +947,13 @@ function Game({ gameData, onGameEnd }) {
   }
 
   const myPoints =
-    mode === "ai"
-      ? calculatePoints(gameState.myCards || [])
+    gameState.gameType === "treseta"
+      ? gameState.myPoints || 0
       : calculatePoints(gameState.myCards || []);
+
   const opponentPoints =
-    mode === "ai"
-      ? calculatePoints(gameState.aiCards || [])
+    gameState.gameType === "treseta"
+      ? gameState.opponentPoints || 0
       : calculatePoints(gameState.opponentCards || []);
 
   const sumPoints = (cards) => {
@@ -997,26 +1122,28 @@ function Game({ gameData, onGameEnd }) {
             </div>
           </div>
 
-          <div
-            className={`deck-trump-section ${
-              gameState.gameType === "treseta" ? "treseta-deck" : ""
-            }`}
-          >
-            <div className="deck-label">Špil ({remainingCount})</div>
-            <div className="deck-trump-stack">
-              {/* Trump card - positioned under deck */}
-              {gameState.trump && (
-                <div className="trump-card">
-                  <Card card={gameState.trump} size={trumpCardSize} />
-                </div>
-              )}
+          {remainingCount > 0 && (
+            <div
+              className={`deck-trump-section ${
+                gameState.gameType === "treseta" ? "treseta-deck" : ""
+              }`}
+            >
+              <div className="deck-label">Špil ({remainingCount})</div>
+              <div className="deck-trump-stack">
+                {/* Trump card - positioned under deck */}
+                {gameState.trump && (
+                  <div className="trump-card">
+                    <Card card={gameState.trump} size={trumpCardSize} />
+                  </div>
+                )}
 
-              {/* Deck card - on top */}
-              <div className="deck-card">
-                <Card card={{}} isHidden={true} size={trumpCardSize} />
+                {/* Deck card - on top */}
+                <div className="deck-card">
+                  <Card card={{}} isHidden={true} size={trumpCardSize} />
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Player hand */}
@@ -1032,11 +1159,41 @@ function Game({ gameData, onGameEnd }) {
           </div>
           <div className="player-cards">
             {sortCards(gameState.myHand, gameState.gameType).map((card) => {
-              const isPlayable =
+              let isPlayable =
                 gameState.gamePhase === "playing" &&
-                gameState.currentPlayer === gameState.playerNumber &&
-                (gameState.gameType !== "treseta" ||
-                  gameState.playableCards.includes(card.id));
+                gameState.currentPlayer === gameState.playerNumber;
+
+              if (gameState.gameType === "treseta") {
+                if (mode === "ai") {
+                  // For local AI mode, enforce follow-suit rule locally
+                  const firstCard = (gameState.playedCards || []).find(
+                    (c) => c
+                  );
+                  if (firstCard) {
+                    const hasSameSuit = (gameState.myHand || []).some(
+                      (c) => c.suit === firstCard.suit
+                    );
+                    isPlayable =
+                      isPlayable &&
+                      (!hasSameSuit || card.suit === firstCard.suit);
+                  } else {
+                    // no lead card yet -> any card playable
+                    isPlayable = isPlayable;
+                  }
+                } else {
+                  // Online mode - server provides playableCards list
+                  isPlayable =
+                    isPlayable &&
+                    (gameState.playableCards || []).includes(card.id);
+                }
+              } else {
+                // Briskula and other games - use server-provided playableCards if present
+                isPlayable =
+                  isPlayable &&
+                  ((gameState.playableCards &&
+                    gameState.playableCards.includes(card.id)) ||
+                    true);
+              }
 
               return (
                 <Card
@@ -1289,8 +1446,13 @@ function Game({ gameData, onGameEnd }) {
                   ) : (
                     <button
                       onClick={() => {
-                        const deck = shuffleDeck(createDeck());
-                        const dealt = dealCards(deck);
+                        const useTreseta = gameState.gameType === "treseta";
+                        const deck = useTreseta
+                          ? shuffleDeckTreseta(createDeckTreseta())
+                          : shuffleDeck(createDeck());
+                        const dealt = useTreseta
+                          ? dealCardsTreseta(deck)
+                          : dealCards(deck);
                         setGameState((prev) => ({
                           ...prev,
                           mode: "ai",
@@ -1298,8 +1460,8 @@ function Game({ gameData, onGameEnd }) {
                           aiHand: dealt.player2Hand,
                           myCards: [],
                           aiCards: [],
-                          trump: dealt.trump,
-                          trumpSuit: dealt.trumpSuit,
+                          trump: dealt.trump || null,
+                          trumpSuit: dealt.trumpSuit || null,
                           remainingDeck: dealt.remainingDeck,
                           playedCards: [],
                           currentPlayer: 1,
