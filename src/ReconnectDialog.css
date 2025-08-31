@@ -194,8 +194,8 @@
     flex-direction: column;
   }
 
-  .btn-primary,
-  .btn-secondary {
+  .btn-primary-dialog,
+  .btn-secondary-dialog {
     flex: none;
     width: 100%;
   }

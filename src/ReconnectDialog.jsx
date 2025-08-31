@@ -59,13 +59,13 @@ function ReconnectDialog({ onDismiss, onReconnect }) {
 
         <div className="reconnect-actions">
           <button
-            className="btn-primary"
+            className="btn-primary-dialog"
             onClick={handleReconnect}
             disabled={!isConnected}
           >
             🔄 Povezi me nazad u sobu
           </button>
-          <button className="btn-secondary" onClick={handleDismiss}>
+          <button className="btn-secondary-dialog" onClick={handleDismiss}>
             ❌ Odustani i idi na glavni meni
           </button>
         </div>
