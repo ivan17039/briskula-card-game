@@ -205,7 +205,7 @@ function GameLobby({ onGameStart, onBack, gameType }) {
           <div className="games-grid">
             {activeGames.map((game) => (
               <div key={game.id} className="game-card">
-                <div className="game-header">
+                <div className="game-header-lobby">
                   <h3>{game.name}</h3>
                   <div className="game-badges">
                     <span className="mode-badge">{game.gameMode}</span>

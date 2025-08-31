@@ -366,52 +366,6 @@
   color: #4a5568;
 }
 
-.players-indicator {
-  display: flex;
-  gap: 4px;
-}
-
-.player-slot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid #e2e8f0;
-}
-
-.player-slot.filled {
-  background: #28a745;
-  border-color: #28a745;
-}
-
-.player-slot.empty {
-  background: transparent;
-  border-color: #cbd5e0;
-}
-
-.game-status {
-  text-align: center;
-  padding: 8px;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.status-waiting {
-  background: rgba(40, 167, 69, 0.1);
-  color: #28a745;
-}
-
-.status-full {
-  background: rgba(220, 53, 69, 0.1);
-  color: #dc3545;
-}
-
-/* Game Actions */
-.game-actions {
-  display: flex;
-  justify-content: center;
-}
-
 .join-btn {
   background: #28a745;
   color: white;
@@ -720,7 +674,7 @@
     gap: 6px;
   }
 
-  .game-header {
+  .game-header-lobby {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
