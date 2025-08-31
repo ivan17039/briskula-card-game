@@ -846,7 +846,7 @@ io.on("connection", (socket) => {
   // Enhanced reconnection handler
   socket.on("reconnectToGame", async (reconnectData) => {
     try {
-      console.log(`� Reconnection attempt from ${socket.id}:`, {
+      console.log(`  Reconnection attempt from ${socket.id}:`, {
         roomId: reconnectData?.roomId,
         sessionToken: reconnectData?.sessionToken ? "present" : "missing",
         userName: reconnectData?.playerName,
@@ -1227,7 +1227,7 @@ async function createGameRoom1v1(player1, player2, gameType = "briskula") {
   if (gameType === "treseta") {
     gameLogic = await import("../core/gameLogicTreseta.js");
   } else {
-    gameLogic = await import("../core/gameLogic.js");
+    gameLogic = await import("../core/gameLogicBriskula.js");
   }
 
   const { createDeck, shuffleDeck, dealCards } = gameLogic;
@@ -1360,7 +1360,7 @@ async function createGameRoom2v2(players, gameType = "briskula") {
     const treseta2v2 = await import("../core/gameLogicTreseta2v2.js");
     gameState = treseta2v2.createGameState2v2();
   } else {
-    const logic2v2 = await import("../core/gameLogic2v2.js");
+    const logic2v2 = await import("../core/gameLogicBriskula2v2.js");
     gameState = logic2v2.createGameState2v2();
   }
 
@@ -1475,7 +1475,7 @@ async function processCardPlay1v1(roomId, playerId, card) {
   if (room.gameType === "treseta") {
     gameLogic = await import("../core/gameLogicTreseta.js");
   } else {
-    gameLogic = await import("../core/gameLogic.js");
+    gameLogic = await import("../core/gameLogicBriskula.js");
   }
 
   const {
@@ -1621,7 +1621,7 @@ async function processCardPlay2v2(roomId, playerId, card) {
     isValidMove = treseta2v2.isValidMove;
     getPlayableCards = treseta2v2.getPlayableCards;
   } else {
-    const logic2v2 = await import("../core/gameLogic2v2.js");
+    const logic2v2 = await import("../core/gameLogicBriskula2v2.js");
     getNextPlayer2v2 = logic2v2.getNextPlayer2v2;
   }
 
@@ -1731,7 +1731,7 @@ async function finishRound1v1(roomId) {
   if (room.gameType === "treseta") {
     gameLogic = await import("../core/gameLogicTreseta.js");
   } else {
-    gameLogic = await import("../core/gameLogic.js");
+    gameLogic = await import("../core/gameLogicBriskula.js");
   }
 
   const { determineRoundWinner, calculatePoints, checkGameEnd } = gameLogic;
@@ -1978,7 +1978,7 @@ async function finishRound2v2(roomId) {
     calculatePoints = tresetaLogic.calculateTeamPoints;
     checkGameEnd2v2 = () => ({ isGameOver: false }); // Trešeta end game logic
   } else {
-    const logic2v2 = await import("../core/gameLogic2v2.js");
+    const logic2v2 = await import("../core/gameLogicBriskula2v2.js");
     determineRoundWinner2v2 = logic2v2.determineRoundWinner2v2;
     getPlayerTeam = logic2v2.getPlayerTeam;
     calculatePoints = logic2v2.calculatePoints;
@@ -2351,15 +2351,15 @@ async function startCustomGame(roomId) {
   let gameLogic;
   if (room.gameType === "treseta") {
     if (room.gameMode === "2v2") {
-      gameLogic = require("../core/gameLogicTreseta2v2.js");
+      gameLogic = await import("../core/gameLogicTreseta2v2.js");
     } else {
-      gameLogic = require("../core/gameLogicTreseta.js");
+      gameLogic = await import("../core/gameLogicTreseta.js");
     }
   } else {
     if (room.gameMode === "2v2") {
-      gameLogic = await import("../core/gameLogic2v2.js");
+      gameLogic = await import("../core/gameLogicBriskula2v2.js");
     } else {
-      gameLogic = await import("../core/gameLogic.js");
+      gameLogic = await import("../core/gameLogicBriskula.js");
     }
   }
 
