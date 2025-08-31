@@ -52,6 +52,59 @@
   font-weight: 500;
 }
 
+/* Responsive simplification: switch to compact header below 769px */
+@media (max-width: 768px) {
+  /* Hide the centered team scores to free space */
+  .game-2v2 .team-scores {
+    display: none !important;
+  }
+
+  /* Ensure mobile header buttons are visible and inline */
+  .game-2v2 .mobile-header-buttons {
+    display: flex !important;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    width: auto;
+  }
+
+  /* Compact circular icon buttons: same size, inline, no wrapping */
+  .game-2v2 .mobile-header-buttons .floating-btn,
+  .game-2v2 .mobile-header-buttons .details-btn,
+  .game-2v2 .mobile-header-buttons .exit-btn {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    padding: 0 !important;
+    font-size: 1rem !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Prevent header from growing taller: keep title and controls on single line */
+  .game-2v2 .game-header {
+    flex-wrap: nowrap !important;
+    align-items: center;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+/* Ensure regular desktop view (>=769px) displays team scores and desktop controls */
+@media (min-width: 769px) {
+  .game-2v2 .team-scores {
+    display: flex;
+  }
+  .game-2v2 .desktop-controls {
+    display: flex;
+  }
+  .game-2v2 .mobile-header-buttons {
+    display: none;
+  }
+}
+
 /* Player icon styles */
 .player-icon-display {
   display: flex;
@@ -332,8 +385,8 @@
 /* Mobile optimizacija za cross layout */
 @media (max-width: 768px) {
   .played-cards-cross {
-    width: 300px;
-    height: 300px;
+    width: 200px;
+    height: 190px;
   }
 
   .played-card-position.top {
@@ -603,10 +656,6 @@
 
 /* Tablets - 768px to 1023px */
 @media (max-width: 1023px) and (min-width: 768px) {
-  .team-scores {
-    display: none;
-  }
-
   .game-area-2v2 {
     padding: 10px;
     gap: 12px;
@@ -670,7 +719,7 @@
   .game-2v2 .desktop-controls {
     display: flex !important;
     gap: 8px;
-    flex-wrap: wrap;
+
     justify-content: flex-end;
   }
 
@@ -785,14 +834,6 @@
   .bottom-player {
     min-height: 140px;
     gap: 6px;
-  }
-
-  .game-status {
-    font-size: 0.75rem;
-    padding: 4px 8px;
-    margin-bottom: 4px;
-    max-width: 90vw;
-    z-index: 1; /* Ensure it stays below played cards */
   }
 
   .player-cards {

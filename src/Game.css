@@ -467,22 +467,6 @@ body,
   }
 }
 
-/* Game status - ABOVE PLAYER NAME */
-.game-status {
-  background: rgba(255, 255, 255, 0.95);
-  color: #0f5132;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 0.5rem;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  text-align: center;
-  border: 2px solid rgba(15, 81, 50, 0.2);
-  animation: statusFade 0.3s ease;
-  max-width: 350px;
-  margin-bottom: 8px;
-}
-
 /* Combined player name and status */
 .player-status-combined {
   background: rgba(255, 255, 255, 0.95);
@@ -623,11 +607,6 @@ body,
     font-size: 1.2rem;
   }
 
-  /* Hide desktop controls on mobile */
-  .desktop-controls {
-    display: none;
-  }
-
   /* Hide player names on mobile to save space */
   .players-names {
     display: none;
@@ -638,14 +617,6 @@ body,
     display: flex;
     align-items: center;
     gap: 8px;
-  }
-
-  /* Mobile game status - stays above player name */
-  .game-status {
-    font-size: 0.8rem;
-    padding: 6px 12px;
-    max-width: 90vw;
-    margin-bottom: 6px;
   }
 
   .player-status-combined {
@@ -783,11 +754,6 @@ body,
     font-size: 1rem;
   }
 
-  .game-status {
-    font-size: 0.75rem;
-    padding: 5px 10px;
-  }
-
   .selection-info {
     font-size: 0.7rem;
     padding: 5px 8px;
@@ -808,12 +774,6 @@ body,
   .player-section {
     gap: 8px;
     min-height: 200px;
-  }
-
-  .game-status {
-    font-size: 0.75rem;
-    padding: 4px 8px;
-    margin-bottom: 4px;
   }
 }
 
