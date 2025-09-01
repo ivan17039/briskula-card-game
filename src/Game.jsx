@@ -228,6 +228,8 @@ function Game({ gameData, onGameEnd }) {
   const [isMobile, setIsMobile] = useState(false);
   // Animation state for picked up cards
   const [cardPickupAnimation, setCardPickupAnimation] = useState(null);
+  // Block clicks during card play animation
+  const [isCardPlaying, setIsCardPlaying] = useState(false);
   const roundFirstPlayerRef = useRef(null);
   const aiThinking = useRef(false);
   const roundResolving = useRef(false);
@@ -250,6 +252,8 @@ function Game({ gameData, onGameEnd }) {
         playerNum === 2
           ? prevState.aiHand.filter((c) => c.id !== card.id)
           : prevState.aiHand;
+
+      // Don't reset card playing flag immediately - wait until round ends
 
       // 👉 Ako je ovo prva karta u rundi, zapamti tko je prvi
       if (!prevState.playedCards[0] && !prevState.playedCards[1]) {
@@ -463,12 +467,18 @@ function Game({ gameData, onGameEnd }) {
               roundResolving: false,
             };
           });
+
+          // Reset card playing flag when round resolves
+          setIsCardPlaying(false);
         }, 1500);
 
         return tempState;
       }
 
       // Inače – samo promijeni red
+      const isFirstCardInRound =
+        !prevState.playedCards[0] && !prevState.playedCards[1];
+
       return {
         ...prevState,
         myHand: newMyHand,
@@ -482,6 +492,14 @@ function Game({ gameData, onGameEnd }) {
         opponentHandCount: newAiHand.length,
       };
     });
+
+    // Reset isCardPlaying only if this was the first card in round
+    // If it was second card, keep cards disabled until round resolves
+    const wasFirstCard =
+      !gameState?.playedCards[0] && !gameState?.playedCards[1];
+    if (wasFirstCard) {
+      setIsCardPlaying(false);
+    }
   };
 
   useEffect(() => {
@@ -497,6 +515,13 @@ function Game({ gameData, onGameEnd }) {
 
   useEffect(() => {
     console.log("[v0] 🤖 AI useEffect triggered");
+
+    // Add null check for gameState
+    if (!gameState) {
+      console.log("[v0] ❌ gameState is null, skipping AI logic");
+      return;
+    }
+
     console.log("[v0] Current player:", gameState.currentPlayer);
     console.log("[v0] AI thinking:", aiThinking.current);
     console.log("[v0] Round resolving:", roundResolving.current);
@@ -675,6 +700,9 @@ function Game({ gameData, onGameEnd }) {
             ? "Čekamo protivnikov potez..."
             : "Vaš red je! Odgovorite na kartu.",
       }));
+
+      // Reset card playing flag when server confirms card was played
+      setIsCardPlaying(false);
     });
 
     socket.on("turnChange", (data) => {
@@ -781,6 +809,9 @@ function Game({ gameData, onGameEnd }) {
         return newState;
       });
 
+      // Reset card playing flag when round finishes
+      setIsCardPlaying(false);
+
       // Ne automatski preusmjeravaj na glavni ekran - neka igrač sam odluči
     });
 
@@ -880,6 +911,11 @@ function Game({ gameData, onGameEnd }) {
   const handleCardClick = (card) => {
     if (!gameState) return;
 
+    // Block clicks if card is already playing
+    if (isCardPlaying) {
+      return;
+    }
+
     if (
       gameState.gamePhase !== "playing" ||
       gameState.currentPlayer !== gameState.playerNumber
@@ -888,6 +924,9 @@ function Game({ gameData, onGameEnd }) {
     }
 
     if (mode === "ai") {
+      // Set flag to prevent multiple clicks
+      setIsCardPlaying(true);
+
       // Za AI mod - jednostavna provjera za tresetu
       if (gameState.gameType === "treseta") {
         // find first played card (array may be sparse)
@@ -898,6 +937,7 @@ function Game({ gameData, onGameEnd }) {
           );
           if (sameSuitCards.length > 0 && card.suit !== firstCard.suit) {
             addToast("Morate baciti kartu iste boje ako je imate!", "error");
+            setIsCardPlaying(false); // Reset flag on error
             return;
           }
         }
@@ -920,6 +960,7 @@ function Game({ gameData, onGameEnd }) {
     }
 
     if (selectedCard && selectedCard.id === card.id) {
+      setIsCardPlaying(true); // Block clicks for online mode too
       playCard(gameState.roomId, card);
       setSelectedCard(null);
     } else {
@@ -1161,7 +1202,8 @@ function Game({ gameData, onGameEnd }) {
             {sortCards(gameState.myHand, gameState.gameType).map((card) => {
               let isPlayable =
                 gameState.gamePhase === "playing" &&
-                gameState.currentPlayer === gameState.playerNumber;
+                gameState.currentPlayer === gameState.playerNumber &&
+                !isCardPlaying; // Add check for card playing state
 
               if (gameState.gameType === "treseta") {
                 if (mode === "ai") {
@@ -1192,7 +1234,7 @@ function Game({ gameData, onGameEnd }) {
                   isPlayable &&
                   ((gameState.playableCards &&
                     gameState.playableCards.includes(card.id)) ||
-                    true);
+                    !isCardPlaying); // Also check isCardPlaying for Briskula
               }
 
               return (
@@ -1201,6 +1243,7 @@ function Game({ gameData, onGameEnd }) {
                   card={card}
                   isPlayable={isPlayable}
                   isSelected={selectedCard && selectedCard.id === card.id}
+                  disabled={isCardPlaying}
                   onClick={handleCardClick}
                   size={cardSize}
                 />

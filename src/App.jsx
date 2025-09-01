@@ -353,7 +353,6 @@ function AppContent() {
     case "game":
       return (
         <>
-          <UserHeader user={user} onLogout={handleLogout} />
           {gameMode === "2v2" ? (
             <Game2v2 gameData={gameData} onGameEnd={handleGameEnd} />
           ) : (

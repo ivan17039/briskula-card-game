@@ -38,12 +38,9 @@ function chooseAiCard({ hand, opponentCard = null, aiIsFirst = false }) {
     "[Treseta AI] AI responds to opponent card - looking for winning cards"
   );
 
-  // Enforce follow-suit: if opponent led and AI has cards of that suit, it must play them
+  // Note: follow-suit enforcement should be handled by the caller (Game.jsx)
+  // This AI function receives an already-filtered hand if follow-suit is required
   let playableHand = hand;
-  if (opponentCard && !aiIsFirst) {
-    const sameSuit = hand.filter((c) => c.suit === opponentCard.suit);
-    if (sameSuit.length > 0) playableHand = sameSuit;
-  }
 
   const winning = playableHand.filter((c) => {
     let winner;
@@ -76,8 +73,10 @@ function chooseAiCard({ hand, opponentCard = null, aiIsFirst = false }) {
     return chosen;
   }
 
-  // Ako ne može pobijediti, baci najslabiju kartu (manja jačina)
-  const chosen = hand.reduce((w, c) => (strengthOf(c) < strengthOf(w) ? c : w));
+  // Ako ne može pobijediti, baci najslabiju kartu iz dostupne ruke
+  const chosen = playableHand.reduce((w, c) =>
+    strengthOf(c) < strengthOf(w) ? c : w
+  );
   console.log("[Treseta AI] AI chose lowest strength card:", chosen);
   return chosen;
 }

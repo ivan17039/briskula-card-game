@@ -107,6 +107,26 @@
   pointer-events: none;
 }
 
+/* Disabled cards (when card is playing) */
+.card-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.card-disabled::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 0, 0, 0.2);
+  border-radius: 8px;
+  z-index: 1;
+  pointer-events: none;
+}
+
 /* Mobile optimizations */
 @media (max-width: 768px) {
   .card-played .card-image {

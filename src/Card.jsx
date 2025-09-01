@@ -6,6 +6,7 @@ function Card({
   isPlayable = false,
   isSelected = false,
   isHidden = false,
+  disabled = false,
   onClick = () => {},
   size = "medium",
 }) {
@@ -50,12 +51,13 @@ function Card({
     isPlayable ? "card-playable" : "",
     isSelected ? "card-selected" : "",
     isHidden ? "card-hidden" : "",
+    disabled ? "card-disabled" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
   const handleCardClick = (event) => {
-    if (isPlayable) {
+    if (isPlayable && !disabled) {
       onClick(card);
       // Remove hover state AFTER click to avoid interfering with game logic
       setTimeout(() => {
