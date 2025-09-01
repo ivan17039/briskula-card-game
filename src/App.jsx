@@ -7,10 +7,10 @@ import Login from "./Login";
 import GameTypeSelector from "./GameTypeSelector";
 import GameModeSelector from "./GameModeSelector";
 import GameLobby from "./GameLobby";
-import Matchmaking from "./Matchmaking";
 import Game from "./Game";
 import Game2v2 from "./Game2v2";
 import ReconnectDialog from "./ReconnectDialog";
+import UserHeader from "./UserHeader";
 import "./App.css";
 
 function AppContent() {
@@ -32,16 +32,60 @@ function AppContent() {
   const [gameData, setGameData] = useState(null);
   const [showReconnectDialog, setShowReconnectDialog] = useState(false);
 
+  // Save state to localStorage when it changes
+  useEffect(() => {
+    if (appState !== "login") {
+      localStorage.setItem("appState", appState);
+    }
+  }, [appState]);
+
+  useEffect(() => {
+    if (gameType) {
+      localStorage.setItem("gameType", gameType);
+    }
+  }, [gameType]);
+
+  useEffect(() => {
+    localStorage.setItem("gameMode", gameMode);
+  }, [gameMode]);
+
   // Check if user is already logged in when component mounts
   useEffect(() => {
     if (user && appState === "login") {
-      setAppState("gameSelect");
+      // User is logged in, try to restore their previous state
+      const savedAppState = localStorage.getItem("appState");
+      const savedGameType = localStorage.getItem("gameType");
+      const savedGameMode = localStorage.getItem("gameMode");
+
+      console.log("🔄 Restoring user state:", {
+        savedAppState,
+        savedGameType,
+        savedGameMode,
+      });
+
+      if (savedGameType) {
+        setGameType(savedGameType);
+      }
+
+      if (savedGameMode) {
+        setGameMode(savedGameMode);
+      }
+
+      if (savedAppState && savedAppState !== "login") {
+        setAppState(savedAppState);
+      } else {
+        setAppState("gameSelect");
+      }
     } else if (!user && appState !== "login") {
-      // If user is logged out, go back to login
+      // If user is logged out, go back to login and clear saved states
+      console.log("🔄 User logged out, clearing state");
       setAppState("login");
       setGameData(null);
       setGameType(null);
       setGameMode("1v1");
+      localStorage.removeItem("appState");
+      localStorage.removeItem("gameType");
+      localStorage.removeItem("gameMode");
     }
   }, [user, appState]);
 
@@ -156,10 +200,18 @@ function AppContent() {
     // Only allow going back to login if user logs out
     logout();
     setAppState("login");
+    // Clear saved states when explicitly logging out
+    localStorage.removeItem("appState");
+    localStorage.removeItem("gameType");
+    localStorage.removeItem("gameMode");
   };
 
   const handleLogout = async () => {
     await logout();
+    // Clear saved states when logging out
+    localStorage.removeItem("appState");
+    localStorage.removeItem("gameType");
+    localStorage.removeItem("gameMode");
     // useEffect će automatski prebaciti na login state
   };
 
@@ -230,11 +282,8 @@ function AppContent() {
     case "gameSelect":
       return (
         <>
-          <GameTypeSelector
-            onGameTypeSelect={handleGameTypeSelect}
-            onLogout={handleLogout}
-            user={user}
-          />
+          <UserHeader user={user} onLogout={handleLogout} />
+          <GameTypeSelector onGameTypeSelect={handleGameTypeSelect} />
           {showReconnectDialog && (
             <ReconnectDialog
               gameState={savedGameState}
@@ -248,6 +297,7 @@ function AppContent() {
     case "modeSelect":
       return (
         <>
+          <UserHeader user={user} onLogout={handleLogout} />
           <GameModeSelector
             onModeSelect={(modeData) => {
               if (modeData.gameMode === "1vAI") {
@@ -284,6 +334,7 @@ function AppContent() {
     case "lobby":
       return (
         <>
+          <UserHeader user={user} onLogout={handleLogout} />
           <GameLobby
             onGameStart={handleLobbyGameStart}
             gameType={gameType}
@@ -299,30 +350,16 @@ function AppContent() {
         </>
       );
 
-    case "matchmaking":
+    case "game":
       return (
         <>
-          <Matchmaking
-            onGameStart={handleGameStart}
-            gameMode={gameMode}
-            gameType={gameType}
-            onBackToModeSelect={handleBackToModeSelect}
-          />
-          {showReconnectDialog && (
-            <ReconnectDialog
-              gameState={savedGameState}
-              onReconnect={handleReconnectToGame}
-              onDismiss={handleDismissReconnect}
-            />
+          <UserHeader user={user} onLogout={handleLogout} />
+          {gameMode === "2v2" ? (
+            <Game2v2 gameData={gameData} onGameEnd={handleGameEnd} />
+          ) : (
+            <Game gameData={gameData} onGameEnd={handleGameEnd} />
           )}
         </>
-      );
-
-    case "game":
-      return gameMode === "2v2" ? (
-        <Game2v2 gameData={gameData} onGameEnd={handleGameEnd} />
-      ) : (
-        <Game gameData={gameData} onGameEnd={handleGameEnd} />
       );
 
     default:

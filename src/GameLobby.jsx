@@ -12,6 +12,8 @@ function GameLobby({ onGameStart, onBack, gameType }) {
   const [joinPassword, setJoinPassword] = useState("");
   const [selectedGameId, setSelectedGameId] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const [gameToDelete, setGameToDelete] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -73,6 +75,24 @@ function GameLobby({ onGameStart, onBack, gameType }) {
       setError(errorData.message);
     });
 
+    // Listen for game deletion
+    socket.on("gameDeleted", (data) => {
+      console.log("🗑️ Game deleted successfully:", data);
+      if (data.message) {
+        // If we receive a message, it means we were notified that someone else deleted the game
+        setError(data.message);
+      } else {
+        setError(""); // Clear any errors
+      }
+      refreshGames(); // Refresh to remove the deleted game
+    });
+
+    // Listen for deletion errors
+    socket.on("gameDeletionError", (errorData) => {
+      console.error("❌ Delete game error:", errorData);
+      setError(errorData.message);
+    });
+
     return () => {
       socket.off("activeGamesUpdate");
       socket.off("gameCreated");
@@ -80,6 +100,8 @@ function GameLobby({ onGameStart, onBack, gameType }) {
       socket.off("gameStart");
       socket.off("joinGameError");
       socket.off("gameCreationError");
+      socket.off("gameDeleted");
+      socket.off("gameDeletionError");
     };
   }, [socket, gameType, onGameStart]);
 
@@ -135,6 +157,68 @@ function GameLobby({ onGameStart, onBack, gameType }) {
     handleJoinGame(selectedGameId, joinPassword);
   };
 
+  const handleDeleteGame = (gameId) => {
+    if (!socket || !user) {
+      setError("Connection error");
+      return;
+    }
+
+    const game = activeGames.find((g) => g.id === gameId);
+    if (!game) {
+      setError("Game not found");
+      return;
+    }
+
+    // Check if user is the creator
+    if (game.creator !== user.name) {
+      setError("You can only delete games you created");
+      return;
+    }
+
+    // Show custom confirmation modal
+    setGameToDelete(game);
+    setShowConfirmDeleteModal(true);
+  };
+
+  const confirmDeleteGame = () => {
+    if (!gameToDelete) return;
+
+    console.log("📤 Deleting game:", gameToDelete.id);
+    socket.emit("deleteGame", {
+      roomId: gameToDelete.id,
+    });
+
+    // Close modal and reset state
+    setShowConfirmDeleteModal(false);
+    setGameToDelete(null);
+  };
+
+  const cancelDeleteGame = () => {
+    setShowConfirmDeleteModal(false);
+    setGameToDelete(null);
+  };
+
+  // Handle keyboard events for confirmation modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (showConfirmDeleteModal) {
+        if (e.key === "Escape") {
+          cancelDeleteGame();
+        } else if (e.key === "Enter") {
+          confirmDeleteGame();
+        }
+      }
+    };
+
+    if (showConfirmDeleteModal) {
+      document.addEventListener("keydown", handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showConfirmDeleteModal]);
+
   if (loading) {
     return (
       <div className="game-lobby">
@@ -170,13 +254,13 @@ function GameLobby({ onGameStart, onBack, gameType }) {
             onClick={refreshGames}
             title="Refresh games"
           >
-            🔄 Refresh
+            🔄 <span className="btn-text">Refresh</span>
           </button>
           <button
             className="create-btn"
             onClick={() => setShowCreateModal(true)}
           >
-            ➕ Create Game
+            ➕ <span className="btn-text">Create Game</span>
           </button>
         </div>
       </div>
@@ -206,7 +290,18 @@ function GameLobby({ onGameStart, onBack, gameType }) {
             {activeGames.map((game) => (
               <div key={game.id} className="game-card">
                 <div className="game-header-lobby">
-                  <h3>{game.name}</h3>
+                  <div className="game-title-area">
+                    <h3>{game.name}</h3>
+                    {game.creator === user?.name && (
+                      <button
+                        className="delete-btn"
+                        onClick={() => handleDeleteGame(game.id)}
+                        title="Delete game"
+                      >
+                        🗑️
+                      </button>
+                    )}
+                  </div>
                   <div className="game-badges">
                     <span className="mode-badge">{game.gameMode}</span>
                     {game.hasPassword && (
@@ -293,6 +388,46 @@ function GameLobby({ onGameStart, onBack, gameType }) {
               </button>
               <button className="submit-btn" onClick={handlePasswordSubmit}>
                 Join Game
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Modal */}
+      {showConfirmDeleteModal && gameToDelete && (
+        <div className="modal-overlay">
+          <div className="confirm-delete-modal">
+            <div className="modal-header">
+              <h3>Obriši igru</h3>
+              <button className="close-btn" onClick={cancelDeleteGame}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="warning-icon">⚠️</div>
+              <p className="confirm-message">
+                Jeste li sigurni da želite obrisati igru{" "}
+                <strong>"{gameToDelete.name}"</strong>?
+              </p>
+              <p className="warning-text">
+                Ova akcija se ne može poništiti. Svi igrači će biti uklonjeni iz
+                igre.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="cancel-btn"
+                onClick={cancelDeleteGame}
+                autoFocus
+              >
+                Otkaži
+              </button>
+              <button
+                className="delete-confirm-btn"
+                onClick={confirmDeleteGame}
+              >
+                🗑️ Obriši igru
               </button>
             </div>
           </div>

@@ -264,6 +264,8 @@ io.on("connection", (socket) => {
       // Stvori novu sesiju
       const sessionData = sessionManager.createSession(userData, socket.id);
 
+      console.log("🔍 Debug sessionData:", sessionData);
+
       const user = {
         id: socket.id,
         name: userData.name || `Guest_${socket.id.substring(0, 6)}`,
@@ -273,6 +275,11 @@ io.on("connection", (socket) => {
         sessionToken: sessionData.sessionToken,
         joinedAt: new Date(),
       };
+
+      console.log("🔍 Debug user before emit:", {
+        sessionToken: user.sessionToken,
+        hasSessionData: !!sessionData,
+      });
 
       connectedUsers.set(socket.id, user);
 
@@ -371,6 +378,83 @@ io.on("connection", (socket) => {
       console.error("Error creating custom game:", error);
       socket.emit("gameCreationError", {
         message: "Greška prilikom stvaranja igre",
+        error: error.message,
+      });
+    }
+  });
+
+  socket.on("deleteGame", async (deleteData) => {
+    const user = connectedUsers.get(socket.id);
+    if (!user) {
+      socket.emit("gameDeletionError", {
+        message: "Korisnik nije registriran",
+      });
+      return;
+    }
+
+    const { roomId } = deleteData;
+    const room = gameRooms.get(roomId);
+
+    if (!room) {
+      socket.emit("gameDeletionError", { message: "Igra ne postoji" });
+      return;
+    }
+
+    if (!room.isCustom) {
+      socket.emit("gameDeletionError", {
+        message: "Ova igra nije custom igra",
+      });
+      return;
+    }
+
+    // Check if user is the creator
+    if (room.creator !== user.name) {
+      socket.emit("gameDeletionError", {
+        message: "Možete obrisati samo igre koje ste vi stvorili",
+      });
+      return;
+    }
+
+    if (room.status === "playing") {
+      socket.emit("gameDeletionError", {
+        message: "Ne možete obrisati igru koja je u tijeku",
+      });
+      return;
+    }
+
+    try {
+      console.log(`🗑️ Deleting game: ${room.name} by ${user.name}`);
+
+      // Notify all players in the room that the game is being deleted
+      room.players.forEach((player) => {
+        if (player.id !== socket.id) {
+          io.to(player.id).emit("gameDeleted", {
+            message: `Igra "${room.name}" je obrisana od strane kreatora.`,
+            roomId: roomId,
+          });
+        }
+      });
+
+      // Remove all players from the room
+      room.players.forEach((player) => {
+        io.sockets.sockets.get(player.id)?.leave(roomId);
+      });
+
+      // Remove the room
+      gameRooms.delete(roomId);
+
+      socket.emit("gameDeleted", {
+        success: true,
+        message: `Igra "${room.name}" je uspješno obrisana.`,
+        roomId: roomId,
+      });
+
+      // Broadcast updated game list to all clients in lobby
+      broadcastGameList();
+    } catch (error) {
+      console.error("Error deleting game:", error);
+      socket.emit("gameDeletionError", {
+        message: "Greška prilikom brisanja igre",
         error: error.message,
       });
     }

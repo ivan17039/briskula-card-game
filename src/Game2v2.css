@@ -780,6 +780,7 @@
   /* MOBILE: Played cards section */
   .played-cards-section {
     order: 1;
+    right: 20px;
   }
 
   .played-cards-area-2v2 {

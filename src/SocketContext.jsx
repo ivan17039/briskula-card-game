@@ -89,21 +89,26 @@ export const SocketProvider = ({ children }) => {
       const savedGameState = localStorage.getItem("gameState");
       const savedUser = localStorage.getItem("user");
 
-      if (savedGameState && savedUser) {
+      // Auto-register if user has saved session data
+      if (savedUser) {
         try {
-          const gameData = JSON.parse(savedGameState);
           const userData = JSON.parse(savedUser);
 
-          console.log(
-            "🔄 User has saved game state, registering user with session token"
-          );
+          console.log("🔄 User found in localStorage, auto-registering...", {
+            hasSessionToken: !!userData.sessionToken,
+          });
+
           const registrationData = {
             ...userData,
-            sessionToken: userData.sessionToken,
+            // Include sessionToken if it exists (for reconnection)
+            ...(userData.sessionToken && {
+              sessionToken: userData.sessionToken,
+            }),
           };
+
           newSocket.emit("register", registrationData);
         } catch (error) {
-          console.error("Error during registration with saved state:", error);
+          console.error("Error during auto-registration:", error);
           localStorage.removeItem("user");
           localStorage.removeItem("gameState");
         }
@@ -165,17 +170,41 @@ export const SocketProvider = ({ children }) => {
 
     newSocket.on("registered", (data) => {
       if (data.success) {
-        console.log("✅ Korisnik registriran:", data.user);
-        setUser(data.user);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        console.log(
+          "✅ Korisnik registriran:",
+          data.user,
+          "Session:",
+          data.session
+        );
+
+        // Include sessionToken in user object
+        const userWithSession = {
+          ...data.user,
+          sessionToken: data.session?.sessionToken,
+        };
+
+        setUser(userWithSession);
+        localStorage.setItem("user", JSON.stringify(userWithSession));
       }
     });
 
     newSocket.on("sessionReconnected", (data) => {
       if (data.success) {
-        console.log("✅ Sesija reconnected:", data.user);
-        setUser(data.user);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        console.log(
+          "✅ Sesija reconnected:",
+          data.user,
+          "Session:",
+          data.session
+        );
+
+        // Include sessionToken in user object for reconnected sessions too
+        const userWithSession = {
+          ...data.user,
+          sessionToken: data.session?.sessionToken,
+        };
+
+        setUser(userWithSession);
+        localStorage.setItem("user", JSON.stringify(userWithSession));
 
         if (window.showToast) {
           window.showToast(

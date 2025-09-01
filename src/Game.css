@@ -618,6 +618,9 @@ body,
     align-items: center;
     gap: 8px;
   }
+  .desktop-controls {
+    display: none;
+  }
 
   .player-status-combined {
     font-size: 0.6rem;
@@ -671,7 +674,7 @@ body,
   .deck-trump-section.treseta-deck {
     position: absolute;
     top: 50%;
-    right: 50px;
+    right: 30px;
     transform: translateY(-50%);
     z-index: 3;
   }
