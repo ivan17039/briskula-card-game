@@ -171,6 +171,79 @@ function getPlayableCards(hand, playedCards) {
   }
 }
 
+/**
+ * Provjerava akuze u ruci igrača
+ * @param {Array} hand - Ruka igrača
+ * @returns {Array} Lista akuza s opisom i bodovima
+ */
+function checkAkuze(hand) {
+  const akuze = [];
+
+  // Grupiraj karte po vrijednosti
+  const cardsByValue = {};
+  const cardsBySuit = {};
+
+  hand.forEach((card) => {
+    // Grupiraj po vrijednosti
+    if (!cardsByValue[card.value]) {
+      cardsByValue[card.value] = [];
+    }
+    cardsByValue[card.value].push(card);
+
+    // Grupiraj po boji
+    if (!cardsBySuit[card.suit]) {
+      cardsBySuit[card.suit] = [];
+    }
+    cardsBySuit[card.suit].push(card);
+  });
+
+  // Provjeri tri/četiri asa, dvice, trice
+  const valuesToCheck = [1, 2, 3]; // As, Dvica, Trica
+  const valueNames = { 1: "asa", 2: "dvice", 3: "trice" };
+
+  valuesToCheck.forEach((value) => {
+    const cards = cardsByValue[value] || [];
+    if (cards.length === 3) {
+      akuze.push({
+        type: `tri_${valueNames[value]}`,
+        description: `Tri ${valueNames[value]}`,
+        points: 3,
+        cards: cards,
+      });
+    } else if (cards.length === 4) {
+      akuze.push({
+        type: `četiri_${valueNames[value]}`,
+        description: `Četiri ${valueNames[value]}`,
+        points: 4,
+        cards: cards,
+      });
+    }
+  });
+
+  // Provjeri Napolitana (As, Dvica, Trica iste boje)
+  Object.keys(cardsBySuit).forEach((suit) => {
+    const suitCards = cardsBySuit[suit];
+    const hasAs = suitCards.some((card) => card.value === 1);
+    const hasDvica = suitCards.some((card) => card.value === 2);
+    const hasTrica = suitCards.some((card) => card.value === 3);
+
+    if (hasAs && hasDvica && hasTrica) {
+      const napolitanaCards = suitCards.filter(
+        (card) => card.value === 1 || card.value === 2 || card.value === 3
+      );
+
+      akuze.push({
+        type: "napolitana",
+        description: `Napolitana ${suit.toLowerCase()}`,
+        points: 3,
+        cards: napolitanaCards.slice(0, 3), // Uzmi samo As, Dvicu, Tricu
+      });
+    }
+  });
+
+  return akuze;
+}
+
 export {
   createDeck,
   getCardImage,
@@ -179,4 +252,5 @@ export {
   getCardStrengthName,
   isValidMove,
   getPlayableCards,
+  checkAkuze,
 };

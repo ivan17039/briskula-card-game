@@ -141,10 +141,27 @@ function AppContent() {
     setAppState("modeSelect");
   };
 
-  const handleModeSelect = (mode) => {
+  const handleModeSelect = (modeData) => {
+    // Handle both string mode and object with akuze data
+    const mode =
+      typeof modeData === "string" ? modeData : modeData.gameMode || modeData;
     setGameMode(mode);
+
     if (mode === "custom") {
       setAppState("lobby");
+    } else if (
+      typeof modeData === "object" &&
+      modeData.akuzeEnabled !== undefined
+    ) {
+      // AI mode with akuze settings - go directly to game
+      setGameData({
+        gameType: gameType,
+        gameMode: "1vAI",
+        akuzeEnabled: modeData.akuzeEnabled,
+        opponent: { name: "AI Bot", isAI: true },
+        gameState: {},
+      });
+      setAppState("game");
     } else {
       setAppState("matchmaking");
     }
@@ -300,6 +317,7 @@ function AppContent() {
           <UserHeader user={user} onLogout={handleLogout} />
           <GameModeSelector
             onModeSelect={(modeData) => {
+              console.log("[App.jsx] Mode selected:", modeData);
               if (modeData.gameMode === "1vAI") {
                 // 👉 Direktno u Game (bez matchmakinga)
                 const aiGameData = {
@@ -307,8 +325,11 @@ function AppContent() {
                   opponent: { name: "AI Bot", isAI: true },
                   gameType: gameType, // preuzima odabran tip (briskula/treseta)
                   gameState: {}, // Game.jsx sam generira špil
+                  // Include akuze setting from modeData
+                  ...(modeData.akuzeEnabled !== undefined && { akuzeEnabled: modeData.akuzeEnabled }),
                 };
 
+                console.log("[App.jsx] AI Game Data:", aiGameData);
                 setGameData(aiGameData);
                 setGameMode("1vAI");
                 setAppState("game");

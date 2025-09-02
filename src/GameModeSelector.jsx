@@ -5,11 +5,15 @@ import "./GameModeSelector.css";
 
 function GameModeSelector({ onModeSelect, onBack, gameType }) {
   const [selectedMode, setSelectedMode] = useState("custom");
+  const [akuzeEnabled, setAkuzeEnabled] = useState(true); // Default to enabled
 
   const handleModeSelect = (mode) => {
-    setSelectedMode(mode);
+    setSelectedMode(mode.gameMode || mode);
     setTimeout(() => {
-      onModeSelect(mode);
+      // Pass akuze option only for Treseta
+      const modeData =
+        gameType === "treseta" ? { ...mode, akuzeEnabled } : mode;
+      onModeSelect(modeData);
     }, 300);
   };
 
@@ -68,7 +72,12 @@ function GameModeSelector({ onModeSelect, onBack, gameType }) {
             className={`mode-option ${
               selectedMode === "custom" ? "selected" : ""
             }`}
-            onClick={() => handleModeSelect("custom")}
+            onClick={() =>
+              handleModeSelect({
+                gameMode: "custom",
+                ...(gameType === "treseta" && { akuzeEnabled }),
+              })
+            }
           >
             <div className="mode-icon">🎮</div>
             <h3>Stvori ili Pridruži se igri</h3>
@@ -81,13 +90,46 @@ function GameModeSelector({ onModeSelect, onBack, gameType }) {
             </ul>
             <div className="mode-badge">Sve u jednom</div>
           </div>
+
+          {/* Akuze option for Treseta */}
+          {gameType === "treseta" && (
+            <div className="akuze-option">
+              <h4>🃏 Akužavanje</h4>
+              <label className="checkbox-container">
+                <input
+                  type="checkbox"
+                  checked={akuzeEnabled}
+                  onChange={(e) => setAkuzeEnabled(e.target.checked)}
+                />
+                <span className="checkmark"></span>
+                Omogući akužavanje
+              </label>
+              <p className="akuze-description">
+                Akuzi: Tri/Četiri asa/dvice/trice (3-4 boda), Napolitana (3
+                boda)
+              </p>
+            </div>
+          )}
+
           <button
             onClick={() => {
-              onModeSelect({
+              const aiMode = {
                 gameMode: "1vAI",
                 opponent: { name: "AI Bot", isAI: true },
                 gameState: {}, // Game.jsx će sam generirati špil
-              });
+              };
+
+              // Add akuze settings for Treseta
+              if (gameType === "treseta") {
+                aiMode.akuzeEnabled = akuzeEnabled;
+                console.log("[GameModeSelector] AI mode with akuze:", {
+                  gameType,
+                  akuzeEnabled,
+                  aiMode
+                });
+              }
+
+              handleModeSelect(aiMode);
             }}
           >
             🎮 Igraj protiv AI

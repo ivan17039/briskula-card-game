@@ -24,8 +24,13 @@ import {
   checkGameEnd as checkGameEndTreseta,
 } from "../core/gameLogicTreseta.js";
 
+import { checkAkuze } from "../core/tresetaCommon.js";
+
 import { chooseAiCard as chooseAiBriskula } from "../core/briskulaAI.js";
-import { chooseAiCard as chooseAiTreseta } from "../core/tresetaAI.js";
+import {
+  chooseAiCard as chooseAiTreseta,
+  checkAiAkuze,
+} from "../core/tresetaAI.js";
 
 /**
  * Vraća pravilnu riječ za broj karata u hrvatskom jeziku
@@ -124,6 +129,8 @@ function Game({ gameData, onGameEnd }) {
 
     console.log("[v0] 🚀 Initializing game state with gameData:", gameData);
     console.log("[v0] 🎯 Detected mode:", mode);
+    console.log("[v0] 🃏 Akuze enabled from gameData:", gameData.akuzeEnabled);
+    console.log("[v0] 🃏 Full gameData:", gameData);
 
     if (mode === "ai") {
       // Lokalna partija 1v1 protiv AI-ja
@@ -175,6 +182,27 @@ function Game({ gameData, onGameEnd }) {
         opponentHandCount: dealt.player2Hand.length,
         remainingCardsCount: dealt.remainingDeck.length,
         playableCards: dealt.player1Hand.map((c) => c.id), // Za AI mod, sve karte su igrive
+
+        // Treseta: dugoročno bodovanje i akužavanje
+        ...(useTreseta && {
+          totalMyPoints: 0,
+          totalOpponentPoints: 0,
+          partijas: [], // Historia partija
+          currentPartija: 1,
+          akuzeEnabled:
+            gameData.akuzeEnabled !== undefined ? gameData.akuzeEnabled : true, // Respect user setting or default to true
+          myAkuze: [],
+          opponentAkuze:
+            useTreseta &&
+            (gameData.akuzeEnabled !== undefined ? gameData.akuzeEnabled : true)
+              ? checkAiAkuze(dealt.player2Hand)
+              : [], // AI automatski prijavi svoje akuže samo ako je akužavanje omogućeno
+          aiAkuzeAnnounced: false, // Flag da se prati je li AI akuže poruka prikazana
+          canAkuze:
+            gameData.akuzeEnabled !== undefined ? gameData.akuzeEnabled : true, // Može akužavati samo ako je omogućeno
+          hasPlayedFirstCard: false, // Flag da se prati je li odigrana prva karta partije
+          targetScore: 31, // Default target score
+        }),
       };
 
       console.log("[v0] ✅ AI game state initialized:", initialState);
@@ -224,6 +252,7 @@ function Game({ gameData, onGameEnd }) {
   const [gameState, setGameState] = useState(initializeGameState);
   const [selectedCard, setSelectedCard] = useState(null);
   const [showScores, setShowScores] = useState(false);
+  const [showAkuzeModal, setShowAkuzeModal] = useState(false);
   // Determine if we're on mobile
   const [isMobile, setIsMobile] = useState(false);
   // Animation state for picked up cards
@@ -260,6 +289,13 @@ function Game({ gameData, onGameEnd }) {
         roundFirstPlayerRef.current = playerNum;
       }
 
+      // Za Trešetu: Označi da je odigrana prva karta partije (zabrani akužavanje)
+      const newHasPlayedFirstCard =
+        prevState.gameType === "treseta"
+          ? prevState.hasPlayedFirstCard ||
+            (!prevState.playedCards[0] && !prevState.playedCards[1])
+          : prevState.hasPlayedFirstCard;
+
       if (newPlayedCards[0] && newPlayedCards[1]) {
         aiThinking.current = true;
         roundResolving.current = true;
@@ -272,6 +308,7 @@ function Game({ gameData, onGameEnd }) {
           playedCards: newPlayedCards,
           message: "Određuje se pobjednik runde...",
           roundResolving: true,
+          hasPlayedFirstCard: newHasPlayedFirstCard,
         };
 
         // Add delay before resolving the round
@@ -390,28 +427,78 @@ function Game({ gameData, onGameEnd }) {
             const p2Points = useTreseta
               ? calculatePointsTreseta(aiCards, ultimaWinner, 2).points
               : calculatePoints(aiCards);
-            const end = useTreseta
-              ? (function () {
-                  const p1Akuze = calculateAkuzeTreseta(myCards || []);
-                  const p2Akuze = calculateAkuzeTreseta(aiCards || []);
-                  return checkGameEndTreseta(
-                    { points: p1Points },
-                    { points: p2Points },
-                    p1Akuze,
-                    p2Akuze,
+
+            // For Treseta with long-term scoring, check if partija is over
+            let end;
+            if (useTreseta && prevState.totalMyPoints !== undefined) {
+              // Treseta with long-term scoring
+              const partidaEnd = isAllCardsPlayed;
+
+              if (partidaEnd) {
+                // Calculate total points including akuze for this partija
+                const myPartidaPoints =
+                  p1Points +
+                  (prevState.myAkuze?.reduce(
+                    (sum, akuz) => sum + akuz.points,
+                    0
+                  ) || 0);
+                const opponentPartidaPoints =
+                  p2Points +
+                  (prevState.opponentAkuze?.reduce(
+                    (sum, akuz) => sum + akuz.points,
+                    0
+                  ) || 0);
+
+                // Add current partija points to total
+                const newTotalMyPoints =
+                  prevState.totalMyPoints + myPartidaPoints;
+                const newTotalOpponentPoints =
+                  prevState.totalOpponentPoints + opponentPartidaPoints;
+
+                // Check if someone reached target score
+                const matchFinished =
+                  newTotalMyPoints >= prevState.targetScore ||
+                  newTotalOpponentPoints >= prevState.targetScore;
+
+                end = {
+                  isGameOver: matchFinished,
+                  winner: matchFinished
+                    ? newTotalMyPoints >= prevState.targetScore
+                      ? 1
+                      : 2
+                    : null,
+                  isPartidaOver: true,
+                  newTotalMyPoints,
+                  newTotalOpponentPoints,
+                };
+              } else {
+                end = { isGameOver: false, isPartidaOver: false };
+              }
+            } else {
+              // Original logic for Briskula or single-partija Treseta
+              end = useTreseta
+                ? (function () {
+                    const p1Akuze = calculateAkuzeTreseta(myCards || []);
+                    const p2Akuze = calculateAkuzeTreseta(aiCards || []);
+                    return checkGameEndTreseta(
+                      { points: p1Points },
+                      { points: p2Points },
+                      p1Akuze,
+                      p2Akuze,
+                      remaining,
+                      myHandAfterDraw,
+                      aiHandAfterDraw
+                    );
+                  })()
+                : checkGameEnd(
+                    p1Points,
+                    p2Points,
                     remaining,
                     myHandAfterDraw,
-                    aiHandAfterDraw
+                    aiHandAfterDraw,
+                    winner
                   );
-                })()
-              : checkGameEnd(
-                  p1Points,
-                  p2Points,
-                  remaining,
-                  myHandAfterDraw,
-                  aiHandAfterDraw,
-                  winner
-                );
+            }
 
             aiThinking.current = false;
             roundResolving.current = false;
@@ -456,15 +543,80 @@ function Game({ gameData, onGameEnd }) {
               remainingDeck: remaining,
               remainingCardsCount: remaining.length,
               opponentHandCount: aiHandAfterDraw.length,
-              gamePhase: end.isGameOver ? "finished" : "playing",
+              gamePhase: end.isGameOver
+                ? "finished"
+                : end.isPartidaOver
+                ? "partidaFinished"
+                : "playing",
               winner: end.isGameOver ? end.winner : null,
-              myPoints: p1Points,
-              opponentPoints: p2Points,
+              myPoints:
+                p1Points +
+                (prevState.myAkuze?.reduce(
+                  (sum, akuz) => sum + akuz.points,
+                  0
+                ) || 0),
+              opponentPoints:
+                p2Points +
+                (prevState.opponentAkuze?.reduce(
+                  (sum, akuz) => sum + akuz.points,
+                  0
+                ) || 0),
               playableCards:
                 prevState.gameType === "treseta" && !end.isGameOver
                   ? myHandAfterDraw.map((c) => c.id) // Simplified for AI mode
                   : myHandAfterDraw.map((c) => c.id),
               roundResolving: false,
+
+              // Update total points for Treseta long-term scoring
+              ...(useTreseta &&
+                end.newTotalMyPoints !== undefined && {
+                  totalMyPoints: end.newTotalMyPoints,
+                  totalOpponentPoints: end.newTotalOpponentPoints,
+                  partijas: [
+                    ...prevState.partijas,
+                    {
+                      partija: prevState.currentPartija,
+                      myPoints:
+                        p1Points +
+                        (prevState.myAkuze?.reduce(
+                          (sum, akuz) => sum + akuz.points,
+                          0
+                        ) || 0),
+                      opponentPoints:
+                        p2Points +
+                        (prevState.opponentAkuze?.reduce(
+                          (sum, akuz) => sum + akuz.points,
+                          0
+                        ) || 0),
+                      winner:
+                        p1Points +
+                          (prevState.myAkuze?.reduce(
+                            (sum, akuz) => sum + akuz.points,
+                            0
+                          ) || 0) >
+                        p2Points +
+                          (prevState.opponentAkuze?.reduce(
+                            (sum, akuz) => sum + akuz.points,
+                            0
+                          ) || 0)
+                          ? 1
+                          : p2Points +
+                              (prevState.opponentAkuze?.reduce(
+                                (sum, akuz) => sum + akuz.points,
+                                0
+                              ) || 0) >
+                            p1Points +
+                              (prevState.myAkuze?.reduce(
+                                (sum, akuz) => sum + akuz.points,
+                                0
+                              ) || 0)
+                          ? 2
+                          : 0,
+                    },
+                  ],
+                  currentPartija: prevState.currentPartija + 1,
+                  canAkuze: prevState.akuzeEnabled, // Reset akuze based on settings
+                }),
             };
           });
 
@@ -490,6 +642,7 @@ function Game({ gameData, onGameEnd }) {
             ? "Čekamo potez AI bota..."
             : "Vaš red! Odaberite kartu.",
         opponentHandCount: newAiHand.length,
+        hasPlayedFirstCard: newHasPlayedFirstCard,
       };
     });
 
@@ -512,6 +665,52 @@ function Game({ gameData, onGameEnd }) {
       console.log("[v0] ❌ Failed to initialize game state");
     }
   }, [gameData]);
+
+  // AI Akuze notification effect - show AI akuze at start of partija
+  useEffect(() => {
+    if (
+      gameState &&
+      gameState.mode === "ai" &&
+      gameState.gameType === "treseta" &&
+      gameState.akuzeEnabled &&
+      gameState.opponentAkuze &&
+      gameState.opponentAkuze.length > 0 &&
+      !gameState.hasPlayedFirstCard &&
+      !gameState.aiAkuzeAnnounced
+    ) {
+      // Delay showing AI akuze message to let initial UI settle
+      const timer = setTimeout(() => {
+        const totalAkuzePoints = gameState.opponentAkuze.reduce(
+          (sum, akuz) => sum + akuz.points,
+          0
+        );
+        const akuzeDescriptions = gameState.opponentAkuze
+          .map((akuz) => akuz.description)
+          .join(", ");
+
+        addToast(
+          `🤖 AI je akužavao: ${akuzeDescriptions} (+${totalAkuzePoints} bod${
+            totalAkuzePoints === 1 ? "" : totalAkuzePoints <= 4 ? "a" : "ova"
+          })`,
+          "info",
+          5000 // Show for 5 seconds
+        );
+
+        // Mark AI akuze as announced
+        setGameState((prev) => ({
+          ...prev,
+          aiAkuzeAnnounced: true,
+        }));
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [
+    gameState?.opponentAkuze,
+    gameState?.hasPlayedFirstCard,
+    gameState?.aiAkuzeAnnounced,
+    addToast,
+  ]);
 
   useEffect(() => {
     console.log("[v0] 🤖 AI useEffect triggered");
@@ -908,6 +1107,61 @@ function Game({ gameData, onGameEnd }) {
     };
   }, [socket, gameState?.roomId, onGameEnd, mode]);
 
+  const handleAkuze = (akuz) => {
+    if (!gameState || !gameState.akuzeEnabled || !gameState.canAkuze) {
+      console.log("[Akuze] Cannot akuze - disabled or already used:", {
+        akuzeEnabled: gameState?.akuzeEnabled,
+        canAkuze: gameState?.canAkuze,
+      });
+      return;
+    }
+
+    console.log("[Akuze] Player declared:", akuz);
+
+    setGameState((prev) => ({
+      ...prev,
+      myAkuze: [...prev.myAkuze, akuz],
+      canAkuze: false, // Može akužavati samo jednom po partiji
+      message: `Akužavali ste ${akuz.description} (${akuz.points} bodova)!`,
+    }));
+
+    addToast(
+      `Akužavali ste ${akuz.description} (+${akuz.points} bodova)`,
+      "success"
+    );
+  };
+
+  const startNewPartija = () => {
+    if (!gameState || gameState.gameType !== "treseta") return;
+
+    // Create new deck and deal cards
+    const deck = shuffleDeckTreseta(createDeckTreseta());
+    const dealt = dealCardsTreseta(deck);
+
+    setGameState((prev) => ({
+      ...prev,
+      myHand: dealt.player1Hand,
+      aiHand: dealt.player2Hand,
+      myCards: [],
+      aiCards: [],
+      playedCards: [],
+      currentPlayer: 1,
+      gamePhase: "playing",
+      remainingDeck: dealt.remainingDeck,
+      remainingCardsCount: dealt.remainingDeck.length,
+      opponentHandCount: dealt.player2Hand.length,
+      myPoints: 0,
+      opponentPoints: 0,
+      playableCards: dealt.player1Hand.map((c) => c.id),
+      canAkuze: prev.akuzeEnabled, // Reset based on settings
+      myAkuze: [], // Reset akuze for new partija
+      opponentAkuze: prev.akuzeEnabled ? checkAiAkuze(dealt.player2Hand) : [], // AI automatski prijavi nove akuže u novoj partiji
+      aiAkuzeAnnounced: false, // Reset for new partija
+      hasPlayedFirstCard: false, // Reset for new partija
+      message: "Nova partija! Vaš red.",
+    }));
+  };
+
   const handleCardClick = (card) => {
     if (!gameState) return;
 
@@ -987,15 +1241,34 @@ function Game({ gameData, onGameEnd }) {
     );
   }
 
-  const myPoints =
-    gameState.gameType === "treseta"
-      ? gameState.myPoints || 0
-      : calculatePoints(gameState.myCards || []);
+  // Calculate current points including akuze for live display
+  const getCurrentPoints = () => {
+    if (gameState.gameType === "treseta") {
+      const baseMyPoints = gameState.myPoints || 0;
+      const baseOpponentPoints = gameState.opponentPoints || 0;
 
-  const opponentPoints =
-    gameState.gameType === "treseta"
-      ? gameState.opponentPoints || 0
-      : calculatePoints(gameState.opponentCards || []);
+      const myAkuzePoints =
+        gameState.myAkuze?.reduce((sum, akuz) => sum + akuz.points, 0) || 0;
+
+      const opponentAkuzePoints =
+        gameState.opponentAkuze?.reduce((sum, akuz) => sum + akuz.points, 0) ||
+        0;
+
+      return {
+        myPoints: baseMyPoints + myAkuzePoints,
+        opponentPoints: baseOpponentPoints + opponentAkuzePoints,
+      };
+    }
+
+    return {
+      myPoints: calculatePoints(gameState.myCards || []),
+      opponentPoints: calculatePoints(gameState.opponentCards || []),
+    };
+  };
+
+  const currentPoints = getCurrentPoints();
+  const myPoints = currentPoints.myPoints;
+  const opponentPoints = currentPoints.opponentPoints;
 
   const sumPoints = (cards) => {
     return cards.reduce((total, card) => total + (card.points || 0), 0);
@@ -1061,6 +1334,28 @@ function Game({ gameData, onGameEnd }) {
             {showScores ? "Sakrij" : "Detalji"}
           </button>
 
+          {/* Akužaj button za Trešeta */}
+          {gameState.gameType === "treseta" &&
+            gameState.akuzeEnabled &&
+            gameState.canAkuze &&
+            !gameState.hasPlayedFirstCard &&
+            gameState.currentPlayer === gameState.playerNumber &&
+            gameState.gamePhase === "playing" &&
+            (() => {
+              const availableAkuze = checkAkuze(gameState.myHand);
+              return (
+                availableAkuze.length > 0 && (
+                  <button
+                    onClick={() => setShowAkuzeModal(true)}
+                    className="game-btn btn-warning"
+                    style={{ background: "#ffc107", color: "black" }}
+                  >
+                    🃏 Akužaj
+                  </button>
+                )
+              );
+            })()}
+
           {gameState.gamePhase === "playing" && (
             <button
               onClick={() => {
@@ -1092,6 +1387,32 @@ function Game({ gameData, onGameEnd }) {
           >
             🔍
           </button>
+
+          {/* Mobile Akužaj button za Trešeta */}
+          {gameState.gameType === "treseta" &&
+            gameState.akuzeEnabled &&
+            gameState.canAkuze &&
+            !gameState.hasPlayedFirstCard &&
+            gameState.currentPlayer === gameState.playerNumber &&
+            gameState.gamePhase === "playing" &&
+            (() => {
+              const availableAkuze = checkAkuze(gameState.myHand);
+              return (
+                availableAkuze.length > 0 && (
+                  <button
+                    onClick={() => setShowAkuzeModal(true)}
+                    className="floating-btn akuze-btn"
+                    title="Akužaj"
+                    style={{
+                      background: "#ffc107",
+                      color: "black",
+                    }}
+                  >
+                    🃏
+                  </button>
+                )
+              );
+            })()}
 
           {gameState.gamePhase === "playing" && (
             <button
@@ -1198,6 +1519,7 @@ function Game({ gameData, onGameEnd }) {
               </span>
             )}
           </div>
+
           <div className="player-cards">
             {sortCards(gameState.myHand, gameState.gameType).map((card) => {
               let isPlayable =
@@ -1266,11 +1588,7 @@ function Game({ gameData, onGameEnd }) {
                 <h3>{user?.name}</h3>
                 <div className="stat-item">
                   <span>Bodovi:</span>
-                  <span>
-                    {gameState.gameType === "treseta"
-                      ? gameState.myPoints
-                      : myPoints}
-                  </span>
+                  <span>{myPoints}</span>
                 </div>
                 <div className="stat-item">
                   <span>Karte u ruci:</span>
@@ -1305,11 +1623,7 @@ function Game({ gameData, onGameEnd }) {
                 <h3>{gameState.opponent?.name}</h3>
                 <div className="stat-item">
                   <span>Bodovi:</span>
-                  <span>
-                    {gameState.gameType === "treseta"
-                      ? gameState.opponentPoints
-                      : opponentPoints}
-                  </span>
+                  <span>{opponentPoints}</span>
                 </div>
                 <div className="stat-item">
                   <span>Karte u ruci:</span>
@@ -1329,11 +1643,163 @@ function Game({ gameData, onGameEnd }) {
               </div>
             </div>
 
+            {/* Trešeta: Historija partija i ukupni rezultat */}
+            {gameState.gameType === "treseta" &&
+              gameState.totalMyPoints !== undefined && (
+                <div className="treseta-details">
+                  <div className="treseta-summary">
+                    <h3>Dugoročno bodovanje</h3>
+                    <div className="current-total">
+                      <strong>
+                        Ukupno: {gameState.totalMyPoints} -{" "}
+                        {gameState.totalOpponentPoints}
+                      </strong>
+                    </div>
+                    <div className="target-info">
+                      Cilj: {gameState.targetScore} bodova
+                    </div>
+                    <div className="current-partija">
+                      Trenutna partija: {gameState.currentPartija}
+                    </div>
+                  </div>
+
+                  {gameState.partijas && gameState.partijas.length > 0 && (
+                    <div className="partijas-history">
+                      <h4>Prošle partije:</h4>
+                      <div className="partijas-list">
+                        {gameState.partijas.map((partija, index) => (
+                          <div key={index} className="partija-item">
+                            <span className="partija-number">
+                              Partija {partija.partija}:
+                            </span>
+                            <span className="partija-score">
+                              {partija.myPoints} - {partija.opponentPoints}
+                            </span>
+                            <span className="partija-winner">
+                              {partija.myPoints > partija.opponentPoints
+                                ? "🏆 Vi"
+                                : partija.opponentPoints > partija.myPoints
+                                ? "😔 Protivnik"
+                                : "🤝 Neriješeno"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Akuže u trenutnoj partiji */}
+                  {(gameState.myAkuze?.length > 0 ||
+                    gameState.opponentAkuze?.length > 0) && (
+                    <div className="current-akuze">
+                      <h4>Akuže u ovoj partiji:</h4>
+                      {gameState.myAkuze?.length > 0 && (
+                        <div className="my-akuze">
+                          <strong>Vaši akuži:</strong>
+                          <ul>
+                            {gameState.myAkuze.map((akuz, index) => (
+                              <li key={index}>
+                                {akuz.description} (+{akuz.points} bod
+                                {akuz.points === 1
+                                  ? ""
+                                  : akuz.points <= 4
+                                  ? "a"
+                                  : "ova"}
+                                )
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {gameState.opponentAkuze?.length > 0 && (
+                        <div className="opponent-akuze">
+                          <strong>Protivnikovi akuži:</strong>
+                          <ul>
+                            {gameState.opponentAkuze.map((akuz, index) => (
+                              <li key={index}>
+                                {akuz.description} (+{akuz.points} bod
+                                {akuz.points === 1
+                                  ? ""
+                                  : akuz.points <= 4
+                                  ? "a"
+                                  : "ova"}
+                                )
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
             <button
               className="close-scores"
               onClick={() => setShowScores(false)}
             >
               Zatvori
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Akuže selection modal */}
+      {showAkuzeModal && (
+        <div
+          className="scores-overlay"
+          onClick={() => setShowAkuzeModal(false)}
+        >
+          <div
+            className="scores-modal akuze-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="scores-header">
+              <h2>🃏 Odaberite akuz</h2>
+            </div>
+
+            <div className="akuze-selection">
+              {gameState.gameType === "treseta" &&
+                gameState.akuzeEnabled &&
+                gameState.canAkuze &&
+                !gameState.hasPlayedFirstCard &&
+                (() => {
+                  const availableAkuze = checkAkuze(gameState.myHand);
+                  return availableAkuze.map((akuz, index) => (
+                    <button
+                      key={index}
+                      className="akuz-option"
+                      onClick={() => {
+                        handleAkuze(akuz);
+                        setShowAkuzeModal(false);
+                      }}
+                    >
+                      <div className="akuz-description">{akuz.description}</div>
+                      <div className="akuz-points">
+                        +{akuz.points} bod
+                        {akuz.points === 1
+                          ? ""
+                          : akuz.points <= 4
+                          ? "a"
+                          : "ova"}
+                      </div>
+                      <div className="akuz-cards">
+                        {akuz.cards.map((card, cardIndex) => (
+                          <span key={cardIndex} className="akuz-card">
+                            {card.name} {card.suit}
+                          </span>
+                        ))}
+                      </div>
+                    </button>
+                  ));
+                })()}
+            </div>
+
+            <button
+              className="close-scores"
+              onClick={() => setShowAkuzeModal(false)}
+            >
+              Odustani
             </button>
           </div>
         </div>
@@ -1397,7 +1863,17 @@ function Game({ gameData, onGameEnd }) {
               // Normalni prikaz rezultata
               <>
                 <div className="final-score-header">
-                  <h2>🎮 Partija završena!</h2>
+                  <h2>
+                    {gameState.gameType === "treseta"
+                      ? "🏆 Igra završena!"
+                      : "🎮 Partija završena!"}
+                  </h2>
+                  {gameState.gameType === "treseta" && (
+                    <div className="final-total-score">
+                      Konačni rezultat: {gameState.totalMyPoints || 0} -{" "}
+                      {gameState.totalOpponentPoints || 0}
+                    </div>
+                  )}
                   {gameState.winner === gameState.playerNumber && (
                     <div className="result-emoji">🎉</div>
                   )}
@@ -1415,12 +1891,13 @@ function Game({ gameData, onGameEnd }) {
                     <div className="player-name">{user?.name}</div>
                     <div className="player-points">
                       {gameState.gameType === "treseta"
-                        ? gameState.myPoints
-                        : myPoints}{" "}
-                      bodova
+                        ? `${gameState.totalMyPoints || 0} bodova`
+                        : `${myPoints} bodova`}
                     </div>
                     <div className="player-cards">
-                      {getCardCountText((gameState.myCards || []).length)}
+                      {gameState.gameType === "treseta"
+                        ? `Cilj: ${gameState.targetScore} bodova`
+                        : getCardCountText((gameState.myCards || []).length)}
                     </div>
                     {gameState.winner === gameState.playerNumber && (
                       <div className="winner-badge">👑 POBJEDNIK</div>
@@ -1435,17 +1912,21 @@ function Game({ gameData, onGameEnd }) {
                     </div>
                     <div className="player-points">
                       {gameState.gameType === "treseta"
-                        ? gameState.opponentPoints
-                        : opponentPoints}{" "}
-                      bodova
+                        ? `${gameState.totalOpponentPoints || 0} bodova`
+                        : `${opponentPoints} bodova`}
                     </div>
                     <div className="player-cards">
-                      {getCardCountText(
-                        (mode === "ai"
-                          ? gameState.aiCards
-                          : gameState.opponentCards || []
-                        ).length
-                      )}
+                      {gameState.gameType === "treseta"
+                        ? `Završeno u ${
+                            gameState.partijas?.length ||
+                            gameState.currentPartija - 1
+                          } partija`
+                        : getCardCountText(
+                            (mode === "ai"
+                              ? gameState.aiCards
+                              : gameState.opponentCards || []
+                            ).length
+                          )}
                     </div>
                     {gameState.winner &&
                       gameState.winner !== gameState.playerNumber &&
@@ -1530,6 +2011,49 @@ function Game({ gameData, onGameEnd }) {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Partija Finished Screen for Treseta */}
+      {gameState.gamePhase === "partidaFinished" && (
+        <div className="final-score-overlay">
+          <div className="final-score-container">
+            <div className="final-score-header">
+              <h2>🏆 Partija {gameState.currentPartija - 1} završena!</h2>
+            </div>
+
+            <div className="partija-result">
+              <p>
+                {gameState.myPoints > gameState.opponentPoints
+                  ? "🎉 Dobili ste ovu partiju!"
+                  : gameState.opponentPoints > gameState.myPoints
+                  ? "😔 Izgubili ste ovu partiju."
+                  : "🤝 Partija neriješena!"}
+              </p>
+              <div className="partija-scores">
+                Rezultat partije: {gameState.myPoints} -{" "}
+                {gameState.opponentPoints}
+              </div>
+              <div className="total-scores">
+                <strong>
+                  Ukupno: {gameState.totalMyPoints} -{" "}
+                  {gameState.totalOpponentPoints}
+                </strong>
+              </div>
+              <div className="target-info">
+                Cilj: {gameState.targetScore} bodova
+              </div>
+            </div>
+
+            <div className="final-score-actions">
+              <button onClick={startNewPartija} className="btn-primary-large">
+                ▶️ Sljedeća partija
+              </button>
+              <button onClick={onGameEnd} className="btn-secondary-large">
+                🏠 Glavni meni
+              </button>
+            </div>
           </div>
         </div>
       )}
