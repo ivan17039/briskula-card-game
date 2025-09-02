@@ -326,7 +326,9 @@ function AppContent() {
                   gameType: gameType, // preuzima odabran tip (briskula/treseta)
                   gameState: {}, // Game.jsx sam generira špil
                   // Include akuze setting from modeData
-                  ...(modeData.akuzeEnabled !== undefined && { akuzeEnabled: modeData.akuzeEnabled }),
+                  ...(modeData.akuzeEnabled !== undefined && {
+                    akuzeEnabled: modeData.akuzeEnabled,
+                  }),
                 };
 
                 console.log("[App.jsx] AI Game Data:", aiGameData);

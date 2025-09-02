@@ -125,7 +125,7 @@ function GameModeSelector({ onModeSelect, onBack, gameType }) {
                 console.log("[GameModeSelector] AI mode with akuze:", {
                   gameType,
                   akuzeEnabled,
-                  aiMode
+                  aiMode,
                 });
               }
 
