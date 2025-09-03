@@ -282,7 +282,8 @@
   margin-top: 24px;
 }
 
-.cancel-btn, .create-btn {
+.cancel-btn,
+.create-btn {
   flex: 1;
   padding: 12px 20px;
   border: none;
@@ -418,7 +419,19 @@
     gap: 8px;
   }
 
-  .cancel-btn, .create-btn {
+  .cancel-btn,
+  .create-btn {
     padding: 10px 16px;
   }
+}
+
+/* Akuze hint styling */
+.akuze-hint {
+  font-size: 0.85rem;
+  color: #6c757d;
+  margin-top: 4px;
+  padding: 8px 12px;
+  background: rgba(255, 193, 7, 0.1);
+  border-radius: 4px;
+  border-left: 3px solid #ffc107;
 }
