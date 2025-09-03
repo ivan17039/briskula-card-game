@@ -341,6 +341,11 @@ io.on("connection", (socket) => {
         hasPassword: !!gameData.password,
         password: gameData.password || null,
         maxPlayers: gameData.gameMode === "2v2" ? 4 : 2,
+        // Include akuze setting for Treseta
+        ...(gameData.gameType === "treseta" &&
+          gameData.akuzeEnabled !== undefined && {
+            akuzeEnabled: gameData.akuzeEnabled,
+          }),
         players: [
           {
             id: socket.id,
@@ -2563,6 +2568,11 @@ async function startCustomGame(roomId) {
         players: room.players,
         playerNumber: player.playerNumber,
         opponent: opponent ? { name: opponent.name } : null,
+        // Include akuze setting for Treseta
+        ...(room.gameType === "treseta" &&
+          room.akuzeEnabled !== undefined && {
+            akuzeEnabled: room.akuzeEnabled,
+          }),
       });
     }
   });
