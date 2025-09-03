@@ -120,6 +120,11 @@ function GameLobby({ onGameStart, onBack, gameType }) {
       gameMode: gameData.maxPlayers === 2 ? "1v1" : "2v2",
       password: gameData.password,
       hasPassword: gameData.hasPassword,
+      // Include akuze setting for Treseta
+      ...(gameType === "treseta" &&
+        gameData.akuzeEnabled !== undefined && {
+          akuzeEnabled: gameData.akuzeEnabled,
+        }),
     });
   };
 
