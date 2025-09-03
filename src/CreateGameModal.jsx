@@ -9,6 +9,7 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
     maxPlayers: 2, // 2 for 1v1, 4 for 2v2
     password: "",
     hasPassword: false,
+    akuzeEnabled: true, // Default to enabled for Treseta
   });
   const [errors, setErrors] = useState({});
 
@@ -73,6 +74,8 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
       maxPlayers: parseInt(formData.maxPlayers),
       password: formData.hasPassword ? formData.password : null,
       hasPassword: formData.hasPassword,
+      // Include akuze setting for Treseta
+      ...(gameType === "treseta" && { akuzeEnabled: formData.akuzeEnabled }),
     };
 
     onCreateGame(gameData);
@@ -204,6 +207,30 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
             )}
           </div>
 
+          {/* Akuze option for Treseta */}
+          {gameType === "treseta" && (
+            <div className="form-section">
+              <div className="checkbox-wrapper">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="akuzeEnabled"
+                    checked={formData.akuzeEnabled}
+                    onChange={handleInputChange}
+                  />
+                  <span className="checkbox-custom"></span>
+                  <span className="checkbox-text">
+                    🃏 Omogući akužavanje u igri
+                  </span>
+                </label>
+              </div>
+              <div className="akuze-hint">
+                Akuzi: Tri/Četiri asa/dvice/trice (3-4 boda), Napolitana (3
+                boda)
+              </div>
+            </div>
+          )}
+
           <div className="game-preview">
             <h4>Game Preview:</h4>
             <div className="preview-content">
@@ -232,6 +259,15 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
                   {formData.hasPassword ? "🔒 Password Protected" : "🌐 Public"}
                 </span>
               </div>
+              {/* Show akuze status for Treseta */}
+              {gameType === "treseta" && (
+                <div className="preview-item">
+                  <span className="preview-label">Akužavanje:</span>
+                  <span className="preview-value">
+                    {formData.akuzeEnabled ? "🃏 Omogućeno" : "🚫 Onemogućeno"}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
