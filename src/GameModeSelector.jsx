@@ -91,49 +91,54 @@ function GameModeSelector({ onModeSelect, onBack, gameType }) {
             <div className="mode-badge">Sve u jednom</div>
           </div>
 
-          {/* Akuze option for Treseta */}
-          {gameType === "treseta" && (
-            <div className="akuze-option">
-              <h4>🃏 Akužavanje</h4>
-              <label className="checkbox-container">
-                <input
-                  type="checkbox"
-                  checked={akuzeEnabled}
-                  onChange={(e) => setAkuzeEnabled(e.target.checked)}
-                />
-                <span className="checkmark"></span>
-                Omogući akužavanje
-              </label>
-              <p className="akuze-description">
-                Akuzi: Tri/Četiri asa/dvice/trice (3-4 boda), Napolitana (3
-                boda)
-              </p>
+          {/* AI Mode with akuze option for Treseta */}
+          <div className="ai-mode-section">
+            <div className="ai-section-header">
+              <span className="ai-badge">🤖 AI Opcije</span>
             </div>
-          )}
+            <button
+              onClick={() => {
+                const aiMode = {
+                  gameMode: "1vAI",
+                  opponent: { name: "AI Bot", isAI: true },
+                  gameState: {}, // Game.jsx će sam generirati špil
+                };
 
-          <button
-            onClick={() => {
-              const aiMode = {
-                gameMode: "1vAI",
-                opponent: { name: "AI Bot", isAI: true },
-                gameState: {}, // Game.jsx će sam generirati špil
-              };
+                // Add akuze settings for Treseta
+                if (gameType === "treseta") {
+                  aiMode.akuzeEnabled = akuzeEnabled;
+                  console.log("[GameModeSelector] AI mode with akuze:", {
+                    gameType,
+                    akuzeEnabled,
+                    aiMode,
+                  });
+                }
 
-              // Add akuze settings for Treseta
-              if (gameType === "treseta") {
-                aiMode.akuzeEnabled = akuzeEnabled;
-                console.log("[GameModeSelector] AI mode with akuze:", {
-                  gameType,
-                  akuzeEnabled,
-                  aiMode,
-                });
-              }
+                handleModeSelect(aiMode);
+              }}
+            >
+              🎮 Igraj protiv AI
+            </button>
 
-              handleModeSelect(aiMode);
-            }}
-          >
-            🎮 Igraj protiv AI
-          </button>
+            {/* Akuze option for Treseta AI games */}
+            {gameType === "treseta" && (
+              <div className="ai-akuze-option">
+                <label className="checkbox-container">
+                  <input
+                    type="checkbox"
+                    checked={akuzeEnabled}
+                    onChange={(e) => setAkuzeEnabled(e.target.checked)}
+                  />
+                  <span className="checkmark"></span>
+                  🃏 Omogući akužavanje protiv AI
+                </label>
+                <p className="akuze-description">
+                  Akuzi: Tri/Četiri asa/dvice/trice (3-4 boda), Napolitana (3
+                  boda)
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="mode-info">
