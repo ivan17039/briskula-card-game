@@ -243,6 +243,16 @@ function Game({ gameData, onGameEnd }) {
       playableCards: gameData.gameState.playableCards || [], // Lista ID-jeva karata koje se mogu igrati
       myPoints: 0, // Bodovi igrača
       opponentPoints: 0, // Bodovi protivnika
+
+      // Akuže support for Treseta online games
+      ...(gameData.gameType === "treseta" && {
+        akuzeEnabled:
+          gameData.akuzeEnabled !== undefined ? gameData.akuzeEnabled : true,
+        myAkuze: [],
+        opponentAkuze: [],
+        canAkuze:
+          gameData.akuzeEnabled !== undefined ? gameData.akuzeEnabled : true,
+      }),
     };
 
     console.log("🎮 Final game state:", state);
@@ -954,6 +964,20 @@ function Game({ gameData, onGameEnd }) {
             prev.playerNumber === 1
               ? data.player2Points?.points || 0
               : data.player1Points?.points || 0,
+
+          // Ažuriraj akuže podatke za Trešeta (ako postoje)
+          ...(prev.gameType === "treseta" &&
+            data.player1Akuze &&
+            data.player2Akuze && {
+              myAkuze:
+                prev.playerNumber === 1
+                  ? data.player1Akuze.details || []
+                  : data.player2Akuze.details || [],
+              opponentAkuze:
+                prev.playerNumber === 1
+                  ? data.player2Akuze.details || []
+                  : data.player1Akuze.details || [],
+            }),
         };
 
         if (data.gameEnd.isGameOver) {
@@ -1093,6 +1117,24 @@ function Game({ gameData, onGameEnd }) {
       addToast(`Nevaljan potez: ${data.message}`, "error");
     });
 
+    // Akuže announced by opponent
+    socket.on("akuzeAnnounced", (data) => {
+      // Only add to opponentAkuze if it's not from current player
+      if (data.playerNumber !== gameState?.playerNumber) {
+        const message = `${data.playerName || "Protivnik"} je akužao ${
+          data.akuz.description
+        } (+${data.akuz.points} bodova)!`;
+
+        setGameState((prev) => ({
+          ...prev,
+          opponentAkuze: [...(prev.opponentAkuze || []), data.akuz],
+          message: message,
+        }));
+
+        addToast(message, "info");
+      }
+    });
+
     return () => {
       socket.off("gameStart");
       socket.off("cardPlayed");
@@ -1104,6 +1146,7 @@ function Game({ gameData, onGameEnd }) {
       socket.off("reconnectFailed");
       socket.off("playableCardsUpdate");
       socket.off("invalidMove");
+      socket.off("akuzeAnnounced");
     };
   }, [socket, gameState?.roomId, onGameEnd, mode]);
 
@@ -1117,6 +1160,14 @@ function Game({ gameData, onGameEnd }) {
     }
 
     console.log("[Akuze] Player declared:", akuz);
+
+    // Send to server for online games
+    if (mode === "online" && socket) {
+      socket.emit("akuze", {
+        roomId: gameState.roomId,
+        akuz: akuz,
+      });
+    }
 
     setGameState((prev) => ({
       ...prev,
@@ -1335,26 +1386,43 @@ function Game({ gameData, onGameEnd }) {
           </button>
 
           {/* Akužaj button za Trešeta */}
-          {gameState.gameType === "treseta" &&
-            gameState.akuzeEnabled &&
-            gameState.canAkuze &&
-            !gameState.hasPlayedFirstCard &&
-            gameState.currentPlayer === gameState.playerNumber &&
-            gameState.gamePhase === "playing" &&
-            (() => {
-              const availableAkuze = checkAkuze(gameState.myHand);
-              return (
-                availableAkuze.length > 0 && (
-                  <button
-                    onClick={() => setShowAkuzeModal(true)}
-                    className="game-btn btn-warning"
-                    style={{ background: "#ffc107", color: "black" }}
-                  >
-                    🃏 Akužaj
-                  </button>
-                )
-              );
-            })()}
+          {(() => {
+            const shouldShowAkuze =
+              gameState.gameType === "treseta" &&
+              gameState.akuzeEnabled &&
+              gameState.canAkuze &&
+              !gameState.hasPlayedFirstCard &&
+              gameState.currentPlayer === gameState.playerNumber &&
+              gameState.gamePhase === "playing";
+
+            console.log("[Desktop Akuze Debug]", {
+              gameType: gameState.gameType,
+              akuzeEnabled: gameState.akuzeEnabled,
+              canAkuze: gameState.canAkuze,
+              hasPlayedFirstCard: gameState.hasPlayedFirstCard,
+              currentPlayer: gameState.currentPlayer,
+              playerNumber: gameState.playerNumber,
+              gamePhase: gameState.gamePhase,
+              shouldShowAkuze,
+            });
+
+            if (!shouldShowAkuze) return null;
+
+            const availableAkuze = checkAkuze(gameState.myHand);
+            console.log("[Desktop Akuze] Available akuze:", availableAkuze);
+
+            return (
+              availableAkuze.length > 0 && (
+                <button
+                  onClick={() => setShowAkuzeModal(true)}
+                  className="game-btn btn-warning"
+                  style={{ background: "#ffc107", color: "black" }}
+                >
+                  🃏 Akužaj
+                </button>
+              )
+            );
+          })()}
 
           {gameState.gamePhase === "playing" && (
             <button
@@ -1389,30 +1457,47 @@ function Game({ gameData, onGameEnd }) {
           </button>
 
           {/* Mobile Akužaj button za Trešeta */}
-          {gameState.gameType === "treseta" &&
-            gameState.akuzeEnabled &&
-            gameState.canAkuze &&
-            !gameState.hasPlayedFirstCard &&
-            gameState.currentPlayer === gameState.playerNumber &&
-            gameState.gamePhase === "playing" &&
-            (() => {
-              const availableAkuze = checkAkuze(gameState.myHand);
-              return (
-                availableAkuze.length > 0 && (
-                  <button
-                    onClick={() => setShowAkuzeModal(true)}
-                    className="floating-btn akuze-btn"
-                    title="Akužaj"
-                    style={{
-                      background: "#ffc107",
-                      color: "black",
-                    }}
-                  >
-                    🃏
-                  </button>
-                )
-              );
-            })()}
+          {(() => {
+            const shouldShowMobileAkuze =
+              gameState.gameType === "treseta" &&
+              gameState.akuzeEnabled &&
+              gameState.canAkuze &&
+              !gameState.hasPlayedFirstCard &&
+              gameState.currentPlayer === gameState.playerNumber &&
+              gameState.gamePhase === "playing";
+
+            console.log("[Mobile Akuze Debug]", {
+              gameType: gameState.gameType,
+              akuzeEnabled: gameState.akuzeEnabled,
+              canAkuze: gameState.canAkuze,
+              hasPlayedFirstCard: gameState.hasPlayedFirstCard,
+              currentPlayer: gameState.currentPlayer,
+              playerNumber: gameState.playerNumber,
+              gamePhase: gameState.gamePhase,
+              shouldShowMobileAkuze,
+            });
+
+            if (!shouldShowMobileAkuze) return null;
+
+            const availableAkuze = checkAkuze(gameState.myHand);
+            console.log("[Mobile Akuze] Available akuze:", availableAkuze);
+
+            return (
+              availableAkuze.length > 0 && (
+                <button
+                  onClick={() => setShowAkuzeModal(true)}
+                  className="floating-btn akuze-btn"
+                  title="Akužaj"
+                  style={{
+                    background: "#ffc107",
+                    color: "black",
+                  }}
+                >
+                  🃏
+                </button>
+              )
+            );
+          })()}
 
           {gameState.gamePhase === "playing" && (
             <button

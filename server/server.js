@@ -754,6 +754,79 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Akuže handler for Treseta (1v1 and 2v2)
+  socket.on("akuze", (data) => {
+    const { roomId, akuz } = data;
+    console.log(`🃏 Akuže declared:`, {
+      playerId: socket.id,
+      roomId,
+      akuz,
+    });
+
+    const room = gameRooms.get(roomId);
+    if (!room || room.gameType !== "treseta") {
+      socket.emit("error", { message: "Akuže nije dostupno za ovu igru" });
+      return;
+    }
+
+    // Check if akuze is enabled (for both 1v1 and 2v2)
+    if (room.akuzeEnabled === false) {
+      socket.emit("error", { message: "Akuže je onemogućeno za ovu igru" });
+      return;
+    }
+
+    const player = room.players.find((p) => p.id === socket.id);
+    const playerNumber = player?.playerNumber;
+
+    if (!playerNumber) {
+      socket.emit("error", { message: "Igrač nije pronađen" });
+      return;
+    }
+
+    // Add akuz to player's akuze list
+    const akuzeKey = `player${playerNumber}Akuze`;
+    if (!room.gameState[akuzeKey]) {
+      room.gameState[akuzeKey] = { points: 0, details: [] };
+    }
+
+    room.gameState[akuzeKey].details.push(akuz);
+    room.gameState[akuzeKey].points += akuz.points;
+
+    console.log(`✅ Akuže registered for player ${playerNumber}:`, akuz);
+
+    if (room.gameMode === "2v2") {
+      // 2v2 mode - also add to team akuze for tracking
+      const team = playerNumber === 1 || playerNumber === 3 ? 1 : 2;
+      const teamAkuzeKey = `team${team}Akuze`;
+      if (!room.gameState[teamAkuzeKey]) {
+        room.gameState[teamAkuzeKey] = [];
+      }
+      room.gameState[teamAkuzeKey].push({
+        playerNumber,
+        playerName: player.name,
+        ...akuz,
+      });
+
+      // Broadcast akuze to all players with team info
+      io.to(roomId).emit("akuzeAnnounced", {
+        playerNumber,
+        playerName: player.name,
+        akuz,
+        team,
+      });
+    } else {
+      // 1v1 mode - simple broadcast without team info
+      io.to(roomId).emit("akuzeAnnounced", {
+        playerNumber,
+        playerName: player.name,
+        akuz,
+      });
+    }
+
+    // Save updated game state
+    gameStateManager.saveGameState(roomId, room);
+  });
+
   // Leave room event (temporary - can reconnect)
   socket.on("leaveRoom", (roomId) => {
     const room = gameRooms.get(roomId);
@@ -1329,6 +1402,8 @@ async function createGameRoom1v1(player1, player2, gameType = "briskula") {
     id: roomId,
     gameMode: "1v1",
     gameType: gameType, // DODANO
+    // Enable akuze by default for Treseta games
+    ...(gameType === "treseta" && { akuzeEnabled: true }),
     players: [
       { ...player1, playerNumber: 1, isConnected: true },
       { ...player2, playerNumber: 2, isConnected: true },
@@ -1408,6 +1483,10 @@ async function createGameRoom1v1(player1, player2, gameType = "briskula") {
       playerNumber: 1,
       opponent: { name: player2.name },
       gameType: gameType,
+      ...(gameType === "treseta" &&
+        gameRoom.akuzeEnabled !== undefined && {
+          akuzeEnabled: gameRoom.akuzeEnabled,
+        }),
       gameState: {
         ...gameRoom.gameState,
         player2Hand: gameRoom.gameState.player2Hand.map(() => ({
@@ -1422,6 +1501,10 @@ async function createGameRoom1v1(player1, player2, gameType = "briskula") {
       playerNumber: 2,
       opponent: { name: player1.name },
       gameType: gameType,
+      ...(gameType === "treseta" &&
+        gameRoom.akuzeEnabled !== undefined && {
+          akuzeEnabled: gameRoom.akuzeEnabled,
+        }),
       gameState: {
         ...gameRoom.gameState,
         player1Hand: gameRoom.gameState.player1Hand.map(() => ({
@@ -2162,15 +2245,37 @@ async function finishRound2v2(roomId) {
     2
   );
 
+  // Add akuze points for Treseta
+  let team1TotalPoints = team1Points.points;
+  let team2TotalPoints = team2Points.points;
+
+  if (room.gameType === "treseta" && room.akuzeEnabled) {
+    // Add akuze points for team 1 (players 1 and 3)
+    const player1Akuze = room.gameState.player1Akuze?.points || 0;
+    const player3Akuze = room.gameState.player3Akuze?.points || 0;
+    team1TotalPoints += player1Akuze + player3Akuze;
+
+    // Add akuze points for team 2 (players 2 and 4)
+    const player2Akuze = room.gameState.player2Akuze?.points || 0;
+    const player4Akuze = room.gameState.player4Akuze?.points || 0;
+    team2TotalPoints += player2Akuze + player4Akuze;
+
+    console.log(
+      `🃏 Akuze points added - Team 1: +${
+        player1Akuze + player3Akuze
+      }, Team 2: +${player2Akuze + player4Akuze}`
+    );
+  }
+
   console.log(
-    `📊 Current score: Team 1: ${team1Points.points}, Team 2: ${team2Points.points}`
+    `📊 Current score: Team 1: ${team1TotalPoints}, Team 2: ${team2TotalPoints}`
   );
 
   let gameEnd;
   if (room.gameType === "treseta") {
     // Provjeri kraj igre za Trešetu - cilj je 11 bodova
-    const team1Score = team1Points.points;
-    const team2Score = team2Points.points;
+    const team1Score = team1TotalPoints;
+    const team2Score = team2TotalPoints;
     const allCardsPlayed =
       room.gameState.remainingDeck.length === 0 &&
       allHands.every((hand) => hand.length === 0);
@@ -2242,8 +2347,14 @@ async function finishRound2v2(roomId) {
   const roundFinishedData = {
     roundWinner: roundWinner,
     roundWinningTeam: winningTeam,
-    team1Points: team1Points,
-    team2Points: team2Points,
+    team1Points: {
+      ...team1Points,
+      points: team1TotalPoints, // Send total points including akuze
+    },
+    team2Points: {
+      ...team2Points,
+      points: team2TotalPoints, // Send total points including akuze
+    },
     gameEnd: gameEnd,
     currentPlayer: room.gameState.currentPlayer,
     remainingCards: room.gameState.remainingDeck.length,
@@ -2254,6 +2365,16 @@ async function finishRound2v2(roomId) {
     team1Cards: room.gameState.team1Cards,
     team2Cards: room.gameState.team2Cards,
     trump: room.gameState.trump,
+    // Add akuze data for Treseta
+    ...(room.gameType === "treseta" &&
+      room.akuzeEnabled && {
+        team1Akuze: room.gameState.team1Akuze || [],
+        team2Akuze: room.gameState.team2Akuze || [],
+        player1Akuze: room.gameState.player1Akuze || { points: 0, details: [] },
+        player2Akuze: room.gameState.player2Akuze || { points: 0, details: [] },
+        player3Akuze: room.gameState.player3Akuze || { points: 0, details: [] },
+        player4Akuze: room.gameState.player4Akuze || { points: 0, details: [] },
+      }),
   };
 
   // Add playableCards for Trešeta

@@ -725,7 +725,7 @@ body,
 }
 
 /* MOBILE RESPONSIVE DESIGN */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .game-header {
     padding: 8px 16px;
   }

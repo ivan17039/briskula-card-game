@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Card from "./Card";
 import { useSocket } from "./SocketContext";
 import { useToast } from "./ToastProvider";
+import { checkAkuze } from "../core/tresetaCommon.js";
 import "./Game.css";
 import "./Card.css";
 import "./Game2v2.css";
@@ -150,12 +151,24 @@ function Game2v2({ gameData, onGameEnd }) {
       },
       // Dodaj playableCards za Trešetu
       playableCards: gameData.gameState.playableCards || [],
+
+      // Akuže support for Treseta
+      ...(gameData.gameType === "treseta" && {
+        akuzeEnabled:
+          gameData.akuzeEnabled !== undefined ? gameData.akuzeEnabled : true,
+        myAkuze: [],
+        team1Akuze: gameData.gameState.team1Akuze || [],
+        team2Akuze: gameData.gameState.team2Akuze || [],
+        canAkuze:
+          gameData.akuzeEnabled !== undefined ? gameData.akuzeEnabled : true,
+      }),
     };
   };
 
   const [gameState, setGameState] = useState(initializeGameState);
   const [selectedCard, setSelectedCard] = useState(null);
   const [showScores, setShowScores] = useState(false);
+  const [showAkuzeModal, setShowAkuzeModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   // Function to get relative position for cross layout
@@ -184,25 +197,29 @@ function Game2v2({ gameData, onGameEnd }) {
     if (!socket || !gameState?.roomId) return;
 
     socket.on("cardPlayed", (data) => {
-      setGameState((prev) => ({
-        ...prev,
-        playedCards: data.playedCards,
-        myHand:
+      setGameState((prev) => {
+        const newMyHand =
           data.playerNumber === prev.playerNumber
             ? prev.myHand.filter((c) => c.id !== data.card.id)
-            : prev.myHand,
-        handCounts: {
-          ...prev.handCounts,
-          [`player${data.playerNumber}`]: Math.max(
-            0,
-            prev.handCounts[`player${data.playerNumber}`] - 1
-          ),
-        },
-        message:
-          data.playerNumber === prev.playerNumber
-            ? "Čekamo ostale igrače..."
-            : `${data.playerName} je odigrao kartu.`,
-      }));
+            : prev.myHand;
+
+        return {
+          ...prev,
+          playedCards: data.playedCards,
+          myHand: newMyHand,
+          handCounts: {
+            ...prev.handCounts,
+            [`player${data.playerNumber}`]: Math.max(
+              0,
+              prev.handCounts[`player${data.playerNumber}`] - 1
+            ),
+          },
+          message:
+            data.playerNumber === prev.playerNumber
+              ? "Čekamo ostale igrače..."
+              : `${data.playerName} je odigrao kartu.`,
+        };
+      });
     });
 
     socket.on("turnChange", (data) => {
@@ -218,9 +235,10 @@ function Game2v2({ gameData, onGameEnd }) {
 
     socket.on("roundFinished", (data) => {
       setGameState((prev) => {
+        const newMyHand = data[`player${prev.playerNumber}Hand`];
         const newState = {
           ...prev,
-          myHand: data[`player${prev.playerNumber}Hand`],
+          myHand: newMyHand,
           trump: data.trump,
           team1Cards: data.team1Cards,
           team2Cards: data.team2Cards,
@@ -360,6 +378,40 @@ function Game2v2({ gameData, onGameEnd }) {
       }
     });
 
+    // Akuže announced by other players
+    socket.on("akuzeAnnounced", (data) => {
+      if (gameState?.gameType === "treseta") {
+        console.log("[Akuze 2v2] Other player declared akuz:", data);
+
+        // Show toast notification for other players' akuze
+        if (data.playerNumber !== gameState?.playerNumber) {
+          addToast(
+            `${data.playerName} je akužao ${data.akuz.description} (+${data.akuz.points} bodova)`,
+            "info"
+          );
+        }
+
+        // Update team akuze tracking
+        setGameState((prev) => ({
+          ...prev,
+          team1Akuze:
+            data.team === 1
+              ? [
+                  ...(prev.team1Akuze || []),
+                  { ...data.akuz, playerName: data.playerName },
+                ]
+              : prev.team1Akuze,
+          team2Akuze:
+            data.team === 2
+              ? [
+                  ...(prev.team2Akuze || []),
+                  { ...data.akuz, playerName: data.playerName },
+                ]
+              : prev.team2Akuze,
+        }));
+      }
+    });
+
     return () => {
       socket.off("cardPlayed");
       socket.off("turnChange");
@@ -370,8 +422,43 @@ function Game2v2({ gameData, onGameEnd }) {
       socket.off("reconnectFailed");
       socket.off("playableCardsUpdate");
       socket.off("invalidMove");
+      socket.off("akuzeAnnounced");
     };
   }, [socket, gameState?.roomId, onGameEnd]);
+
+  const handleAkuze = (akuz) => {
+    if (!gameState || !gameState.akuzeEnabled || !gameState.canAkuze) {
+      console.log("[Akuze 2v2] Cannot akuze - disabled or already used:", {
+        akuzeEnabled: gameState?.akuzeEnabled,
+        canAkuze: gameState?.canAkuze,
+      });
+      return;
+    }
+
+    console.log("[Akuze 2v2] Player declared:", akuz);
+
+    // Send to server
+    if (socket) {
+      socket.emit("akuze", {
+        roomId: gameState.roomId,
+        akuz: akuz,
+      });
+    }
+
+    setGameState((prev) => ({
+      ...prev,
+      myAkuze: [...prev.myAkuze, akuz],
+      canAkuze: false, // Može akužavati samo jednom po partiji
+      message: `Akužavali ste ${akuz.description} (${akuz.points} bodova)!`,
+    }));
+
+    addToast(
+      `Akužavali ste ${akuz.description} (+${akuz.points} bodova)`,
+      "success"
+    );
+
+    setShowAkuzeModal(false);
+  };
 
   const handleCardClick = (card) => {
     if (!gameState) return;
@@ -520,6 +607,27 @@ function Game2v2({ gameData, onGameEnd }) {
           >
             {showScores ? "Sakrij" : "Detalji"}
           </button>
+
+          {/* Akužaj button za Trešeta */}
+          {gameState.gameType === "treseta" &&
+            gameState.akuzeEnabled &&
+            gameState.canAkuze &&
+            gameState.currentPlayer === gameState.playerNumber &&
+            gameState.gamePhase === "playing" &&
+            (() => {
+              const availableAkuze = checkAkuze(gameState.myHand);
+              return (
+                availableAkuze.length > 0 && (
+                  <button
+                    onClick={() => setShowAkuzeModal(true)}
+                    className="game-btn btn-warning"
+                    style={{ background: "#ffc107", color: "black" }}
+                  >
+                    🃏 Akužaj
+                  </button>
+                )
+              );
+            })()}
 
           {gameState.gamePhase === "playing" && (
             <button
@@ -812,6 +920,47 @@ function Game2v2({ gameData, onGameEnd }) {
               </div>
             </div>
 
+            {/* Akuže section for Treseta */}
+            {gameState.gameType === "treseta" && gameState.akuzeEnabled && (
+              <div className="current-akuze">
+                <h4>Akuže u ovoj partiji</h4>
+
+                <div className="teams-akuze">
+                  <div className="my-akuze">
+                    <strong>Tim 1 akuže:</strong>
+                    {gameState.team1Akuze && gameState.team1Akuze.length > 0 ? (
+                      <ul>
+                        {gameState.team1Akuze.map((akuz, index) => (
+                          <li key={index}>
+                            {akuz.playerName}: {akuz.description} (+
+                            {akuz.points} bodova)
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>Nema akuža</p>
+                    )}
+                  </div>
+
+                  <div className="opponent-akuze">
+                    <strong>Tim 2 akuže:</strong>
+                    {gameState.team2Akuze && gameState.team2Akuze.length > 0 ? (
+                      <ul>
+                        {gameState.team2Akuze.map((akuz, index) => (
+                          <li key={index}>
+                            {akuz.playerName}: {akuz.description} (+
+                            {akuz.points} bodova)
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>Nema akuža</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <button
               className="close-scores"
               onClick={() => setShowScores(false)}
@@ -954,6 +1103,66 @@ function Game2v2({ gameData, onGameEnd }) {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Akuže selection modal */}
+      {showAkuzeModal && (
+        <div
+          className="scores-overlay"
+          onClick={() => setShowAkuzeModal(false)}
+        >
+          <div
+            className="scores-modal akuze-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="scores-header">
+              <h2>🃏 Odaberite akuz</h2>
+            </div>
+
+            <div className="akuze-selection">
+              {gameState.gameType === "treseta" &&
+                gameState.akuzeEnabled &&
+                gameState.canAkuze &&
+                (() => {
+                  const availableAkuze = checkAkuze(gameState.myHand);
+                  return availableAkuze.map((akuz, index) => (
+                    <button
+                      key={index}
+                      className="akuz-option"
+                      onClick={() => {
+                        handleAkuze(akuz);
+                        setShowAkuzeModal(false);
+                      }}
+                    >
+                      <div className="akuz-description">{akuz.description}</div>
+                      <div className="akuz-points">
+                        +{akuz.points} bod
+                        {akuz.points === 1
+                          ? ""
+                          : akuz.points <= 4
+                          ? "a"
+                          : "ova"}
+                      </div>
+                      <div className="akuz-cards">
+                        {akuz.cards.map((card, cardIndex) => (
+                          <span key={cardIndex} className="akuz-card">
+                            {card.name} {card.suit}
+                          </span>
+                        ))}
+                      </div>
+                    </button>
+                  ));
+                })()}
+            </div>
+
+            <button
+              className="close-scores"
+              onClick={() => setShowAkuzeModal(false)}
+            >
+              Odustani
+            </button>
           </div>
         </div>
       )}
