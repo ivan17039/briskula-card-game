@@ -744,6 +744,19 @@ io.on("connection", (socket) => {
       return;
     }
 
+    // Additional check: Has this player already played a card this round?
+    const playerAlreadyPlayed =
+      room.gameState.playedCards &&
+      room.gameState.playedCards.some(
+        (playedCard) => playedCard && playedCard.playerNumber === playerNumber
+      );
+
+    if (playerAlreadyPlayed) {
+      console.log(`❌ Igrač ${playerNumber} je već odigrao kartu u ovoj rundi`);
+      socket.emit("error", { message: "Već ste odigrali kartu u ovoj rundi" });
+      return;
+    }
+
     console.log(`✅ Kartu može igrati, obrađujem potez`);
 
     // Obradi potez ovisno o načinu igre
@@ -825,6 +838,38 @@ io.on("connection", (socket) => {
 
     // Save updated game state
     gameStateManager.saveGameState(roomId, room);
+  });
+
+  // Start new partija event (for manual trigger)
+  socket.on("startNewPartija", (data) => {
+    const { roomId, playerNumber } = data;
+    console.log(
+      `🔄 Player ${playerNumber} requesting new partija in room ${roomId}`
+    );
+
+    const room = gameRooms.get(roomId);
+    if (!room) {
+      socket.emit("error", { message: "Soba ne postoji" });
+      return;
+    }
+
+    if (room.gameType !== "treseta" || room.gameMode !== "1v1") {
+      socket.emit("error", {
+        message: "Nova partija je dostupna samo za Trešeta 1v1",
+      });
+      return;
+    }
+
+    // Check if this is a valid request (partija just finished)
+    if (!room.gameState.totalPlayer1Points !== undefined) {
+      socket.emit("error", {
+        message: "Nova partija nije moguća u ovom trenutku",
+      });
+      return;
+    }
+
+    // Start new partija immediately
+    startNewPartija(room);
   });
 
   // Leave room event (temporary - can reconnect)
@@ -1340,6 +1385,214 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Continue to next partija handler
+  socket.on("continueNextPartija", async (data) => {
+    const { roomId } = data;
+    console.log(
+      `🔄 Player ${socket.id} wants to continue next partija in room ${roomId}`
+    );
+
+    const room = gameRooms.get(roomId);
+    if (!room) {
+      console.log(`❌ Room ${roomId} not found for partija continuation`);
+      socket.emit("error", { message: "Soba ne postoji" });
+      return;
+    }
+
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player) {
+      console.log(`❌ Player ${socket.id} not found in room ${roomId}`);
+      socket.emit("error", { message: "Niste u toj sobi" });
+      return;
+    }
+
+    // Mark this player as ready for next partija
+    if (!room.nextPartidaReady) {
+      room.nextPartidaReady = new Set();
+    }
+
+    room.nextPartidaReady.add(player.playerNumber);
+
+    console.log(
+      `✅ Player ${
+        player.playerNumber
+      } marked as ready. Ready players: ${Array.from(
+        room.nextPartidaReady
+      ).join(", ")}`
+    );
+
+    // Check if both players are ready
+    const totalPlayers = room.gameMode === "1v1" ? 2 : 4;
+    if (room.nextPartidaReady.size >= totalPlayers) {
+      console.log(
+        `🎮 All players ready, starting new partija for room ${roomId}...`
+      );
+
+      // Clear ready status
+      room.nextPartidaReady.clear();
+
+      // Start new partija
+      await startNewPartija(room);
+    } else {
+      // Notify waiting for other players
+      const waitingFor = totalPlayers - room.nextPartidaReady.size;
+      console.log(`⏳ Waiting for ${waitingFor} more players to be ready`);
+
+      // Send different status to each player
+      room.players.forEach((roomPlayer) => {
+        const playerSocket = io.sockets.sockets.get(roomPlayer.id);
+        if (playerSocket) {
+          const isPlayerReady = room.nextPartidaReady.has(
+            roomPlayer.playerNumber
+          );
+
+          playerSocket.emit("partidaContinueStatus", {
+            readyPlayers: Array.from(room.nextPartidaReady),
+            waitingFor: waitingFor,
+            isPlayerReady: isPlayerReady,
+          });
+
+          console.log(
+            `📤 Sent status to player ${roomPlayer.playerNumber}: ready=${isPlayerReady}`
+          );
+        }
+      });
+    }
+  });
+
+  // Handle rematch requests for 2v2 games
+  socket.on("requestRematch", async (data) => {
+    console.log(
+      `🔄 Player ${socket.id} requested rematch in room ${data.gameId}`
+    );
+
+    const room = gameRooms.get(data.gameId);
+    if (!room) {
+      console.log(`⚠️ Room ${data.gameId} not found for rematch`);
+      socket.emit("error", { message: "Soba nije pronađena" });
+      return;
+    }
+
+    // Find player in room
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player) {
+      console.log(`⚠️ Player ${socket.id} not found in room ${data.gameId}`);
+      socket.emit("error", { message: "Niste u ovoj sobi" });
+      return;
+    }
+
+    // Initialize rematchReady Set if not exists
+    if (!room.rematchReady) {
+      room.rematchReady = new Set();
+    }
+
+    // Add player to rematch ready list
+    room.rematchReady.add(player.playerNumber);
+    console.log(`✅ Player ${player.playerNumber} ready for rematch`);
+
+    const totalPlayers = room.players.length;
+
+    // Check if all players are ready for rematch
+    if (room.rematchReady.size === totalPlayers) {
+      console.log("🎯 All players ready for rematch, starting new game...");
+
+      // Store team assignments from current game
+      const teamAssignments = {};
+      room.players.forEach((p) => {
+        teamAssignments[p.playerNumber] =
+          p.playerNumber <= 2 ? "team1" : "team2";
+      });
+
+      // Clear rematch ready status
+      room.rematchReady.clear();
+
+      // Reset game state while preserving teams
+      room.gameState = {
+        ...createInitialGameState2v2(),
+        teams: {
+          team1: { players: [1, 2], score: 0 },
+          team2: { players: [3, 4], score: 0 },
+        },
+      };
+
+      // Emit rematch accepted to all players
+      room.players.forEach((roomPlayer) => {
+        const playerSocket = io.sockets.sockets.get(roomPlayer.id);
+        if (playerSocket) {
+          playerSocket.emit("rematchAccepted", {
+            gameState: room.gameState,
+            myTeam: teamAssignments[roomPlayer.playerNumber],
+          });
+          console.log(
+            `📤 Sent rematch accepted to player ${roomPlayer.playerNumber}`
+          );
+        }
+      });
+
+      // Start first round of new game
+      await startNewRound2v2(room);
+    } else {
+      // Notify about rematch status
+      const waitingFor = totalPlayers - room.rematchReady.size;
+      console.log(`⏳ Waiting for ${waitingFor} more players for rematch`);
+
+      room.players.forEach((roomPlayer) => {
+        const playerSocket = io.sockets.sockets.get(roomPlayer.id);
+        if (playerSocket) {
+          const isPlayerReady = room.rematchReady.has(roomPlayer.playerNumber);
+
+          playerSocket.emit("rematchStatus", {
+            readyPlayers: Array.from(room.rematchReady),
+            waitingFor: waitingFor,
+            isPlayerReady: isPlayerReady,
+          });
+
+          console.log(
+            `📤 Sent rematch status to player ${roomPlayer.playerNumber}: ready=${isPlayerReady}`
+          );
+        }
+      });
+    }
+  });
+
+  // Handle rematch decline
+  socket.on("declineRematch", async (data) => {
+    console.log(
+      `❌ Player ${socket.id} declined rematch in room ${data.gameId}`
+    );
+
+    const room = gameRooms.get(data.gameId);
+    if (!room) {
+      console.log(`⚠️ Room ${data.gameId} not found for decline`);
+      return;
+    }
+
+    // Find player in room
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player) {
+      console.log(`⚠️ Player ${socket.id} not found in room ${data.gameId}`);
+      return;
+    }
+
+    // Clear rematch ready status
+    if (room.rematchReady) {
+      room.rematchReady.clear();
+    }
+
+    // Notify all players that rematch was declined
+    room.players.forEach((roomPlayer) => {
+      const playerSocket = io.sockets.sockets.get(roomPlayer.id);
+      if (playerSocket) {
+        playerSocket.emit("rematchDeclined", {
+          declinedBy: player.playerNumber,
+        });
+        console.log(
+          `📤 Sent rematch declined to player ${roomPlayer.playerNumber}`
+        );
+      }
+    });
+  });
+
   // Enhanced disconnection handler
   socket.on("disconnect", async (reason) => {
     console.log(`❌ Korisnik ${socket.id} se odspojio: ${reason}`);
@@ -1396,7 +1649,7 @@ async function createGameRoom1v1(player1, player2, gameType = "briskula") {
 
   const deck = createDeck();
   const shuffledDeck = shuffleDeck(deck);
-  const dealt = dealCards(shuffledDeck);
+  const dealt = dealCards(shuffledDeck, false);
 
   const gameRoom = {
     id: roomId,
@@ -1432,6 +1685,14 @@ async function createGameRoom1v1(player1, player2, gameType = "briskula") {
         player1Akuze: { points: 0, details: [] },
         player2Akuze: { points: 0, details: [] },
         ultimaWinner: null, // Tko će dobiti zadnji punat
+
+        // Long-term scoring for 1v1 Treseta
+        totalPlayer1Points: 0,
+        totalPlayer2Points: 0,
+        partijas: [], // History of completed partijas
+        currentPartija: 1,
+        targetScore: 31, // Target score for match victory
+        hasPlayedFirstCard: false,
       }),
     },
     createdAt: new Date(),
@@ -2011,23 +2272,97 @@ async function finishRound1v1(roomId) {
     );
 
     // Izračunaj akuže ako su sve karte odigrane
-    if (
+    const isPartidaFinished =
       room.gameState.remainingDeck.length === 0 &&
       room.gameState.player1Hand.length === 0 &&
-      room.gameState.player2Hand.length === 0
-    ) {
+      room.gameState.player2Hand.length === 0;
+
+    if (isPartidaFinished) {
       room.gameState.ultimaWinner = roundWinner; // Zadnja ruka
     }
 
-    gameEnd = checkGameEnd(
-      player1Points,
-      player2Points,
-      room.gameState.player1Akuze,
-      room.gameState.player2Akuze,
-      room.gameState.remainingDeck,
-      room.gameState.player1Hand,
-      room.gameState.player2Hand
-    );
+    // For 1v1 Treseta with long-term scoring
+    console.log(`🔍 Checking long-term scoring conditions:`, {
+      gameMode: room.gameMode,
+      totalPlayer1Points: room.gameState.totalPlayer1Points,
+      isPartidaFinished,
+      condition1: room.gameMode === "1v1",
+      condition2: room.gameState.totalPlayer1Points !== undefined,
+    });
+
+    if (
+      room.gameMode === "1v1" &&
+      room.gameState.totalPlayer1Points !== undefined
+    ) {
+      if (isPartidaFinished) {
+        // Points already include akuze from client calculation
+        const player1PartidaPoints = player1Points.points;
+        const player2PartidaPoints = player2Points.points;
+
+        // Add partija points to totals
+        room.gameState.totalPlayer1Points += player1PartidaPoints;
+        room.gameState.totalPlayer2Points += player2PartidaPoints;
+
+        // Add to partijas history
+        room.gameState.partijas.push({
+          partija: room.gameState.currentPartija,
+          player1Points: player1PartidaPoints,
+          player2Points: player2PartidaPoints,
+          winner:
+            player1PartidaPoints > player2PartidaPoints
+              ? 1
+              : player2PartidaPoints > player1PartidaPoints
+              ? 2
+              : 0,
+        });
+
+        // Check if match is finished (target score reached)
+        const matchFinished =
+          room.gameState.totalPlayer1Points >= room.gameState.targetScore ||
+          room.gameState.totalPlayer2Points >= room.gameState.targetScore;
+
+        if (matchFinished) {
+          // Match is completely finished
+          gameEnd = {
+            isGameOver: true,
+            isPartidaOver: true,
+            winner:
+              room.gameState.totalPlayer1Points >= room.gameState.targetScore
+                ? 1
+                : 2,
+            reason: `Match finished: ${room.gameState.totalPlayer1Points} - ${room.gameState.totalPlayer2Points}`,
+          };
+        } else {
+          // Just partija finished, match continues
+          gameEnd = {
+            isGameOver: false,
+            isPartidaOver: true,
+            winner: null,
+            reason: `Partija ${room.gameState.currentPartija} finished: ${player1PartidaPoints} - ${player2PartidaPoints}`,
+          };
+          console.log(
+            `🏆 Partija ${room.gameState.currentPartija} finished. Total scores: ${room.gameState.totalPlayer1Points} - ${room.gameState.totalPlayer2Points}. Will start new partija.`
+          );
+        }
+      } else {
+        // Round finished but partija continues
+        gameEnd = { isGameOver: false, isPartidaOver: false };
+      }
+    } else {
+      // Original single-game logic for non-1v1 or games without long-term scoring
+      gameEnd = checkGameEnd(
+        player1Points,
+        player2Points,
+        room.gameState.player1Akuze,
+        room.gameState.player2Akuze,
+        room.gameState.remainingDeck,
+        room.gameState.player1Hand,
+        room.gameState.player2Hand,
+        room.gameState.totalPlayer1Points || 0,
+        room.gameState.totalPlayer2Points || 0,
+        room.gameState.targetScore
+      );
+    }
   } else {
     // Briskula logika
     player1Points = calculatePoints(room.gameState.player1Cards);
@@ -2052,14 +2387,54 @@ async function finishRound1v1(roomId) {
   room.gameState.version = Date.now(); // Add version for sync
   room.gameState.lastMove = new Date();
 
+  // Handle game end logic
   if (gameEnd.isGameOver) {
-    room.gameState.gamePhase = "finished";
-    room.gameState.winner = gameEnd.winner;
+    // Ažuriraj totalScore ako je Trešeta
+    if (
+      room.gameType === "treseta" &&
+      gameEnd.newTotalPlayer1Points !== undefined
+    ) {
+      room.gameState.totalPlayer1Points = gameEnd.newTotalPlayer1Points;
+      room.gameState.totalPlayer2Points = gameEnd.newTotalPlayer2Points;
+    }
 
-    // Mark game as finished in database for shorter retention
-    gameStateManager.markGameAsFinished(room.id).catch((err) => {
-      console.error("Error marking game as finished:", err);
-    });
+    if (gameEnd.isFinalGameOver) {
+      // Konačna pobjeda - završi sovu
+      room.gameState.gamePhase = "finished";
+      room.gameState.winner = gameEnd.winner;
+
+      gameStateManager.markGameAsFinished(room.id).catch((err) => {
+        console.error(`Error marking game as finished for ${room.id}:`, err);
+      });
+    } else if (
+      room.gameType === "treseta" &&
+      gameEnd.isFinalGameOver === false
+    ) {
+      // Partija završena u Trešeti, pripremi novu partiju
+      room.gameState.gamePhase = "partidaFinished";
+      room.gameState.winner = gameEnd.partidaWinner;
+
+      console.log(
+        `🏆 Partija finished for room ${room.id}. Total scores: ${gameEnd.newTotalPlayer1Points} - ${gameEnd.newTotalPlayer2Points}. Preparing new partija...`
+      );
+
+      // Ne označavaj kao finished - serija nastavlja!
+    } else {
+      // Standardna pobjeda za ostale tipove igara
+      room.gameState.gamePhase = "finished";
+      room.gameState.winner = gameEnd.winner;
+
+      gameStateManager.markGameAsFinished(room.id).catch((err) => {
+        console.error(`Error marking game as finished for ${room.id}:`, err);
+      });
+    }
+  } else if (gameEnd.isPartidaOver) {
+    // For Treseta 1v1: partija finished but match continues
+    room.gameState.gamePhase = "partidaFinished";
+    // DON'T mark as finished - match continues!
+    console.log(
+      `🏆 Partija finished for room ${room.id}. Waiting for players to continue...`
+    );
   }
 
   // Save game state asynchronously
@@ -2121,8 +2496,11 @@ async function finishRound1v1(roomId) {
 
   io.to(roomId).emit("roundFinished", roundFinishedData);
 
-  // Ako je igra završena, ukloni sobu nakon 30 sekundi
-  if (gameEnd.isGameOver) {
+  // Only delete room after timeout if it's truly game over (not just partija over for Treseta)
+  if (
+    gameEnd.isGameOver &&
+    (room.gameType !== "treseta" || gameEnd.isFinalGameOver === true)
+  ) {
     setTimeout(() => {
       gameRooms.delete(roomId);
       console.log(`Soba obrisana: ${roomId}`);
@@ -2148,7 +2526,7 @@ async function finishRound2v2(roomId) {
     };
     getPlayerTeam = tresetaLogic.getWinningTeam;
     calculatePoints = tresetaLogic.calculateTeamPoints;
-    checkGameEnd2v2 = () => ({ isGameOver: false }); // Trešeta end game logic
+    checkGameEnd2v2 = tresetaLogic.checkGameEnd; // Use new checkGameEnd function
   } else {
     const logic2v2 = await import("../core/gameLogicBriskula2v2.js");
     determineRoundWinner2v2 = logic2v2.determineRoundWinner2v2;
@@ -2245,76 +2623,35 @@ async function finishRound2v2(roomId) {
     2
   );
 
-  // Add akuze points for Treseta
+  // Calculate base points from won cards only (no akuze during game)
   let team1TotalPoints = team1Points.points;
   let team2TotalPoints = team2Points.points;
 
-  if (room.gameType === "treseta" && room.akuzeEnabled) {
-    // Add akuze points for team 1 (players 1 and 3)
-    const player1Akuze = room.gameState.player1Akuze?.points || 0;
-    const player3Akuze = room.gameState.player3Akuze?.points || 0;
-    team1TotalPoints += player1Akuze + player3Akuze;
-
-    // Add akuze points for team 2 (players 2 and 4)
-    const player2Akuze = room.gameState.player2Akuze?.points || 0;
-    const player4Akuze = room.gameState.player4Akuze?.points || 0;
-    team2TotalPoints += player2Akuze + player4Akuze;
-
-    console.log(
-      `🃏 Akuze points added - Team 1: +${
-        player1Akuze + player3Akuze
-      }, Team 2: +${player2Akuze + player4Akuze}`
-    );
-  }
-
+  // DON'T add akuze points here - they are added only at the end of partija
   console.log(
-    `📊 Current score: Team 1: ${team1TotalPoints}, Team 2: ${team2TotalPoints}`
+    `📊 Current score: Team 1: ${team1TotalPoints}, Team 2: ${team2TotalPoints} (prije akuža)`
   );
 
   let gameEnd;
   if (room.gameType === "treseta") {
-    // Provjeri kraj igre za Trešetu - cilj je 11 bodova
-    const team1Score = team1TotalPoints;
-    const team2Score = team2TotalPoints;
-    const allCardsPlayed =
-      room.gameState.remainingDeck.length === 0 &&
-      allHands.every((hand) => hand.length === 0);
+    // Use new checkGameEnd with totalScore for Treseta 2v2
+    const team1Akuze = room.gameState.team1Akuze || [];
+    const team2Akuze = room.gameState.team2Akuze || [];
 
-    if (allCardsPlayed) {
-      if (team1Score > team2Score) {
-        gameEnd = {
-          isGameOver: true,
-          winner: 1,
-          reason: `Pobjeda ${team1Score} - ${team2Score}`,
-        };
-      } else if (team2Score > team1Score) {
-        gameEnd = {
-          isGameOver: true,
-          winner: 2,
-          reason: `Pobjeda ${team2Score} - ${team1Score}`,
-        };
-      } else {
-        gameEnd = {
-          isGameOver: true,
-          winner: null,
-          reason: `Neriješeno ${team1Score} - ${team2Score}`,
-        };
-      }
-    } else if (team1Score >= 11) {
-      gameEnd = {
-        isGameOver: true,
-        winner: 1,
-        reason: `Pobjeda ${team1Score} - ${team2Score} (dosegnut cilj)`,
-      };
-    } else if (team2Score >= 11) {
-      gameEnd = {
-        isGameOver: true,
-        winner: 2,
-        reason: `Pobjeda ${team2Score} - ${team1Score} (dosegnut cilj)`,
-      };
-    } else {
-      gameEnd = { isGameOver: false };
-    }
+    gameEnd = checkGameEnd2v2(
+      team1Points,
+      team2Points,
+      team1Akuze,
+      team2Akuze,
+      room.gameState.remainingDeck,
+      room.gameState.player1Hand,
+      room.gameState.player2Hand,
+      room.gameState.player3Hand,
+      room.gameState.player4Hand,
+      room.gameState.totalTeam1Points || 0,
+      room.gameState.totalTeam2Points || 0,
+      room.gameState.targetScore
+    );
   } else {
     gameEnd = checkGameEnd2v2(
       team1Points,
@@ -2330,18 +2667,51 @@ async function finishRound2v2(roomId) {
   room.gameState.roundNumber++;
 
   if (gameEnd.isGameOver) {
-    room.gameState.gamePhase = "finished";
-    room.gameState.winner = gameEnd.winner;
+    // Ažuriraj totalScore ako je Trešeta
+    if (
+      room.gameType === "treseta" &&
+      gameEnd.newTotalTeam1Points !== undefined
+    ) {
+      room.gameState.totalTeam1Points = gameEnd.newTotalTeam1Points;
+      room.gameState.totalTeam2Points = gameEnd.newTotalTeam2Points;
+    }
+
+    if (gameEnd.isFinalGameOver) {
+      // Konačna pobjeda - završi sobu
+      room.gameState.gamePhase = "finished";
+      room.gameState.winner = gameEnd.winner;
+
+      gameStateManager.markGameAsFinished(room.id).catch((err) => {
+        console.error("Error marking game as finished:", err);
+      });
+    } else if (
+      room.gameType === "treseta" &&
+      gameEnd.isFinalGameOver === false
+    ) {
+      // Partija završena u Trešeti, pripremi novu partiju
+      room.gameState.gamePhase = "partidaFinished";
+      room.gameState.winner = gameEnd.partidaWinner;
+
+      console.log(
+        `🏆 Partija finished for room ${room.id}. Total scores: ${gameEnd.newTotalTeam1Points} - ${gameEnd.newTotalTeam2Points}. Preparing new partija...`
+      );
+
+      // Ne označavaj kao finished - serija nastavlja!
+    } else {
+      // Standardna pobjeda za ostale tipove igara
+      room.gameState.gamePhase = "finished";
+      room.gameState.winner = gameEnd.winner;
+
+      gameStateManager.markGameAsFinished(room.id).catch((err) => {
+        console.error("Error marking game as finished:", err);
+      });
+    }
+
     console.log(
       `🎮 Game Over! Winner: ${
         gameEnd.winner ? `Team ${gameEnd.winner}` : "Draw"
       } (${gameEnd.reason})`
     );
-
-    // Mark game as finished in database for shorter retention
-    gameStateManager.markGameAsFinished(room.id).catch((err) => {
-      console.error("Error marking game as finished:", err);
-    });
   }
 
   const roundFinishedData = {
@@ -2401,7 +2771,11 @@ async function finishRound2v2(roomId) {
 
   io.to(roomId).emit("roundFinished", roundFinishedData);
 
-  if (gameEnd.isGameOver) {
+  // Only delete room after timeout if it's truly game over (not just partija over for Treseta)
+  if (
+    gameEnd.isGameOver &&
+    (room.gameType !== "treseta" || gameEnd.isFinalGameOver === true)
+  ) {
     setTimeout(() => {
       gameRooms.delete(roomId);
       console.log(`2v2 Soba obrisana: ${roomId}`);
@@ -2610,6 +2984,14 @@ async function startCustomGame(roomId) {
       gameStateData.player1Akuze = { points: 0, details: [] };
       gameStateData.player2Akuze = { points: 0, details: [] };
       gameStateData.ultimaWinner = null;
+
+      // Long-term scoring for 1v1 Treseta
+      gameStateData.totalPlayer1Points = 0;
+      gameStateData.totalPlayer2Points = 0;
+      gameStateData.partijas = []; // History of completed partijas
+      gameStateData.currentPartija = 1;
+      gameStateData.targetScore = 31; // Target score for match victory
+      gameStateData.hasPlayedFirstCard = false;
     }
   } else {
     // 2v2
@@ -2708,6 +3090,168 @@ async function startCustomGame(roomId) {
   broadcastGameList();
 
   console.log(`✅ Custom game started: ${room.name}`);
+}
+
+// Function to automatically start new partija in Treseta 1v1 games
+async function startNewPartija(room) {
+  if (
+    !room ||
+    room.gameType !== "treseta" ||
+    (room.gameMode !== "1v1" && room.gameMode !== "2v2")
+  ) {
+    console.log(`❌ Cannot start new partija - invalid room or game type:`, {
+      hasRoom: !!room,
+      gameType: room?.gameType,
+      gameMode: room?.gameMode,
+    });
+    return;
+  }
+
+  console.log(
+    `🔄 Starting new partija ${room.gameState.currentPartija + 1} in room ${
+      room.id
+    } (${room.gameMode})`
+  );
+
+  try {
+    // Import game logic
+    const { createDeck, shuffleDeck, dealCards, getPlayableCards } =
+      await import("../core/gameLogicTreseta.js");
+
+    // Create and deal new deck
+    const deck = shuffleDeck(createDeck());
+    const dealt = dealCards(deck, room.gameMode === "2v2");
+
+    // Reset game state for new partija
+    if (room.gameMode === "1v1") {
+      room.gameState.player1Hand = dealt.player1Hand;
+      room.gameState.player2Hand = dealt.player2Hand;
+      room.gameState.player1Cards = [];
+      room.gameState.player2Cards = [];
+
+      // Reset akuze for new partija
+      room.gameState.player1Akuze = { points: 0, details: [] };
+      room.gameState.player2Akuze = { points: 0, details: [] };
+    } else if (room.gameMode === "2v2") {
+      room.gameState.player1Hand = dealt.player1Hand;
+      room.gameState.player2Hand = dealt.player2Hand;
+      room.gameState.player3Hand = dealt.player3Hand;
+      room.gameState.player4Hand = dealt.player4Hand;
+      room.gameState.team1Cards = [];
+      room.gameState.team2Cards = [];
+
+      // Reset akuze for new partija
+      room.gameState.team1Akuze = [];
+      room.gameState.team2Akuze = [];
+    }
+
+    room.gameState.remainingDeck = dealt.remainingDeck;
+    room.gameState.currentPlayer = 1; // Player 1 always starts new partija
+    room.gameState.playedCards = [];
+    room.gameState.gamePhase = "playing";
+    room.gameState.winner = null;
+    room.gameState.ultimaWinner = null;
+    room.gameState.hasPlayedFirstCard = false;
+
+    // Increment partija counter (initialize if undefined)
+    if (
+      !room.gameState.currentPartija ||
+      isNaN(room.gameState.currentPartija)
+    ) {
+      room.gameState.currentPartija = 1;
+    } else {
+      room.gameState.currentPartija += 1;
+    }
+    room.gameState.version = Date.now();
+    room.gameState.lastMove = new Date();
+
+    console.log(
+      `📦 New partija ${room.gameState.currentPartija} prepared. Dealing cards...`
+    );
+
+    // Save state
+    try {
+      await gameStateManager.saveGameState(room.id, room);
+      console.log(`💾 Game state saved for new partija`);
+    } catch (err) {
+      console.error("Error saving new partija state:", err);
+    }
+
+    // Calculate playable cards for new partija
+    let partidaData;
+
+    if (room.gameMode === "1v1") {
+      const player1PlayableCards = getPlayableCards(
+        room.gameState.player1Hand,
+        []
+      );
+      const player2PlayableCards = getPlayableCards(
+        room.gameState.player2Hand,
+        []
+      );
+
+      partidaData = {
+        currentPlayer: room.gameState.currentPlayer,
+        remainingCards: room.gameState.remainingDeck.length,
+        player1Hand: room.gameState.player1Hand,
+        player2Hand: room.gameState.player2Hand,
+        player1PlayableCards,
+        player2PlayableCards,
+      };
+    } else if (room.gameMode === "2v2") {
+      const player1PlayableCards = getPlayableCards(
+        room.gameState.player1Hand,
+        []
+      );
+      const player2PlayableCards = getPlayableCards(
+        room.gameState.player2Hand,
+        []
+      );
+      const player3PlayableCards = getPlayableCards(
+        room.gameState.player3Hand,
+        []
+      );
+      const player4PlayableCards = getPlayableCards(
+        room.gameState.player4Hand,
+        []
+      );
+
+      partidaData = {
+        currentPlayer: room.gameState.currentPlayer,
+        remainingCards: room.gameState.remainingDeck.length,
+        player1Hand: room.gameState.player1Hand,
+        player2Hand: room.gameState.player2Hand,
+        player3Hand: room.gameState.player3Hand,
+        player4Hand: room.gameState.player4Hand,
+        player1PlayableCards,
+        player2PlayableCards,
+        player3PlayableCards,
+        player4PlayableCards,
+      };
+    }
+
+    console.log(
+      `📤 Sending partidaRestarted event to ${room.players.length} players`
+    );
+
+    // Send partidaRestarted event to all players in room
+    room.players.forEach((player, index) => {
+      if (player.isConnected) {
+        console.log(
+          `📤 Sending to player ${index + 1}: ${player.name} (${player.id})`
+        );
+        io.to(player.id).emit("partidaRestarted", partidaData);
+      } else {
+        console.log(`⚠️ Player ${index + 1}: ${player.name} is not connected`);
+      }
+    });
+
+    console.log(
+      `✅ New partija ${room.gameState.currentPartija} started in room ${room.id}`
+    );
+  } catch (error) {
+    console.error(`❌ Error starting new partija for room ${room.id}:`, error);
+  }
 }
 
 const PORT = process.env.PORT || 3002;
