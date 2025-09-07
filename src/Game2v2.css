@@ -605,25 +605,7 @@
     padding: 6px 10px;
     min-width: 100px;
   }
-  /* Card selection info - FLOATING RIGHT SIDE */
-  .selection-info {
-    position: fixed;
-    top: 80px;
-    right: 20px;
-    background: rgba(40, 167, 69, 0.95);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 15px;
-    text-align: center;
-    font-size: 0.8rem;
-    font-weight: 500;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    border: 2px solid #28a745;
-    max-width: 250px;
-    line-height: 1.2;
-    animation: slideInRight 0.3s ease;
-    z-index: 15;
-  }
+
   .player-info.my-player {
     bottom: 10px;
   }
@@ -842,18 +824,6 @@
     margin-top: 2px;
   }
 
-  /* MOBILE: Selection info */
-  .selection-info {
-    position: fixed;
-    bottom: 200px;
-    left: 85%;
-    transform: translateX(-50%);
-    font-size: 0.7rem;
-    padding: 4px 8px;
-    max-width: 90vw;
-    border-radius: 15px;
-  }
-
   /* MOBILE: Card sizes reduced by 10px */
   .game-2v2 .card-medium .card-image,
   .game-2v2 .card-small .card-image {
@@ -1054,22 +1024,6 @@
     padding: 3px 6px;
     min-width: 70px;
     white-space: nowrap;
-  }
-  .selection-info {
-    position: fixed;
-    bottom: 175px;
-    margin-left: 0px;
-    transform: translateX(-50%);
-    font-size: 0.5rem;
-    padding: 1px 2px;
-    max-width: 100vw;
-    border-radius: 15px;
-  }
-  .selection-info small {
-    display: block;
-    margin-top: 2px;
-    opacity: 0.9;
-    font-size: 0.5rem;
   }
 }
 

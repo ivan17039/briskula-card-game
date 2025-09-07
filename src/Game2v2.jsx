@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Card from "./Card";
 import { useSocket } from "./SocketContext";
 import { useToast } from "./ToastProvider";
@@ -101,10 +101,14 @@ function Game2v2({ gameData, onGameEnd }) {
 
   const { addToast } = useToast();
 
+  // Add state to prevent rapid card clicking
+  const [isCardPlaying, setIsCardPlaying] = useState(false);
+
   const initializeGameState = () => {
     if (!gameData) return null;
 
     console.log("🎮 Game2v2 gameData:", gameData);
+    console.log("🎯 MyTeam from gameData:", gameData.myTeam);
 
     const myPlayerNumber = gameData.playerNumber;
     const myHand = gameData.gameState[`player${myPlayerNumber}Hand`] || [];
@@ -125,7 +129,11 @@ function Game2v2({ gameData, onGameEnd }) {
       // Debug log
       ...(console.log(
         "🎯 Game2v2 inicijaliziran sa gameType:",
-        gameData.gameType
+        gameData.gameType,
+        "| myTeam:",
+        gameData.myTeam,
+        "| playerNumber:",
+        myPlayerNumber
       ) || {}),
       myHand: myHand,
       playedCards: [],
@@ -152,6 +160,15 @@ function Game2v2({ gameData, onGameEnd }) {
       // Dodaj playableCards za Trešetu
       playableCards: gameData.gameState.playableCards || [],
 
+      // Long-term scoring for Treseta (similar to 1v1)
+      ...(gameData.gameType === "treseta" && {
+        totalTeam1Points: gameData.gameState.totalTeam1Points || 0,
+        totalTeam2Points: gameData.gameState.totalTeam2Points || 0,
+        currentPartija: gameData.gameState.currentPartija || 1,
+        targetScore: gameData.gameState.targetScore || 31,
+        partijas: gameData.gameState.partijas || [],
+      }),
+
       // Akuže support for Treseta
       ...(gameData.gameType === "treseta" && {
         akuzeEnabled:
@@ -161,15 +178,43 @@ function Game2v2({ gameData, onGameEnd }) {
         team2Akuze: gameData.gameState.team2Akuze || [],
         canAkuze:
           gameData.akuzeEnabled !== undefined ? gameData.akuzeEnabled : true,
+        hasPlayedFirstRound: gameData.gameState.hasPlayedFirstRound || false, // Track if first round completed for akuze restrictions
       }),
     };
   };
 
   const [gameState, setGameState] = useState(initializeGameState);
-  const [selectedCard, setSelectedCard] = useState(null);
   const [showScores, setShowScores] = useState(false);
   const [showAkuzeModal, setShowAkuzeModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // State for next partija continuation (like in 1v1)
+  const [nextPartidaStatus, setNextPartidaStatus] = useState({
+    playerReady: false,
+    readyPlayers: [],
+    waitingFor: 0,
+  });
+
+  // Save game state to database when it changes (same as Game.jsx)
+  useEffect(() => {
+    if (gameState && gameState.roomId && gameState?.gamePhase === "playing") {
+      const timeoutId = setTimeout(() => {
+        saveGameState({
+          ...gameState,
+          roomId: gameState.roomId,
+          gameMode: gameData?.gameMode || "2v2",
+          gameType: gameState.gameType,
+          playerNumber: gameState.playerNumber,
+          gameState: {
+            ...gameState,
+            playableCards: gameState.playableCards,
+          },
+        });
+      }, 1000); // Debounce saving to prevent too frequent calls
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [gameState, gameData, saveGameState]);
 
   // Function to get relative position for cross layout
   const getRelativePosition = (cardPlayerNumber, myPlayerNumber) => {
@@ -197,6 +242,8 @@ function Game2v2({ gameData, onGameEnd }) {
     if (!socket || !gameState?.roomId) return;
 
     socket.on("cardPlayed", (data) => {
+      // Don't reset isCardPlaying here - wait until round finishes to prevent rapid clicking
+
       setGameState((prev) => {
         const newMyHand =
           data.playerNumber === prev.playerNumber
@@ -234,8 +281,21 @@ function Game2v2({ gameData, onGameEnd }) {
     });
 
     socket.on("roundFinished", (data) => {
+      console.log("🎮 [2v2] Round finished data:", data);
+      console.log("🎮 [2v2] Game end info:", data.gameEnd);
+
       setGameState((prev) => {
+        console.log("🎯 [2v2] prev.myTeam:", prev.myTeam);
+        console.log("🎯 [2v2] prev.playerNumber:", prev.playerNumber);
+
+        // Fallback - calculate myTeam from playerNumber if it's undefined
+        const myTeam =
+          prev.myTeam ||
+          (prev.playerNumber === 1 || prev.playerNumber === 3 ? 1 : 2);
+        console.log("🎯 [2v2] Calculated myTeam:", myTeam);
+
         const newMyHand = data[`player${prev.playerNumber}Hand`];
+        const useTreseta = prev.gameType === "treseta";
         const newState = {
           ...prev,
           myHand: newMyHand,
@@ -245,8 +305,6 @@ function Game2v2({ gameData, onGameEnd }) {
           playedCards: [],
           currentPlayer: data.currentPlayer,
           remainingCardsCount: data.remainingCards,
-          gamePhase: data.gameEnd.isGameOver ? "finished" : "playing",
-          winner: data.gameEnd.winner,
           handCounts: {
             player1: data.player1Hand?.length || prev.handCounts.player1 || 0,
             player2: data.player2Hand?.length || prev.handCounts.player2 || 0,
@@ -268,29 +326,178 @@ function Game2v2({ gameData, onGameEnd }) {
               : prev.team2Points,
         };
 
-        if (data.gameEnd.isGameOver) {
-          if (data.gameEnd.winner === prev.myTeam) {
-            newState.message = `🎉 Vaš tim je pobijedio!`;
-          } else if (data.gameEnd.winner === null) {
-            newState.message = `🤝 Neriješeno! (${data.gameEnd.reason})`;
+        // Handle Treseta long-term scoring (similar to 1v1)
+        if (
+          useTreseta &&
+          (data.gameEnd.isPartidaOver || data.gameEnd.isGameOver)
+        ) {
+          // Calculate akuže points for each team
+          const team1AkuzePoints = (prev.team1Akuze || []).reduce(
+            (sum, akuz) => sum + akuz.points,
+            0
+          );
+          const team2AkuzePoints = (prev.team2Akuze || []).reduce(
+            (sum, akuz) => sum + akuz.points,
+            0
+          );
+
+          // Add akuže points to the final partija score
+          const team1PartidaPoints =
+            (newState.team1Points || 0) + team1AkuzePoints;
+          const team2PartidaPoints =
+            (newState.team2Points || 0) + team2AkuzePoints;
+
+          // Add current partija results to partijas history (including akuže)
+          const newPartijas = [
+            ...(prev.partijas || []),
+            {
+              partija: prev.currentPartija || 1,
+              team1Points: team1PartidaPoints,
+              team2Points: team2PartidaPoints,
+              winner:
+                team1PartidaPoints > team2PartidaPoints
+                  ? 1
+                  : team2PartidaPoints > team1PartidaPoints
+                  ? 2
+                  : 0, // 0 for tie
+            },
+          ];
+
+          // Update total points (including akuže)
+          const newTotalTeam1Points =
+            (prev.totalTeam1Points || 0) + team1PartidaPoints;
+          const newTotalTeam2Points =
+            (prev.totalTeam2Points || 0) + team2PartidaPoints;
+
+          newState.partijas = newPartijas;
+          newState.totalTeam1Points = newTotalTeam1Points;
+          newState.totalTeam2Points = newTotalTeam2Points;
+          newState.currentPartija = (prev.currentPartija || 1) + 1;
+          newState.canAkuze = prev.akuzeEnabled; // Reset akuze based on settings
+          newState.myTeam = myTeam; // Ensure myTeam is preserved
+
+          // Check if game is truly over (reached target score)
+          const targetScore = prev.targetScore || 31;
+          if (
+            newTotalTeam1Points >= targetScore ||
+            newTotalTeam2Points >= targetScore
+          ) {
+            newState.gamePhase = "finished";
+
+            // Determine the winning team
+            const winningTeam = newTotalTeam1Points >= targetScore ? 1 : 2;
+            newState.winner = winningTeam;
+
+            // Clear saved game state when game ends
+            clearGameState();
+
+            console.log(
+              `🏆 Game finished! Winning team: ${winningTeam}, My team: ${myTeam}`
+            );
+
+            // Determine message based on winning team
+            if (winningTeam === 1) {
+              newState.message =
+                myTeam === 1
+                  ? `🎉 Vaš tim je pobijedio! (Dosegnuli ste ${targetScore} bodova)`
+                  : "😔 Vaš tim je izgubio.";
+            } else if (winningTeam === 2) {
+              newState.message =
+                myTeam === 2
+                  ? `🎉 Vaš tim je pobijedio! (Dosegnuli ste ${targetScore} bodova)`
+                  : "😔 Vaš tim je izgubio.";
+            } else {
+              newState.message = "🤝 Neriješeno!";
+            }
           } else {
-            newState.message = `😔 Vaš tim je izgubio.`;
+            // Partija finished but game continues
+            newState.gamePhase = "partidaFinished";
+
+            // Use partija points that include akuže for determining winner message
+            const team1PartidaPoints =
+              (newState.team1Points || 0) + team1AkuzePoints;
+            const team2PartidaPoints =
+              (newState.team2Points || 0) + team2AkuzePoints;
+
+            console.log(
+              `🏆 Partija finished! Team scores: ${team1PartidaPoints} - ${team2PartidaPoints}, My team: ${myTeam}`
+            );
+
+            // Determine winner based on points
+            if (team1PartidaPoints > team2PartidaPoints) {
+              // Team 1 won
+              newState.message =
+                myTeam === 1
+                  ? "🎉 Dobili ste ovu partiju!"
+                  : "😔 Izgubili ste ovu partiju.";
+            } else if (team2PartidaPoints > team1PartidaPoints) {
+              // Team 2 won
+              newState.message =
+                myTeam === 2
+                  ? "🎉 Dobili ste ovu partiju!"
+                  : "😔 Izgubili ste ovu partiju.";
+            } else {
+              // Tie
+              newState.message = "🤝 Partija neriješena!";
+            }
+          }
+        } else if (data.gameEnd.isGameOver) {
+          // Non-Treseta games or simple game over
+          newState.gamePhase = "finished";
+          newState.winner = data.gameEnd.winner;
+
+          console.log(
+            `🏆 Non-Treseta game finished! Server winner: ${data.gameEnd.winner}, My team: ${myTeam}`
+          );
+
+          // Clear saved game state when game ends
+          clearGameState();
+
+          // Determine message based on winning team
+          if (data.gameEnd.winner === 1) {
+            newState.message =
+              myTeam === 1
+                ? "🎉 Vaš tim je pobijedio!"
+                : "😔 Vaš tim je izgubio.";
+          } else if (data.gameEnd.winner === 2) {
+            newState.message =
+              myTeam === 2
+                ? "🎉 Vaš tim je pobijedio!"
+                : "😔 Vaš tim je izgubio.";
+          } else if (data.gameEnd.winner === null) {
+            newState.message = `🤝 Neriješeno! (${data.gameEnd.reason || ""})`;
+          } else {
+            newState.message = "😔 Vaš tim je izgubio.";
           }
         } else {
+          // Round finished, game continues
+          newState.gamePhase = "playing";
           const winningTeam = data.roundWinningTeam;
           newState.message =
-            winningTeam === prev.myTeam
+            winningTeam === myTeam
               ? "Vaš tim je uzeo rundu!"
               : "Protivnički tim je uzeo rundu.";
         }
 
+        // Mark that first round has been completed - no more akuze allowed
+        if (prev.gameType === "treseta") {
+          newState.hasPlayedFirstRound = true;
+        }
+
+        // Always preserve myTeam in the new state
+        newState.myTeam = myTeam;
+
         return newState;
       });
-
+      // Reset the card playing flag when round finishes
+      setIsCardPlaying(false);
       // Ne automatski preusmjeravaj na glavni ekran - neka igrač sam odluči
     });
 
     socket.on("playerDisconnected", (data) => {
+      // Reset card playing flag on disconnect
+      setIsCardPlaying(false);
+
       let displayMessage = data.message;
       if (data.gameMode === "2v2" && data.playerTeam) {
         displayMessage += `. Igra je prekinuta.`;
@@ -306,6 +513,9 @@ function Game2v2({ gameData, onGameEnd }) {
     });
 
     socket.on("playerLeft", (data) => {
+      // Reset card playing flag on player leave
+      setIsCardPlaying(false);
+
       if (data.permanent) {
         // Permanent leave - room will be deleted, clear state and redirect
         clearGameState();
@@ -331,6 +541,9 @@ function Game2v2({ gameData, onGameEnd }) {
 
     // Handle room deletion
     socket.on("roomDeleted", (data) => {
+      // Reset card playing flag when room is deleted
+      setIsCardPlaying(false);
+
       clearGameState();
       addToast(data.message, "error");
       setTimeout(() => {
@@ -372,9 +585,11 @@ function Game2v2({ gameData, onGameEnd }) {
     });
 
     socket.on("invalidMove", (data) => {
+      // Reset card playing flag on invalid move
+      setIsCardPlaying(false);
+
       if (gameState?.gameType === "treseta") {
         addToast(`Neispavan potez: ${data.reason}`, "error");
-        setSelectedCard(null);
       }
     });
 
@@ -412,6 +627,80 @@ function Game2v2({ gameData, onGameEnd }) {
       }
     });
 
+    // New socket listener for partija restart in online Treseta games (like in 1v1)
+    socket.on("partidaRestarted", (data) => {
+      console.log("🔄 [2v2] Received partidaRestarted from server:", data);
+
+      // Reset next partija status since new partija started
+      setNextPartidaStatus({
+        playerReady: false,
+        readyPlayers: [],
+        waitingFor: 0,
+      });
+
+      setGameState((prev) => ({
+        ...prev,
+        myHand: data[`player${prev.playerNumber}Hand`],
+        team1Cards: [],
+        team2Cards: [],
+        playedCards: [],
+        currentPlayer: data.currentPlayer || 1,
+        gamePhase: "playing",
+        remainingCardsCount: data.remainingCards || 40,
+        team1Points: 0,
+        team2Points: 0,
+        playableCards:
+          prev.gameType === "treseta"
+            ? data[`player${prev.playerNumber}PlayableCards`] ||
+              data[`player${prev.playerNumber}Hand`]?.map((c) => c.id) ||
+              []
+            : data[`player${prev.playerNumber}Hand`]?.map((c) => c.id) || [],
+        canAkuze: prev.akuzeEnabled, // Reset based on settings
+        myAkuze: [], // Reset akuze for new partija
+        team1Akuze: [], // Reset akuze for new partija
+        team2Akuze: [], // Reset akuze for new partija
+        hasPlayedFirstRound: false, // Reset for new partija - allow akuze again
+        handCounts: {
+          player1: data.player1Hand?.length || 0,
+          player2: data.player2Hand?.length || 0,
+          player3: data.player3Hand?.length || 0,
+          player4: data.player4Hand?.length || 0,
+        },
+        message:
+          "Nova partija! " +
+          (data.currentPlayer === prev.playerNumber
+            ? "Vaš red."
+            : "Čekajte svoj red."),
+      }));
+    });
+
+    // Handle partija continuation status from server (like in 1v1)
+    socket.on("partidaContinueStatus", (data) => {
+      console.log("📊 [2v2] Received partidaContinueStatus:", data);
+      setNextPartidaStatus({
+        playerReady: data.isPlayerReady || false, // Use server's isPlayerReady flag
+        readyPlayers: data.readyPlayers || [],
+        waitingFor: data.waitingFor || 0,
+      });
+    });
+
+    // Handle rematch events
+    socket.on("rematchAccepted", (data) => {
+      console.log("🔄 [2v2] Rematch accepted - starting new game:", data);
+      // Reset to initial game state with same players and teams
+      setGameState(initializeGameState());
+    });
+
+    socket.on("rematchDeclined", (data) => {
+      console.log("❌ [2v2] Rematch declined:", data);
+      // Return to finished screen
+      setGameState((prev) => ({
+        ...prev,
+        gamePhase: "finished",
+        message: `Revanš je odbačen. ${data.reason || ""}`,
+      }));
+    });
+
     return () => {
       socket.off("cardPlayed");
       socket.off("turnChange");
@@ -423,6 +712,10 @@ function Game2v2({ gameData, onGameEnd }) {
       socket.off("playableCardsUpdate");
       socket.off("invalidMove");
       socket.off("akuzeAnnounced");
+      socket.off("partidaRestarted");
+      socket.off("partidaContinueStatus");
+      socket.off("rematchAccepted");
+      socket.off("rematchDeclined");
     };
   }, [socket, gameState?.roomId, onGameEnd]);
 
@@ -460,13 +753,89 @@ function Game2v2({ gameData, onGameEnd }) {
     setShowAkuzeModal(false);
   };
 
+  const handleContinueNextPartija = () => {
+    if (!gameState.roomId) {
+      console.log("❌ [2v2] Cannot continue - no room");
+      return;
+    }
+
+    console.log("🔄 [2v2] Player wants to continue next partija");
+
+    // Emit to server
+    socket.emit("continueNextPartija", {
+      roomId: gameState.roomId,
+      playerNumber: gameState.playerNumber,
+    });
+  };
+
+  const handleRematch = () => {
+    if (!gameState.roomId) {
+      console.log("❌ [2v2] Cannot start rematch - no room");
+      return;
+    }
+
+    console.log("🔄 [2v2] Player wants to start rematch");
+
+    // Set state to show waiting for rematch
+    setGameState((prev) => ({
+      ...prev,
+      gamePhase: "waitingForRematch",
+      message: "Tražim revanš s istim igračima...",
+    }));
+
+    // Emit to server to request rematch with same players
+    socket.emit("requestRematch", {
+      roomId: gameState.roomId,
+      playerNumber: gameState.playerNumber,
+    });
+  };
+
   const handleCardClick = (card) => {
     if (!gameState) return;
 
+    // Block clicks if card is already playing
+    if (isCardPlaying) {
+      return;
+    }
+
     if (
       gameState.gamePhase !== "playing" ||
-      gameState.currentPlayer !== gameState.playerNumber
+      gameState.currentPlayer !== gameState.playerNumber ||
+      isCardPlaying
     ) {
+      return;
+    }
+
+    // Additional check: if all 4 cards are already played in 2v2, don't allow more clicks
+    const playedCardCount = gameState.playedCards
+      ? gameState.playedCards.filter(
+          (card) => card !== null && card !== undefined
+        ).length
+      : 0;
+    if (playedCardCount >= 4) {
+      // All cards for this round are played, wait for server response
+      return;
+    }
+
+    // Check if this specific card was already played this round
+    const cardAlreadyPlayed =
+      gameState.playedCards &&
+      gameState.playedCards.some(
+        (playedCard) => playedCard && playedCard.id === card.id
+      );
+    if (cardAlreadyPlayed) {
+      return;
+    }
+
+    // Additional safety: Check if current player already played a card this round
+    const currentPlayerAlreadyPlayed =
+      gameState.playedCards &&
+      gameState.playedCards.some(
+        (playedCard) =>
+          playedCard && playedCard.playerNumber === gameState.playerNumber
+      );
+    if (currentPlayerAlreadyPlayed) {
+      // This player already played this round, don't allow more plays
       return;
     }
 
@@ -481,12 +850,14 @@ function Game2v2({ gameData, onGameEnd }) {
       return;
     }
 
-    if (selectedCard && selectedCard.id === card.id) {
-      playCard(gameState.roomId, card);
-      setSelectedCard(null);
-    } else {
-      setSelectedCard(card);
-    }
+    // Set flag to prevent multiple clicks
+    setIsCardPlaying(true);
+
+    // Play card immediately with one click (like AI)
+    playCard(gameState.roomId, card);
+
+    // DON'T set timeout to reset isCardPlaying - wait for roundFinished event
+    // This prevents cards from becoming clickable before round finishes
   };
 
   if (!gameState) {
@@ -565,8 +936,20 @@ function Game2v2({ gameData, onGameEnd }) {
 
   // Function to determine team color
   const getTeamColor = (playerNumber) => {
-    const team = getPlayerTeam(playerNumber);
-    return team === gameState.myTeam ? "teammate" : "opponent";
+    // U 2v2: Tim 1 = igrači 1,3 | Tim 2 = igrači 2,4
+    const playerTeam =
+      playerNumber === 1 || playerNumber === 3 ? "team1" : "team2";
+    const myPlayerNumber = gameState.playerNumber;
+    const myTeam =
+      myPlayerNumber === 1 || myPlayerNumber === 3 ? "team1" : "team2";
+
+    console.log(
+      `🎨 getTeamColor: player ${playerNumber} is in ${playerTeam}, I am player ${myPlayerNumber} in ${myTeam}`
+    );
+
+    // Ja i moj teammate imamo "teammate" klasu (zelenu boju)
+    // Suparnicki tim ima "opponent" klasu (crvenu boju)
+    return playerTeam === myTeam ? "teammate" : "opponent";
   };
 
   return (
@@ -585,14 +968,22 @@ function Game2v2({ gameData, onGameEnd }) {
         {/* Team scores */}
         <div className="team-scores">
           <div
-            className={`team-score ${gameState.myTeam === 1 ? "my-team" : ""}`}
+            className={`team-score ${
+              gameState.playerNumber === 1 || gameState.playerNumber === 3
+                ? "my-team"
+                : ""
+            }`}
           >
             <span className="team-label">Tim 1</span>
             <span className="team-points">{team1Points}</span>
           </div>
           <div className="vs-divider">vs</div>
           <div
-            className={`team-score ${gameState.myTeam === 2 ? "my-team" : ""}`}
+            className={`team-score ${
+              gameState.playerNumber === 2 || gameState.playerNumber === 4
+                ? "my-team"
+                : ""
+            }`}
           >
             <span className="team-label">Tim 2</span>
             <span className="team-points">{team2Points}</span>
@@ -612,6 +1003,7 @@ function Game2v2({ gameData, onGameEnd }) {
           {gameState.gameType === "treseta" &&
             gameState.akuzeEnabled &&
             gameState.canAkuze &&
+            !gameState.hasPlayedFirstRound &&
             gameState.currentPlayer === gameState.playerNumber &&
             gameState.gamePhase === "playing" &&
             (() => {
@@ -826,23 +1218,15 @@ function Game2v2({ gameData, onGameEnd }) {
                   gameState.gamePhase === "playing" &&
                   gameState.currentPlayer === gameState.playerNumber &&
                   (gameState.gameType !== "treseta" ||
-                    gameState.playableCards.includes(card.id))
+                    gameState.playableCards.includes(card.id)) &&
+                  !isCardPlaying
                 }
-                isSelected={selectedCard && selectedCard.id === card.id}
+                isSelected={false}
                 onClick={handleCardClick}
                 size={cardSize}
               />
             ))}
           </div>
-
-          {selectedCard && (
-            <div className="selection-info">
-              Odabrana: {selectedCard.name} {selectedCard.suit} (
-              {selectedCard.points} bodova)
-              <br />
-              <small>Kliknite ponovno za igranje</small>
-            </div>
-          )}
         </div>
       </div>
 
@@ -920,46 +1304,112 @@ function Game2v2({ gameData, onGameEnd }) {
               </div>
             </div>
 
-            {/* Akuže section for Treseta */}
-            {gameState.gameType === "treseta" && gameState.akuzeEnabled && (
-              <div className="current-akuze">
-                <h4>Akuže u ovoj partiji</h4>
-
-                <div className="teams-akuze">
-                  <div className="my-akuze">
-                    <strong>Tim 1 akuže:</strong>
-                    {gameState.team1Akuze && gameState.team1Akuze.length > 0 ? (
-                      <ul>
-                        {gameState.team1Akuze.map((akuz, index) => (
-                          <li key={index}>
-                            {akuz.playerName}: {akuz.description} (+
-                            {akuz.points} bodova)
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p>Nema akuža</p>
-                    )}
+            {/* Trešeta: Historija partija i ukupni rezultat */}
+            {gameState.gameType === "treseta" &&
+              gameState.totalTeam1Points !== undefined && (
+                <div className="treseta-details">
+                  <div className="treseta-summary">
+                    <h3>Dugoročno bodovanje</h3>
+                    <div className="current-total">
+                      <strong>
+                        Ukupno: Tim 1: {gameState.totalTeam1Points} - Tim 2:{" "}
+                        {gameState.totalTeam2Points}
+                      </strong>
+                    </div>
+                    <div className="target-info">
+                      Cilj: {gameState.targetScore} bodova
+                    </div>
+                    <div className="current-partija">
+                      Trenutna partija: {gameState.currentPartija}
+                    </div>
                   </div>
 
-                  <div className="opponent-akuze">
-                    <strong>Tim 2 akuže:</strong>
-                    {gameState.team2Akuze && gameState.team2Akuze.length > 0 ? (
-                      <ul>
-                        {gameState.team2Akuze.map((akuz, index) => (
-                          <li key={index}>
-                            {akuz.playerName}: {akuz.description} (+
-                            {akuz.points} bodova)
-                          </li>
+                  {gameState.partijas && gameState.partijas.length > 0 && (
+                    <div className="partijas-history">
+                      <h4>Prošle partije:</h4>
+                      <div className="partijas-list">
+                        {gameState.partijas.map((partija, index) => (
+                          <div key={index} className="partija-item">
+                            <span className="partija-number">
+                              Partija {partija.partija}:
+                            </span>
+                            <span className="partija-score">
+                              Tim 1: {partija.team1Points} - Tim 2:{" "}
+                              {partija.team2Points}
+                            </span>
+                            <span className="partija-winner">
+                              {partija.team1Points > partija.team2Points
+                                ? gameState.myTeam === 1
+                                  ? "🏆 Vi"
+                                  : "😔 Protivnik"
+                                : partija.team2Points > partija.team1Points
+                                ? gameState.myTeam === 2
+                                  ? "🏆 Vi"
+                                  : "😔 Protivnik"
+                                : "🤝 Neriješeno"}
+                            </span>
+                          </div>
                         ))}
-                      </ul>
-                    ) : (
-                      <p>Nema akuža</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Akuže u trenutnoj partiji */}
+                  {gameState.gameType === "treseta" &&
+                    gameState.akuzeEnabled && (
+                      <div className="current-akuze">
+                        <h4>Akuže u ovoj partiji:</h4>
+                        <div className="teams-akuze">
+                          <div className="my-akuze">
+                            <strong>Tim 1 akuže:</strong>
+                            {gameState.team1Akuze &&
+                            gameState.team1Akuze.length > 0 ? (
+                              <ul>
+                                {gameState.team1Akuze.map((akuz, index) => (
+                                  <li key={index}>
+                                    {akuz.playerName}: {akuz.description} (+
+                                    {akuz.points} bod
+                                    {akuz.points === 1
+                                      ? ""
+                                      : akuz.points <= 4
+                                      ? "a"
+                                      : "ova"}
+                                    )
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p>Nema akuža</p>
+                            )}
+                          </div>
+
+                          <div className="opponent-akuze">
+                            <strong>Tim 2 akuže:</strong>
+                            {gameState.team2Akuze &&
+                            gameState.team2Akuze.length > 0 ? (
+                              <ul>
+                                {gameState.team2Akuze.map((akuz, index) => (
+                                  <li key={index}>
+                                    {akuz.playerName}: {akuz.description} (+
+                                    {akuz.points} bod
+                                    {akuz.points === 1
+                                      ? ""
+                                      : akuz.points <= 4
+                                      ? "a"
+                                      : "ova"}
+                                    )
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p>Nema akuža</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     )}
-                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             <button
               className="close-scores"
@@ -967,6 +1417,74 @@ function Game2v2({ gameData, onGameEnd }) {
             >
               Zatvori
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Partija Finished Screen for 2v2 Treseta */}
+      {gameState.gamePhase === "partidaFinished" && (
+        <div className="final-score-overlay">
+          <div className="final-score-container">
+            <div className="final-score-header">
+              <h2>
+                🏆 Partija {(gameState.currentPartija || 1) - 1} završena!
+              </h2>
+            </div>
+
+            <div className="partija-result">
+              <p>
+                {(gameState.team1Points || 0) > (gameState.team2Points || 0)
+                  ? gameState.myTeam === 1 || gameState.myTeam === "A"
+                    ? "🎉 Vaš tim je dobio ovu partiju!"
+                    : "😔 Vaš tim je izgubio ovu partiju."
+                  : (gameState.team2Points || 0) > (gameState.team1Points || 0)
+                  ? gameState.myTeam === 2 || gameState.myTeam === "B"
+                    ? "🎉 Vaš tim je dobio ovu partiju!"
+                    : "😔 Vaš tim je izgubio ovu partiju."
+                  : "🤝 Partija neriješena!"}
+              </p>
+              <div className="partija-scores">
+                Rezultat partije: {gameState.team1Points || 0} -{" "}
+                {gameState.team2Points || 0}
+              </div>
+              <div className="total-scores">
+                <strong>
+                  Ukupno: {gameState.totalTeam1Points || 0} -{" "}
+                  {gameState.totalTeam2Points || 0}
+                </strong>
+              </div>
+              <div className="target-info">
+                Cilj: {gameState.targetScore || 31} bodova
+              </div>
+            </div>
+
+            <div className="final-score-actions">
+              {/* Show continue button or status */}
+              {nextPartidaStatus.playerReady ? (
+                nextPartidaStatus.waitingFor > 0 ? (
+                  <div className="waiting-opponent-message">
+                    <div className="loading-spinner">⏳</div>
+                    <p>Čeka se odluka drugih igrača...</p>
+                    <small>Ostali igrači trebaju potvrditi nastavak</small>
+                  </div>
+                ) : (
+                  <div className="loading-spinner-message">
+                    <div className="loading-spinner">⏳</div>
+                    <p>Pokretanje nove partije...</p>
+                  </div>
+                )
+              ) : (
+                <button
+                  onClick={handleContinueNextPartija}
+                  className="btn-primary-large"
+                >
+                  ▶️ Nastavi sljedeću partiju
+                </button>
+              )}
+              <button onClick={onGameEnd} className="btn-secondary-large">
+                🏠 Glavni meni
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -995,7 +1513,17 @@ function Game2v2({ gameData, onGameEnd }) {
               // Normalni prikaz rezultata
               <>
                 <div className="final-score-header">
-                  <h2>�🎮 Partija završena!</h2>
+                  <h2>
+                    {gameState.gameType === "treseta"
+                      ? "🏆 Igra završena!"
+                      : "🎮 Partija završena!"}
+                  </h2>
+                  {gameState.gameType === "treseta" && (
+                    <div className="final-total-score">
+                      Konačni rezultat: {gameState.totalTeam1Points || 0} -{" "}
+                      {gameState.totalTeam2Points || 0}
+                    </div>
+                  )}
                   {gameState.winner === gameState.myTeam && (
                     <div className="result-emoji">🎉</div>
                   )}
@@ -1018,12 +1546,15 @@ function Game2v2({ gameData, onGameEnd }) {
                     </div>
                     <div className="team-points">
                       {gameState.gameType === "treseta"
-                        ? gameState.teamAPoints
-                        : calculatePoints(gameState.teamACards || [])}{" "}
-                      bodova
+                        ? `${gameState.totalTeam1Points || 0} bodova`
+                        : `${calculatePoints(
+                            gameState.team1Cards || []
+                          )} bodova`}
                     </div>
                     <div className="team-cards">
-                      {getCardCountText((gameState.teamACards || []).length)}
+                      {gameState.gameType === "treseta"
+                        ? `Cilj: ${gameState.targetScore || 31} bodova`
+                        : getCardCountText((gameState.team1Cards || []).length)}
                     </div>
                     <div className="team-players">
                       {gameState.players
@@ -1056,12 +1587,18 @@ function Game2v2({ gameData, onGameEnd }) {
                     </div>
                     <div className="team-points">
                       {gameState.gameType === "treseta"
-                        ? gameState.teamBPoints
-                        : calculatePoints(gameState.teamBCards || [])}{" "}
-                      bodova
+                        ? `${gameState.totalTeam2Points || 0} bodova`
+                        : `${calculatePoints(
+                            gameState.team2Cards || []
+                          )} bodova`}
                     </div>
                     <div className="team-cards">
-                      {getCardCountText((gameState.teamBCards || []).length)}
+                      {gameState.gameType === "treseta"
+                        ? `Završeno u ${
+                            gameState.partijas?.length ||
+                            (gameState.currentPartija || 1) - 1
+                          } partija`
+                        : getCardCountText((gameState.team2Cards || []).length)}
                     </div>
                     <div className="team-players">
                       {gameState.players
@@ -1089,12 +1626,7 @@ function Game2v2({ gameData, onGameEnd }) {
                 </div>
 
                 <div className="final-score-actions">
-                  <button
-                    onClick={() => {
-                      findMatch("2v2", gameState.gameType);
-                    }}
-                    className="btn-primary-large"
-                  >
+                  <button onClick={handleRematch} className="btn-primary-large">
                     🔄 Revanš
                   </button>
                   <button onClick={onGameEnd} className="btn-secondary-large">
@@ -1125,6 +1657,7 @@ function Game2v2({ gameData, onGameEnd }) {
               {gameState.gameType === "treseta" &&
                 gameState.akuzeEnabled &&
                 gameState.canAkuze &&
+                !gameState.hasPlayedFirstRound &&
                 (() => {
                   const availableAkuze = checkAkuze(gameState.myHand);
                   return availableAkuze.map((akuz, index) => (
@@ -1163,6 +1696,44 @@ function Game2v2({ gameData, onGameEnd }) {
             >
               Odustani
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Matchmaking Screen for Rematch */}
+      {(gameState.gamePhase === "matchmaking" ||
+        gameState.gamePhase === "waitingForRematch") && (
+        <div className="final-score-overlay">
+          <div className="final-score-container">
+            <div className="final-score-header">
+              <h2>🔄 Tražim revanš...</h2>
+              <div className="result-emoji">⏳</div>
+            </div>
+            <div className="game-result">
+              <p>{gameState.message}</p>
+            </div>
+            <div className="final-score-actions">
+              <button
+                onClick={() => {
+                  // Odustani od revanša i vrati se na finished screen
+                  setGameState((prev) => ({
+                    ...prev,
+                    gamePhase: "finished",
+                    message:
+                      prev.winner === prev.myTeam
+                        ? "🎉 Vaš tim je pobijedio!"
+                        : prev.winner === null
+                        ? "🤝 Neriješeno!"
+                        : "😔 Vaš tim je izgubio.",
+                  }));
+                  // Otkaži matchmaking
+                  socket?.emit("cancelMatch");
+                }}
+                className="btn-secondary-large"
+              >
+                🚫 Odustani
+              </button>
+            </div>
           </div>
         </div>
       )}
