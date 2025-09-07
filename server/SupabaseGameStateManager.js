@@ -308,11 +308,35 @@ class SupabaseGameStateManager {
       const now = new Date();
       const finishedExpiresAt = new Date(now.getTime() + 1 * 60 * 60 * 1000); // 1 hour
 
+      // First, get the current game state
+      const { data: currentData, error: fetchError } = await this.supabase
+        .from("game_states")
+        .select("game_state")
+        .eq("room_id", roomId)
+        .single();
+
+      if (fetchError) {
+        console.error(`Error fetching game state for ${roomId}:`, fetchError);
+        return false;
+      }
+
+      if (!currentData || !currentData.game_state) {
+        console.error(`No game state found for ${roomId}`);
+        return false;
+      }
+
+      // Update the gamePhase in the game state
+      const updatedGameState = {
+        ...currentData.game_state,
+        gamePhase: "finished",
+      };
+
+      // Update the record with the modified game state
       const { error } = await this.supabase
         .from("game_states")
         .update({
           expires_at: finishedExpiresAt.toISOString(),
-          "game_state->gamePhase": "finished",
+          game_state: updatedGameState,
           last_saved: now.toISOString(),
         })
         .eq("room_id", roomId);
@@ -371,8 +395,35 @@ class SupabaseGameStateManager {
   }
 
   /**
-   * Auto-save and cleanup
+   * Remove finished status from game to prevent auto-deletion
    */
+  async removeFinishedStatus(roomId) {
+    try {
+      // Reset expires_at to standard TTL (24 hours) for active games
+      const now = new Date();
+      const activeExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+
+      const { error } = await this.supabase
+        .from("game_states")
+        .update({
+          expires_at: activeExpiresAt.toISOString(),
+          last_saved: now.toISOString(),
+        })
+        .eq("room_id", roomId);
+
+      if (error) {
+        console.error(`Error removing finished status for ${roomId}:`, error);
+        return false;
+      }
+
+      console.log(`🔄 Finished status removed for ${roomId} - game continues`);
+      return true;
+    } catch (error) {
+      console.error(`Error removing finished status for ${roomId}:`, error);
+      return false;
+    }
+  }
+
   startAutoSave() {
     setInterval(async () => {
       try {

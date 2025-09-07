@@ -235,6 +235,44 @@ class InMemoryGameStateManager {
     }
   }
 
+  async removeFinishedStatus(roomId) {
+    try {
+      const game = this.gameStates.get(roomId);
+      if (!game) return false;
+
+      const now = new Date();
+      const activeExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+
+      game.expiresAt = activeExpiresAt.toISOString();
+      game.lastSaved = now.toISOString();
+
+      console.log(`🔄 Finished status removed for ${roomId} - game continues`);
+      return true;
+    } catch (error) {
+      console.error(`Error removing finished status for ${roomId}:`, error);
+      return false;
+    }
+  }
+
+  async removeFinishedStatus(roomId) {
+    try {
+      const game = this.gameStates.get(roomId);
+      if (!game) return false;
+
+      const now = new Date();
+      const activeExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+
+      game.expiresAt = activeExpiresAt.toISOString();
+      game.lastSaved = now.toISOString();
+
+      console.log(`🔄 Finished status removed for ${roomId} - game continues`);
+      return true;
+    } catch (error) {
+      console.error(`Error removing finished status for ${roomId}:`, error);
+      return false;
+    }
+  }
+
   async getStats() {
     try {
       const totalGames = this.gameStates.size;
