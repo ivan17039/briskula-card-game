@@ -58,6 +58,11 @@ function createGameState2v2() {
     ultimaWinner: null,
     team1Akuze: [],
     team2Akuze: [],
+    // Ukupni bodovi kroz seriju partija
+    totalTeam1Points: 0,
+    totalTeam2Points: 0,
+    targetScore: 31, // Cilj za konačnu pobjedu
+    currentPartija: 1,
     // Playable cards za svaki igrač (na početku sve karte su playable)
     player1PlayableCards: getPlayableCards(
       dealResult.player1Hand,
@@ -182,6 +187,156 @@ function getWinningTeam(winningPlayer) {
   return winningPlayer === 1 || winningPlayer === 3 ? 1 : 2;
 }
 
+/**
+ * Provjera kraja igre za Trešeta 2v2
+ * @param {Object} team1Points - Bodovi tima 1 iz partije
+ * @param {Object} team2Points - Bodovi tima 2 iz partije
+ * @param {Object} team1Akuze - Akuze tima 1
+ * @param {Object} team2Akuze - Akuze tima 2
+ * @param {Array} remainingDeck - Preostale karte u špilu
+ * @param {Array} player1Hand - Karte igrača 1 u ruci
+ * @param {Array} player2Hand - Karte igrača 2 u ruci
+ * @param {Array} player3Hand - Karte igrača 3 u ruci
+ * @param {Array} player4Hand - Karte igrača 4 u ruci
+ * @param {number} totalTeam1Points - Ukupni bodovi tima 1 kroz sve partije
+ * @param {number} totalTeam2Points - Ukupni bodovi tima 2 kroz sve partije
+ * @param {number} targetScore - Cilj bodova (31 ili 41)
+ */
+function checkGameEnd(
+  team1Points,
+  team2Points,
+  team1Akuze,
+  team2Akuze,
+  remainingDeck,
+  player1Hand,
+  player2Hand,
+  player3Hand,
+  player4Hand,
+  totalTeam1Points = 0,
+  totalTeam2Points = 0,
+  targetScore = null
+) {
+  const partidaT1 =
+    team1Points.points + team1Akuze.reduce((sum, akuz) => sum + akuz.points, 0);
+  const partidaT2 =
+    team2Points.points + team2Akuze.reduce((sum, akuz) => sum + akuz.points, 0);
+
+  // Dinamički cilj: 31 bod bez akuže ili 41 bod s akužom (ako nije eksplicitno zadan)
+  const hasAkuze = team1Akuze.length > 0 || team2Akuze.length > 0;
+  const actualTargetScore = targetScore || (hasAkuze ? 41 : 31);
+
+  // Provjeri jesu li odigrane sve karte (partija je završena)
+  const allCardsPlayed =
+    remainingDeck.length === 0 &&
+    player1Hand.length === 0 &&
+    player2Hand.length === 0 &&
+    player3Hand.length === 0 &&
+    player4Hand.length === 0;
+
+  if (allCardsPlayed) {
+    // Partija je završena - dodaj bodove u ukupni rezultat
+    const newTotalT1 = totalTeam1Points + partidaT1;
+    const newTotalT2 = totalTeam2Points + partidaT2;
+
+    // Provjeri je li postignuto konačno prvo mjesto (31/41 bodova)
+    const isFinalGameOver =
+      newTotalT1 >= actualTargetScore || newTotalT2 >= actualTargetScore;
+
+    if (isFinalGameOver) {
+      // Konačna pobjeda - završi cijelu seriju partija
+      if (newTotalT1 > newTotalT2) {
+        return {
+          isGameOver: true,
+          isPartidaOver: true,
+          isFinalGameOver: true,
+          winner: 1, // Tim 1
+          reason: `Konačna pobjeda ${newTotalT1} - ${newTotalT2}`,
+          partidaWinner:
+            partidaT1 > partidaT2 ? 1 : partidaT1 < partidaT2 ? 2 : null,
+          partidaScore: `${partidaT1} - ${partidaT2}`,
+          newTotalTeam1Points: newTotalT1,
+          newTotalTeam2Points: newTotalT2,
+        };
+      } else if (newTotalT2 > newTotalT1) {
+        return {
+          isGameOver: true,
+          isPartidaOver: true,
+          isFinalGameOver: true,
+          winner: 2, // Tim 2
+          reason: `Konačna pobjeda ${newTotalT2} - ${newTotalT1}`,
+          partidaWinner:
+            partidaT1 > partidaT2 ? 1 : partidaT1 < partidaT2 ? 2 : null,
+          partidaScore: `${partidaT1} - ${partidaT2}`,
+          newTotalTeam1Points: newTotalT1,
+          newTotalTeam2Points: newTotalT2,
+        };
+      } else {
+        return {
+          isGameOver: true,
+          isPartidaOver: true,
+          isFinalGameOver: true,
+          winner: null,
+          reason: `Konačno neriješeno ${newTotalT1} - ${newTotalT2}`,
+          partidaWinner:
+            partidaT1 > partidaT2 ? 1 : partidaT1 < partidaT2 ? 2 : null,
+          partidaScore: `${partidaT1} - ${partidaT2}`,
+          newTotalTeam1Points: newTotalT1,
+          newTotalTeam2Points: newTotalT2,
+        };
+      }
+    } else {
+      // Partija završena, ali serija nastavlja - pripremi za novu partiju
+      return {
+        isGameOver: true,
+        isPartidaOver: true,
+        isFinalGameOver: false,
+        winner: partidaT1 > partidaT2 ? 1 : partidaT1 < partidaT2 ? 2 : null,
+        reason: `Partija završena ${partidaT1} - ${partidaT2}. Ukupno: ${newTotalT1} - ${newTotalT2}`,
+        partidaWinner:
+          partidaT1 > partidaT2 ? 1 : partidaT1 < partidaT2 ? 2 : null,
+        partidaScore: `${partidaT1} - ${partidaT2}`,
+        newTotalTeam1Points: newTotalT1,
+        newTotalTeam2Points: newTotalT2,
+      };
+    }
+  }
+
+  // Provjeri je li netko dosegao cilj tijekom partije (rijetko, ali moguće s akužama)
+  if (partidaT1 >= actualTargetScore) {
+    const newTotalT1 = totalTeam1Points + partidaT1;
+    const newTotalT2 = totalTeam2Points + partidaT2;
+
+    return {
+      isGameOver: true,
+      isFinalGameOver: true,
+      winner: 1, // Tim 1
+      reason: `Konačna pobjeda ${partidaT1} - ${partidaT2} (dosegnut cilj u partiji)`,
+      partidaWinner: 1,
+      partidaScore: `${partidaT1} - ${partidaT2}`,
+      newTotalTeam1Points: newTotalT1,
+      newTotalTeam2Points: newTotalT2,
+    };
+  }
+
+  if (partidaT2 >= actualTargetScore) {
+    const newTotalT1 = totalTeam1Points + partidaT1;
+    const newTotalT2 = totalTeam2Points + partidaT2;
+
+    return {
+      isGameOver: true,
+      isFinalGameOver: true,
+      winner: 2, // Tim 2
+      reason: `Konačna pobjeda ${partidaT2} - ${partidaT1} (dosegnut cilj u partiji)`,
+      partidaWinner: 2,
+      partidaScore: `${partidaT1} - ${partidaT2}`,
+      newTotalTeam1Points: newTotalT1,
+      newTotalTeam2Points: newTotalT2,
+    };
+  }
+
+  return { isGameOver: false, isFinalGameOver: false };
+}
+
 export {
   createDeck,
   shuffleDeck,
@@ -192,6 +347,7 @@ export {
   getCardStrengthName,
   determineRoundWinner,
   calculateTeamPoints,
+  checkGameEnd,
   isValidMove,
   getPlayableCards,
   getNextPlayer2v2,

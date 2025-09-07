@@ -16,26 +16,29 @@ import {
  * Trešeta nema trump kartu - prva bačena karta određuje boju runde
  */
 function dealCards(deck, is2v2 = false) {
+  const cardsPerPlayer = 10;
+
   if (is2v2) {
-    // 2v2: 4 igrača x 10 karata = 40 karata (cijeli špil)
-    const player1Hand = deck.slice(0, 10);
-    const player2Hand = deck.slice(10, 20);
-    const player3Hand = deck.slice(20, 30);
-    const player4Hand = deck.slice(30, 40);
+    // 2v2: 4 igrača x 10 karata
+    const player1Hand = deck.slice(0, cardsPerPlayer);
+    const player2Hand = deck.slice(cardsPerPlayer, cardsPerPlayer * 2);
+    const player3Hand = deck.slice(cardsPerPlayer * 2, cardsPerPlayer * 3);
+    const player4Hand = deck.slice(cardsPerPlayer * 3, cardsPerPlayer * 4);
+    const remainingDeck = [];
 
     return {
       player1Hand,
       player2Hand,
       player3Hand,
       player4Hand,
-      remainingDeck: [], // Nema preostalih karata u 2v2
+      remainingDeck,
       // Trešeta nema trump kartu
     };
   } else {
-    // 1v1: Svaki igrač dobije 10 karata, 20 ostaje u špilu
-    const player1Hand = deck.slice(0, 10);
-    const player2Hand = deck.slice(10, 20);
-    const remainingDeck = deck.slice(20);
+    // 1v1: Svaki igrač dobije 10 karata
+    const player1Hand = deck.slice(0, cardsPerPlayer);
+    const player2Hand = deck.slice(cardsPerPlayer, cardsPerPlayer * 2);
+    const remainingDeck = deck.slice(cardsPerPlayer * 2);
 
     return {
       player1Hand,
@@ -178,6 +181,16 @@ function calculateAkuze(hand) {
 
 /**
  * Provjera kraja igre za Trešeta
+ * @param {Object} player1Points - Bodovi igrača 1 iz partije
+ * @param {Object} player2Points - Bodovi igrača 2 iz partije
+ * @param {Object} player1Akuze - Akuze igrača 1
+ * @param {Object} player2Akuze - Akuze igrača 2
+ * @param {Array} remainingDeck - Preostale karte u špilu
+ * @param {Array} player1Hand - Karte igrača 1 u ruci
+ * @param {Array} player2Hand - Karte igrača 2 u ruci
+ * @param {number} totalPlayer1Points - Ukupni bodovi igrača 1 kroz sve partije
+ * @param {number} totalPlayer2Points - Ukupni bodovi igrača 2 kroz sve partije
+ * @param {number} targetScore - Cilj bodova (31 ili 41)
  */
 function checkGameEnd(
   player1Points,
@@ -186,65 +199,122 @@ function checkGameEnd(
   player2Akuze,
   remainingDeck,
   player1Hand,
-  player2Hand
+  player2Hand,
+  totalPlayer1Points = 0,
+  totalPlayer2Points = 0,
+  targetScore = null
 ) {
-  const totalP1 = player1Points.points + player1Akuze.points;
-  const totalP2 = player2Points.points + player2Akuze.points;
+  const partidaP1 = player1Points.points + player1Akuze.points;
+  const partidaP2 = player2Points.points + player2Akuze.points;
 
-  // Cilj: 31 bod bez akuže ili 41 bod s akužom
+  // Dinamički cilj: 31 bod bez akuže ili 41 bod s akužom (ako nije eksplicitno zadan)
   const hasAkuze = player1Akuze.points > 0 || player2Akuze.points > 0;
-  const targetScore = hasAkuze ? 41 : 31;
+  const actualTargetScore = targetScore || (hasAkuze ? 41 : 31);
 
-  // Provjeri jesu li odigrane sve karte
+  // Provjeri jesu li odigrane sve karte (partija je završena)
   const allCardsPlayed =
     remainingDeck.length === 0 &&
     player1Hand.length === 0 &&
     player2Hand.length === 0;
 
   if (allCardsPlayed) {
-    // Dodaj ultima bod (zadnja ruka = +1 bod)
-    // U 1v1 implementaciji, ultima ide onome tko je uzeo zadnju ruku
-    // To će se odrediti u server logici
+    // Partija je završena - dodaj bodove u ukupni rezultat
+    const newTotalP1 = totalPlayer1Points + partidaP1;
+    const newTotalP2 = totalPlayer2Points + partidaP2;
 
-    if (totalP1 > totalP2) {
-      return {
-        isGameOver: true,
-        winner: 1,
-        reason: `Pobjeda ${totalP1} - ${totalP2}`,
-      };
-    } else if (totalP2 > totalP1) {
-      return {
-        isGameOver: true,
-        winner: 2,
-        reason: `Pobjeda ${totalP2} - ${totalP1}`,
-      };
+    // Provjeri je li postignuto konačno prvo mjesto (31/41 bodova)
+    const isFinalGameOver =
+      newTotalP1 >= actualTargetScore || newTotalP2 >= actualTargetScore;
+
+    if (isFinalGameOver) {
+      // Konačna pobjeda - završi cijelu seriju partija
+      if (newTotalP1 > newTotalP2) {
+        return {
+          isGameOver: true,
+          isFinalGameOver: true,
+          winner: 1,
+          reason: `Konačna pobjeda ${newTotalP1} - ${newTotalP2}`,
+          partidaWinner:
+            partidaP1 > partidaP2 ? 1 : partidaP1 < partidaP2 ? 2 : null,
+          partidaScore: `${partidaP1} - ${partidaP2}`,
+          newTotalPlayer1Points: newTotalP1,
+          newTotalPlayer2Points: newTotalP2,
+        };
+      } else if (newTotalP2 > newTotalP1) {
+        return {
+          isGameOver: true,
+          isFinalGameOver: true,
+          winner: 2,
+          reason: `Konačna pobjeda ${newTotalP2} - ${newTotalP1}`,
+          partidaWinner:
+            partidaP1 > partidaP2 ? 1 : partidaP1 < partidaP2 ? 2 : null,
+          partidaScore: `${partidaP1} - ${partidaP2}`,
+          newTotalPlayer1Points: newTotalP1,
+          newTotalPlayer2Points: newTotalP2,
+        };
+      } else {
+        return {
+          isGameOver: true,
+          isFinalGameOver: true,
+          winner: null,
+          reason: `Konačno neriješeno ${newTotalP1} - ${newTotalP2}`,
+          partidaWinner:
+            partidaP1 > partidaP2 ? 1 : partidaP1 < partidaP2 ? 2 : null,
+          partidaScore: `${partidaP1} - ${partidaP2}`,
+          newTotalPlayer1Points: newTotalP1,
+          newTotalPlayer2Points: newTotalP2,
+        };
+      }
     } else {
+      // Partija završena, ali serija nastavlja - pripremi za novu partiju
       return {
         isGameOver: true,
-        winner: null,
-        reason: `Neriješeno ${totalP1} - ${totalP2}`,
+        isFinalGameOver: false,
+        winner: partidaP1 > partidaP2 ? 1 : partidaP1 < partidaP2 ? 2 : null,
+        reason: `Partija završena ${partidaP1} - ${partidaP2}. Ukupno: ${newTotalP1} - ${newTotalP2}`,
+        partidaWinner:
+          partidaP1 > partidaP2 ? 1 : partidaP1 < partidaP2 ? 2 : null,
+        partidaScore: `${partidaP1} - ${partidaP2}`,
+        newTotalPlayer1Points: newTotalP1,
+        newTotalPlayer2Points: newTotalP2,
       };
     }
   }
 
-  // Provjeri je li netko dosegao target score
-  if (totalP1 >= targetScore) {
+  // Provjeri je li netko dosegao cilj tijekom partije (rijetko, ali moguće s akužama)
+  if (partidaP1 >= actualTargetScore) {
+    const newTotalP1 = totalPlayer1Points + partidaP1;
+    const newTotalP2 = totalPlayer2Points + partidaP2;
+
     return {
       isGameOver: true,
+      isFinalGameOver: true,
       winner: 1,
-      reason: `Pobjeda ${totalP1} - ${totalP2} (dosegnut cilj)`,
+      reason: `Konačna pobjeda ${partidaP1} - ${partidaP2} (dosegnut cilj u partiji)`,
+      partidaWinner: 1,
+      partidaScore: `${partidaP1} - ${partidaP2}`,
+      newTotalPlayer1Points: newTotalP1,
+      newTotalPlayer2Points: newTotalP2,
     };
   }
 
-  if (totalP2 >= targetScore) {
+  if (partidaP2 >= actualTargetScore) {
+    const newTotalP1 = totalPlayer1Points + partidaP1;
+    const newTotalP2 = totalPlayer2Points + partidaP2;
+
     return {
       isGameOver: true,
+      isFinalGameOver: true,
       winner: 2,
-      reason: `Pobjeda ${totalP2} - ${totalP1} (dosegnut cilj)`,
+      reason: `Konačna pobjeda ${partidaP2} - ${partidaP1} (dosegnut cilj u partiji)`,
+      partidaWinner: 2,
+      partidaScore: `${partidaP1} - ${partidaP2}`,
+      newTotalPlayer1Points: newTotalP1,
+      newTotalPlayer2Points: newTotalP2,
     };
   }
 
-  return { isGameOver: false };
+  return { isGameOver: false, isFinalGameOver: false };
 }
 
 export {
