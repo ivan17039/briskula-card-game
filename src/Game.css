@@ -310,33 +310,6 @@ body,
   transform: scale(1.05);
 }
 
-/* Card selection info - FLOATING RIGHT SIDE */
-.selection-info {
-  position: absolute;
-  top: 80px;
-  right: 20px;
-  background: rgba(40, 167, 69, 0.95);
-  color: white;
-  padding: 8px 12px;
-  border-radius: 15px;
-  text-align: center;
-  font-size: 0.8rem;
-  font-weight: 500;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  border: 2px solid #28a745;
-  max-width: 250px;
-  line-height: 1.2;
-  animation: slideInRight 0.3s ease;
-  z-index: 15;
-}
-
-.selection-info small {
-  display: block;
-  margin-top: 2px;
-  opacity: 0.9;
-  font-size: 0.75rem;
-}
-
 @keyframes statusFade {
   from {
     opacity: 0;
@@ -756,19 +729,6 @@ body,
     margin-bottom: 5px;
   }
 
-  .selection-info {
-    position: fixed;
-    top: auto;
-    bottom: 20px;
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-    max-width: 90vw;
-    font-size: 0.75rem;
-    padding: 6px 10px;
-    border-radius: 20px;
-  }
-
   /* MOBILE: Horizontal layout for center area */
   .play-area {
     flex-direction: row;
@@ -882,11 +842,6 @@ body,
     width: 36px;
     height: 36px;
     font-size: 1rem;
-  }
-
-  .selection-info {
-    font-size: 0.7rem;
-    padding: 5px 8px;
   }
 }
 
@@ -1602,5 +1557,61 @@ body,
 
   .current-akuze {
     padding: 12px;
+  }
+}
+
+/* Partija continuation styles */
+.waiting-opponent-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+.waiting-opponent-message p {
+  margin: 0;
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.waiting-opponent-message small {
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
+.loading-spinner-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+.loading-spinner-message p {
+  margin: 0;
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.loading-spinner {
+  font-size: 1.5rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
   }
 }

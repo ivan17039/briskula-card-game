@@ -127,14 +127,8 @@ function Game({ gameData, onGameEnd }) {
   const initializeGameState = () => {
     if (!gameData) return null;
 
-    console.log("[v0] 🚀 Initializing game state with gameData:", gameData);
-    console.log("[v0] 🎯 Detected mode:", mode);
-    console.log("[v0] 🃏 Akuze enabled from gameData:", gameData.akuzeEnabled);
-    console.log("[v0] 🃏 Full gameData:", gameData);
-
     if (mode === "ai") {
       // Lokalna partija 1v1 protiv AI-ja
-      console.log("[v0] 🤖 Setting up AI mode game");
       const useTreseta = (gameData.gameType || "briskula") === "treseta";
       const deck = useTreseta
         ? shuffleDeckTreseta(createDeckTreseta())
@@ -155,8 +149,6 @@ function Game({ gameData, onGameEnd }) {
         "AI:",
         dealt.player2Hand.length
       );
-      console.log("[v0] 🃏 Player hand:", dealt.player1Hand);
-      console.log("[v0] 🃏 Trump card:", dealt.trump);
 
       const initialState = {
         mode: "ai",
@@ -201,11 +193,11 @@ function Game({ gameData, onGameEnd }) {
           canAkuze:
             gameData.akuzeEnabled !== undefined ? gameData.akuzeEnabled : true, // Može akužavati samo ako je omogućeno
           hasPlayedFirstCard: false, // Flag da se prati je li odigrana prva karta partije
-          targetScore: 31, // Default target score
+          hasPlayedFirstRound: false, // Flag da se prati je li završena prva runda (za akuže)
+          targetScore: gameData.targetScore || 31, // Target score from gameData or default
         }),
       };
 
-      console.log("[v0] ✅ AI game state initialized:", initialState);
       return initialState;
     }
 
@@ -252,6 +244,16 @@ function Game({ gameData, onGameEnd }) {
         opponentAkuze: [],
         canAkuze:
           gameData.akuzeEnabled !== undefined ? gameData.akuzeEnabled : true,
+
+        // Long-term scoring system for Treseta
+        totalMyPoints: gameData.gameState?.totalMyPoints || 0,
+        totalOpponentPoints: gameData.gameState?.totalOpponentPoints || 0,
+        partijas: gameData.gameState?.partijas || [], // Historia partija
+        currentPartija: gameData.gameState?.currentPartija || 1,
+        hasPlayedFirstCard: gameData.gameState?.hasPlayedFirstCard || false,
+        hasPlayedFirstRound: gameData.gameState?.hasPlayedFirstRound || false,
+        targetScore:
+          gameData.targetScore || gameData.gameState?.targetScore || 31, // Target score from gameData or default
       }),
     };
 
@@ -260,7 +262,6 @@ function Game({ gameData, onGameEnd }) {
   };
 
   const [gameState, setGameState] = useState(initializeGameState);
-  const [selectedCard, setSelectedCard] = useState(null);
   const [showScores, setShowScores] = useState(false);
   const [showAkuzeModal, setShowAkuzeModal] = useState(false);
   // Determine if we're on mobile
@@ -269,19 +270,21 @@ function Game({ gameData, onGameEnd }) {
   const [cardPickupAnimation, setCardPickupAnimation] = useState(null);
   // Block clicks during card play animation
   const [isCardPlaying, setIsCardPlaying] = useState(false);
+  // State for next partija continuation
+  const [nextPartidaStatus, setNextPartidaStatus] = useState({
+    playerReady: false,
+    readyPlayers: [],
+    waitingFor: 0,
+  });
   const roundFirstPlayerRef = useRef(null);
   const aiThinking = useRef(false);
   const roundResolving = useRef(false);
 
   const playLocalCard = (card, playerNum) => {
-    console.log("[v0] 🎯 Playing card:", card, "for player:", playerNum);
-
     setGameState((prevState) => {
       if (prevState.gamePhase !== "playing") return prevState;
       const newPlayedCards = [...prevState.playedCards];
       newPlayedCards[playerNum - 1] = card;
-
-      console.log("[v0] 🃏 New played cards:", newPlayedCards);
 
       const newMyHand =
         playerNum === 1
@@ -325,13 +328,6 @@ function Game({ gameData, onGameEnd }) {
         // Add delay before resolving the round
         setTimeout(() => {
           setGameState((currentState) => {
-            console.log("[v0] 🎯 ROUND RESOLUTION STARTING:");
-            console.log(
-              "[v0] First player this round (fixed):",
-              roundFirstPlayerRef.current
-            );
-            console.log("[v0] Cards played this round:", newPlayedCards);
-
             // 🔑 Odredi koja je prva, a koja druga karta
             let firstCard, secondCard;
             if (roundFirstPlayerRef.current === 1) {
@@ -355,13 +351,6 @@ function Game({ gameData, onGameEnd }) {
                   prevState.trumpSuit,
                   roundFirstPlayerRef.current
                 );
-
-            console.log("[v0] 🏆 ROUND WINNER:", winner);
-            console.log("[v0] Setting currentPlayer to winner:", winner);
-            console.log(
-              "[v0] This means next round will be started by:",
-              winner === 1 ? "User" : "AI"
-            );
 
             const winnerIsP1 = winner === 1;
             const wonCards = [...newPlayedCards];
@@ -553,6 +542,7 @@ function Game({ gameData, onGameEnd }) {
               remainingDeck: remaining,
               remainingCardsCount: remaining.length,
               opponentHandCount: aiHandAfterDraw.length,
+              hasPlayedFirstRound: true, // Mark that first round is complete - no more akuze
               gamePhase: end.isGameOver
                 ? "finished"
                 : end.isPartidaOver
@@ -656,23 +646,14 @@ function Game({ gameData, onGameEnd }) {
       };
     });
 
-    // Reset isCardPlaying only if this was the first card in round
-    // If it was second card, keep cards disabled until round resolves
-    const wasFirstCard =
-      !gameState?.playedCards[0] && !gameState?.playedCards[1];
-    if (wasFirstCard) {
-      setIsCardPlaying(false);
-    }
+    // Don't reset isCardPlaying here - wait until round fully resolves
+    // This prevents rapid card clicking when playing as second player
   };
 
   useEffect(() => {
-    console.log("[v0] 🔄 Game component mounted, gameData:", gameData);
     const initialState = initializeGameState();
     if (initialState) {
-      console.log("[v0] 🎮 Setting initial game state");
       setGameState(initialState);
-    } else {
-      console.log("[v0] ❌ Failed to initialize game state");
     }
   }, [gameData]);
 
@@ -723,27 +704,10 @@ function Game({ gameData, onGameEnd }) {
   ]);
 
   useEffect(() => {
-    console.log("[v0] 🤖 AI useEffect triggered");
-
     // Add null check for gameState
     if (!gameState) {
-      console.log("[v0] ❌ gameState is null, skipping AI logic");
       return;
     }
-
-    console.log("[v0] Current player:", gameState.currentPlayer);
-    console.log("[v0] AI thinking:", aiThinking.current);
-    console.log("[v0] Round resolving:", roundResolving.current);
-    console.log("[v0] Game phase:", gameState.gamePhase);
-    console.log("[v0] Played cards:", gameState.playedCards);
-    console.log(
-      "[v0] Should AI play?",
-      gameState.currentPlayer === 2 &&
-        !aiThinking.current &&
-        !roundResolving.current &&
-        gameState.gamePhase === "playing" &&
-        gameState.playedCards.filter((c) => c).length < 2
-    );
 
     if (
       gameState.currentPlayer === 2 &&
@@ -893,25 +857,35 @@ function Game({ gameData, onGameEnd }) {
     });
 
     socket.on("cardPlayed", (data) => {
-      setGameState((prev) => ({
-        ...prev,
-        playedCards: data.playedCards,
-        myHand:
-          data.playerNumber === prev.playerNumber
-            ? prev.myHand.filter((c) => c.id !== data.card.id)
-            : prev.myHand,
-        opponentHandCount:
-          data.playerNumber !== prev.playerNumber
-            ? prev.opponentHandCount - 1
-            : prev.opponentHandCount,
-        message:
-          data.playerNumber === prev.playerNumber
-            ? "Čekamo protivnikov potez..."
-            : "Vaš red je! Odgovorite na kartu.",
-      }));
+      setGameState((prev) => {
+        // Check if this is the first card played in the partija
+        const isFirstCardInPartija =
+          prev.gameType === "treseta" && !prev.hasPlayedFirstCard;
 
-      // Reset card playing flag when server confirms card was played
-      setIsCardPlaying(false);
+        return {
+          ...prev,
+          playedCards: data.playedCards,
+          myHand:
+            data.playerNumber === prev.playerNumber
+              ? prev.myHand.filter((c) => c.id !== data.card.id)
+              : prev.myHand,
+          opponentHandCount:
+            data.playerNumber !== prev.playerNumber
+              ? prev.opponentHandCount - 1
+              : prev.opponentHandCount,
+          message:
+            data.playerNumber === prev.playerNumber
+              ? "Čekamo protivnikov potez..."
+              : "Vaš red je! Odgovorite na kartu.",
+          // Set hasPlayedFirstCard to true after first card is played
+          hasPlayedFirstCard: isFirstCardInPartija
+            ? true
+            : prev.hasPlayedFirstCard,
+        };
+      });
+
+      // DON'T reset card playing flag here - wait for roundFinished
+      // setIsCardPlaying(false);
     });
 
     socket.on("turnChange", (data) => {
@@ -927,7 +901,9 @@ function Game({ gameData, onGameEnd }) {
 
     socket.on("roundFinished", (data) => {
       setGameState((prev) => {
-        const newState = {
+        const useTreseta = prev.gameType === "treseta";
+
+        let newState = {
           ...prev,
           myHand: prev.playerNumber === 1 ? data.player1Hand : data.player2Hand,
           opponentHandCount:
@@ -946,8 +922,6 @@ function Game({ gameData, onGameEnd }) {
           playedCards: [],
           currentPlayer: data.currentPlayer,
           remainingCardsCount: data.remainingCards,
-          gamePhase: data.gameEnd.isGameOver ? "finished" : "playing",
-          winner: data.gameEnd.winner,
           // Ažuriraj playableCards za Trešetu
           playableCards:
             prev.gameType === "treseta"
@@ -955,42 +929,180 @@ function Game({ gameData, onGameEnd }) {
                   ? data.player1PlayableCards
                   : data.player2PlayableCards) || []
               : prev.playableCards,
-          // Ažuriraj bodove
-          myPoints:
-            prev.playerNumber === 1
-              ? data.player1Points?.points || 0
-              : data.player2Points?.points || 0,
-          opponentPoints:
-            prev.playerNumber === 1
-              ? data.player2Points?.points || 0
-              : data.player1Points?.points || 0,
-
-          // Ažuriraj akuže podatke za Trešeta (ako postoje)
-          ...(prev.gameType === "treseta" &&
-            data.player1Akuze &&
-            data.player2Akuze && {
-              myAkuze:
-                prev.playerNumber === 1
-                  ? data.player1Akuze.details || []
-                  : data.player2Akuze.details || [],
-              opponentAkuze:
-                prev.playerNumber === 1
-                  ? data.player2Akuze.details || []
-                  : data.player1Akuze.details || [],
-            }),
         };
 
-        if (data.gameEnd.isGameOver) {
+        // Calculate points locally for Treseta (like in AI mode)
+        if (useTreseta) {
+          // Check if all cards are played for ultima bonus
+          const isAllCardsPlayed =
+            data.remainingCards === 0 &&
+            (prev.playerNumber === 1 ? data.player1Hand : data.player2Hand)
+              ?.length === 0 &&
+            (prev.playerNumber === 1 ? data.player2Hand : data.player1Hand)
+              ?.length === 0;
+          const ultimaWinner = isAllCardsPlayed ? data.roundWinner : null;
+
+          // Calculate points from won cards
+          const myCardPoints = calculatePointsTreseta(
+            newState.myCards,
+            ultimaWinner,
+            prev.playerNumber
+          ).points;
+          const opponentCardPoints = calculatePointsTreseta(
+            newState.opponentCards,
+            ultimaWinner,
+            prev.playerNumber === 1 ? 2 : 1
+          ).points;
+
+          // Don't add akuze points here - they will be added only at the end of partija
+          newState.myPoints = myCardPoints;
+          newState.opponentPoints = opponentCardPoints;
+        } else {
+          // For Briskula, use server-provided points or calculate locally
+          newState.myPoints =
+            prev.playerNumber === 1
+              ? data.player1Points?.points || calculatePoints(newState.myCards)
+              : data.player2Points?.points || calculatePoints(newState.myCards);
+          newState.opponentPoints =
+            prev.playerNumber === 1
+              ? data.player2Points?.points ||
+                calculatePoints(newState.opponentCards)
+              : data.player1Points?.points ||
+                calculatePoints(newState.opponentCards);
+        }
+
+        // Ažuriraj akuže podatke za Trešeta (ako postoje)
+        if (
+          prev.gameType === "treseta" &&
+          data.player1Akuze &&
+          data.player2Akuze
+        ) {
+          newState.myAkuze =
+            prev.playerNumber === 1
+              ? data.player1Akuze.details || []
+              : data.player2Akuze.details || [];
+          newState.opponentAkuze =
+            prev.playerNumber === 1
+              ? data.player2Akuze.details || []
+              : data.player1Akuze.details || [];
+        }
+
+        // For Treseta with long-term scoring, check if partija is over
+        if (
+          useTreseta &&
+          prev.totalMyPoints !== undefined &&
+          (data.gameEnd.isPartidaOver || data.gameEnd.isGameOver)
+        ) {
+          // This means all cards are played - partija is finished
+          // Now add akuze points to the final partija score
+          const myAkuzePoints =
+            prev.myAkuze?.reduce((sum, akuz) => sum + akuz.points, 0) || 0;
+          const opponentAkuzePoints =
+            prev.opponentAkuze?.reduce((sum, akuz) => sum + akuz.points, 0) ||
+            0;
+
+          const myPartidaPoints = newState.myPoints + myAkuzePoints;
+          const opponentPartidaPoints =
+            newState.opponentPoints + opponentAkuzePoints;
+
+          // Update display points to include akuze
+          newState.myPoints = myPartidaPoints;
+          newState.opponentPoints = opponentPartidaPoints;
+
+          // Add current partija points to total
+          const newTotalMyPoints = prev.totalMyPoints + myPartidaPoints;
+          const newTotalOpponentPoints =
+            prev.totalOpponentPoints + opponentPartidaPoints;
+
+          // Check if someone reached target score (only if whole game is over)
+          const matchFinished =
+            data.gameEnd.isGameOver &&
+            (newTotalMyPoints >= prev.targetScore ||
+              newTotalOpponentPoints >= prev.targetScore);
+
+          if (matchFinished) {
+            // Game is completely finished
+            newState.gamePhase = "finished";
+            newState.winner =
+              newTotalMyPoints >= prev.targetScore
+                ? prev.playerNumber
+                : prev.playerNumber === 1
+                ? 2
+                : 1;
+          } else {
+            // Just partija finished, not the whole match
+            newState.gamePhase = "partidaFinished";
+            newState.winner = null;
+          }
+
+          // Update totals and partija history
+          newState.totalMyPoints = newTotalMyPoints;
+          newState.totalOpponentPoints = newTotalOpponentPoints;
+          newState.partijas = [
+            ...prev.partijas,
+            {
+              partija: prev.currentPartija,
+              myPoints: myPartidaPoints,
+              opponentPoints: opponentPartidaPoints,
+              winner:
+                myPartidaPoints > opponentPartidaPoints
+                  ? prev.playerNumber
+                  : opponentPartidaPoints > myPartidaPoints
+                  ? prev.playerNumber === 1
+                    ? 2
+                    : 1
+                  : 0,
+            },
+          ];
+          newState.currentPartija = prev.currentPartija + 1;
+          newState.canAkuze = prev.akuzeEnabled; // Reset akuze based on settings
+        } else if (data.gameEnd.isGameOver) {
+          // Game over logic
+          newState.gamePhase = "finished";
+          newState.winner = data.gameEnd.winner;
+
+          // Update total points from server if provided (for Trešeta series)
+          if (data.gameEnd.newTotalPlayer1Points !== undefined) {
+            if (prev.playerNumber === 1) {
+              newState.totalMyPoints = data.gameEnd.newTotalPlayer1Points;
+              newState.totalOpponentPoints = data.gameEnd.newTotalPlayer2Points;
+            } else {
+              newState.totalMyPoints = data.gameEnd.newTotalPlayer2Points;
+              newState.totalOpponentPoints = data.gameEnd.newTotalPlayer1Points;
+            }
+          }
+        } else {
+          newState.gamePhase = "playing";
+        }
+
+        // Set appropriate messages
+        if (newState.gamePhase === "finished") {
           // Clear saved game state when game ends
           clearGameState();
 
-          if (data.gameEnd.winner === prev.playerNumber) {
-            newState.message = `🎉 Pobijedili ste!`;
-          } else if (data.gameEnd.winner === null) {
-            newState.message = `🤝 Neriješeno! (${data.gameEnd.reason})`;
+          if (useTreseta && prev.totalMyPoints !== undefined) {
+            // Long-term scoring finished message
+            if (newState.winner === prev.playerNumber) {
+              newState.message = `🎉 Pobijedili ste meč! (${newState.totalMyPoints}:${newState.totalOpponentPoints})`;
+            } else {
+              newState.message = `😔 Izgubili ste meč. (${newState.totalMyPoints}:${newState.totalOpponentPoints})`;
+            }
           } else {
-            newState.message = `😔 Izgubili ste.`;
+            // Single game finished message
+            if (data.gameEnd.winner === prev.playerNumber) {
+              newState.message = `🎉 Pobijedili ste!`;
+            } else if (data.gameEnd.winner === null) {
+              newState.message = `🤝 Neriješeno! (${data.gameEnd.reason})`;
+            } else {
+              newState.message = `😔 Izgubili ste.`;
+            }
           }
+        } else if (newState.gamePhase === "partidaFinished") {
+          const partidaWinner =
+            newState.myPoints > newState.opponentPoints ? "Vi" : "Protivnik";
+          newState.message = `Partija završena! ${partidaWinner} ste uzeli ${
+            newState.currentPartija - 1
+          }. partiju. (${newState.myPoints}:${newState.opponentPoints})`;
         } else {
           // Pokreni animaciju pokupljenih karata iz špila (samo za Trešetu)
           if (
@@ -1028,6 +1140,9 @@ function Game({ gameData, onGameEnd }) {
               ? `Uzeli ste rundu! Vaš red.`
               : `Protivnik je uzeo rundu. Njihov red.`;
         }
+
+        // Mark that first round has been completed - no more akuze allowed
+        newState.hasPlayedFirstRound = true;
 
         return newState;
       });
@@ -1135,6 +1250,69 @@ function Game({ gameData, onGameEnd }) {
       }
     });
 
+    // New socket listener for partija restart in online Treseta games
+    socket.on("partidaRestarted", (data) => {
+      console.log("🔄 Received partidaRestarted from server:", data);
+
+      // Reset next partija status since new partija started
+      setNextPartidaStatus({
+        playerReady: false,
+        readyPlayers: [],
+        waitingFor: 0,
+      });
+
+      setGameState((prev) => ({
+        ...prev,
+        myHand: prev.playerNumber === 1 ? data.player1Hand : data.player2Hand,
+        opponentHandCount:
+          prev.playerNumber === 1
+            ? (data.player2Hand || []).length
+            : (data.player1Hand || []).length,
+        myCards: [],
+        opponentCards: [],
+        playedCards: [],
+        currentPlayer: data.currentPlayer || 1,
+        gamePhase: "playing",
+        remainingCardsCount: data.remainingCards || 40,
+        myPoints: 0,
+        opponentPoints: 0,
+        playableCards:
+          prev.gameType === "treseta"
+            ? (prev.playerNumber === 1
+                ? data.player1PlayableCards
+                : data.player2PlayableCards) ||
+              (prev.playerNumber === 1
+                ? data.player1Hand
+                : data.player2Hand
+              )?.map((c) => c.id) ||
+              []
+            : (prev.playerNumber === 1
+                ? data.player1Hand
+                : data.player2Hand
+              )?.map((c) => c.id) || [],
+        canAkuze: prev.akuzeEnabled, // Reset based on settings
+        myAkuze: [], // Reset akuze for new partija
+        opponentAkuze: [], // Reset akuze for new partija
+        hasPlayedFirstCard: false, // Reset for new partija
+        hasPlayedFirstRound: false, // Reset for new partija - allow akuze again
+        message:
+          "Nova partija! " +
+          (data.currentPlayer === prev.playerNumber
+            ? "Vaš red."
+            : "Protivnikov red."),
+      }));
+    });
+
+    // Handle partija continuation status from server
+    socket.on("partidaContinueStatus", (data) => {
+      console.log("📊 Received partidaContinueStatus:", data);
+      setNextPartidaStatus({
+        playerReady: data.isPlayerReady || false, // Use server's isPlayerReady flag
+        readyPlayers: data.readyPlayers || [],
+        waitingFor: data.waitingFor || 0,
+      });
+    });
+
     return () => {
       socket.off("gameStart");
       socket.off("cardPlayed");
@@ -1147,6 +1325,8 @@ function Game({ gameData, onGameEnd }) {
       socket.off("playableCardsUpdate");
       socket.off("invalidMove");
       socket.off("akuzeAnnounced");
+      socket.off("partidaRestarted");
+      socket.off("partidaContinueStatus");
     };
   }, [socket, gameState?.roomId, onGameEnd, mode]);
 
@@ -1182,35 +1362,69 @@ function Game({ gameData, onGameEnd }) {
     );
   };
 
+  const handleContinueNextPartija = () => {
+    if (!gameState.roomId || gameState.mode !== "online") {
+      console.log("❌ Cannot continue - not in online mode or no room");
+      return;
+    }
+
+    console.log("🔄 Player wants to continue next partija");
+
+    // Don't set playerReady here - wait for server confirmation
+    // setNextPartidaStatus(prev => ({ ...prev, playerReady: true }));
+
+    // Emit to server
+    socket.emit("continueNextPartija", {
+      roomId: gameState.roomId,
+      playerNumber: gameState.playerNumber,
+    });
+  };
+
   const startNewPartija = () => {
     if (!gameState || gameState.gameType !== "treseta") return;
 
-    // Create new deck and deal cards
-    const deck = shuffleDeckTreseta(createDeckTreseta());
-    const dealt = dealCardsTreseta(deck);
+    if (gameState.mode === "ai") {
+      // AI mode - handle locally
+      const deck = shuffleDeckTreseta(createDeckTreseta());
+      const dealt = dealCardsTreseta(deck);
 
-    setGameState((prev) => ({
-      ...prev,
-      myHand: dealt.player1Hand,
-      aiHand: dealt.player2Hand,
-      myCards: [],
-      aiCards: [],
-      playedCards: [],
-      currentPlayer: 1,
-      gamePhase: "playing",
-      remainingDeck: dealt.remainingDeck,
-      remainingCardsCount: dealt.remainingDeck.length,
-      opponentHandCount: dealt.player2Hand.length,
-      myPoints: 0,
-      opponentPoints: 0,
-      playableCards: dealt.player1Hand.map((c) => c.id),
-      canAkuze: prev.akuzeEnabled, // Reset based on settings
-      myAkuze: [], // Reset akuze for new partija
-      opponentAkuze: prev.akuzeEnabled ? checkAiAkuze(dealt.player2Hand) : [], // AI automatski prijavi nove akuže u novoj partiji
-      aiAkuzeAnnounced: false, // Reset for new partija
-      hasPlayedFirstCard: false, // Reset for new partija
-      message: "Nova partija! Vaš red.",
-    }));
+      setGameState((prev) => ({
+        ...prev,
+        myHand: dealt.player1Hand,
+        aiHand: dealt.player2Hand,
+        myCards: [],
+        aiCards: [],
+        playedCards: [],
+        currentPlayer: 1,
+        gamePhase: "playing",
+        remainingDeck: dealt.remainingDeck,
+        remainingCardsCount: dealt.remainingDeck.length,
+        opponentHandCount: dealt.player2Hand.length,
+        myPoints: 0,
+        opponentPoints: 0,
+        playableCards: dealt.player1Hand.map((c) => c.id),
+        canAkuze: prev.akuzeEnabled, // Reset based on settings
+        myAkuze: [], // Reset akuze for new partija
+        opponentAkuze: prev.akuzeEnabled ? checkAiAkuze(dealt.player2Hand) : [], // AI automatski prijavi nove akuže u novoj partiji
+        aiAkuzeAnnounced: false, // Reset for new partija
+        hasPlayedFirstCard: false, // Reset for new partija
+        hasPlayedFirstRound: false, // Reset for new partija - allow akuze again
+        message: "Nova partija! Vaš red.",
+      }));
+    } else if (gameState.mode === "online" && socket && gameState.roomId) {
+      // Online mode - request new partija from server
+      console.log("🔄 Requesting new partija from server...");
+      socket.emit("startNewPartija", {
+        roomId: gameState.roomId,
+        playerNumber: gameState.playerNumber,
+      });
+
+      // Set temporary message while waiting for server response
+      setGameState((prev) => ({
+        ...prev,
+        message: "Pokretanje nove partije...",
+      }));
+    }
   };
 
   const handleCardClick = (card) => {
@@ -1248,7 +1462,6 @@ function Game({ gameData, onGameEnd }) {
         }
       }
       playLocalCard(card, 1);
-      setSelectedCard(null);
       return;
     }
 
@@ -1264,13 +1477,9 @@ function Game({ gameData, onGameEnd }) {
       return;
     }
 
-    if (selectedCard && selectedCard.id === card.id) {
-      setIsCardPlaying(true); // Block clicks for online mode too
-      playCard(gameState.roomId, card);
-      setSelectedCard(null);
-    } else {
-      setSelectedCard(card);
-    }
+    // Play card immediately with one click (consistent with 2v2 and AI)
+    setIsCardPlaying(true);
+    playCard(gameState.roomId, card);
   };
 
   if (!gameState) {
@@ -1391,25 +1600,13 @@ function Game({ gameData, onGameEnd }) {
               gameState.gameType === "treseta" &&
               gameState.akuzeEnabled &&
               gameState.canAkuze &&
-              !gameState.hasPlayedFirstCard &&
+              !gameState.hasPlayedFirstRound &&
               gameState.currentPlayer === gameState.playerNumber &&
               gameState.gamePhase === "playing";
-
-            console.log("[Desktop Akuze Debug]", {
-              gameType: gameState.gameType,
-              akuzeEnabled: gameState.akuzeEnabled,
-              canAkuze: gameState.canAkuze,
-              hasPlayedFirstCard: gameState.hasPlayedFirstCard,
-              currentPlayer: gameState.currentPlayer,
-              playerNumber: gameState.playerNumber,
-              gamePhase: gameState.gamePhase,
-              shouldShowAkuze,
-            });
 
             if (!shouldShowAkuze) return null;
 
             const availableAkuze = checkAkuze(gameState.myHand);
-            console.log("[Desktop Akuze] Available akuze:", availableAkuze);
 
             return (
               availableAkuze.length > 0 && (
@@ -1462,25 +1659,13 @@ function Game({ gameData, onGameEnd }) {
               gameState.gameType === "treseta" &&
               gameState.akuzeEnabled &&
               gameState.canAkuze &&
-              !gameState.hasPlayedFirstCard &&
+              !gameState.hasPlayedFirstRound &&
               gameState.currentPlayer === gameState.playerNumber &&
               gameState.gamePhase === "playing";
-
-            console.log("[Mobile Akuze Debug]", {
-              gameType: gameState.gameType,
-              akuzeEnabled: gameState.akuzeEnabled,
-              canAkuze: gameState.canAkuze,
-              hasPlayedFirstCard: gameState.hasPlayedFirstCard,
-              currentPlayer: gameState.currentPlayer,
-              playerNumber: gameState.playerNumber,
-              gamePhase: gameState.gamePhase,
-              shouldShowMobileAkuze,
-            });
 
             if (!shouldShowMobileAkuze) return null;
 
             const availableAkuze = checkAkuze(gameState.myHand);
-            console.log("[Mobile Akuze] Available akuze:", availableAkuze);
 
             return (
               availableAkuze.length > 0 && (
@@ -1649,7 +1834,7 @@ function Game({ gameData, onGameEnd }) {
                   key={card.id}
                   card={card}
                   isPlayable={isPlayable}
-                  isSelected={selectedCard && selectedCard.id === card.id}
+                  isSelected={false}
                   disabled={isCardPlaying}
                   onClick={handleCardClick}
                   size={cardSize}
@@ -1847,7 +2032,7 @@ function Game({ gameData, onGameEnd }) {
               {gameState.gameType === "treseta" &&
                 gameState.akuzeEnabled &&
                 gameState.canAkuze &&
-                !gameState.hasPlayedFirstCard &&
+                !gameState.hasPlayedFirstRound &&
                 (() => {
                   const availableAkuze = checkAkuze(gameState.myHand);
                   return availableAkuze.map((akuz, index) => (
@@ -2132,9 +2317,32 @@ function Game({ gameData, onGameEnd }) {
             </div>
 
             <div className="final-score-actions">
-              <button onClick={startNewPartija} className="btn-primary-large">
-                ▶️ Sljedeća partija
-              </button>
+              {gameState.mode === "ai" ? (
+                <button onClick={startNewPartija} className="btn-primary-large">
+                  ▶️ Sljedeća partija
+                </button>
+              ) : // Online mode - show continue button or status
+              nextPartidaStatus.playerReady ? (
+                nextPartidaStatus.waitingFor > 0 ? (
+                  <div className="waiting-opponent-message">
+                    <div className="loading-spinner">⏳</div>
+                    <p>Čeka se protivnikova odluka...</p>
+                    <small>Protivnik treba da potvrdi nastavak</small>
+                  </div>
+                ) : (
+                  <div className="loading-spinner-message">
+                    <div className="loading-spinner">⏳</div>
+                    <p>Pokretanje nove partije...</p>
+                  </div>
+                )
+              ) : (
+                <button
+                  onClick={handleContinueNextPartija}
+                  className="btn-primary-large"
+                >
+                  ▶️ Nastavi sljedeću partiju
+                </button>
+              )}
               <button onClick={onGameEnd} className="btn-secondary-large">
                 🏠 Glavni meni
               </button>
