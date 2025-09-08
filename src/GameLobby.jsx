@@ -30,8 +30,11 @@ function GameLobby({ onGameStart, onBack, gameType }) {
 
     // Listen for active games updates
     socket.on("activeGamesUpdate", (games) => {
-      console.log("📋 Received active games:", games);
-      setActiveGames(games);
+      // Filter games by gameType to show only relevant games in this lobby
+      const filteredGames = games.filter((game) => game.gameType === gameType);
+      console.log(`🎮 Filtered to ${filteredGames.length} ${gameType} games`);
+
+      setActiveGames(filteredGames);
       setLoading(false);
     });
 

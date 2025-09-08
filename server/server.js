@@ -555,23 +555,40 @@ io.on("connection", (socket) => {
     broadcastGameList();
   });
 
-  socket.on("getActiveGames", () => {
-    const customGames = Array.from(gameRooms.values())
-      .filter((room) => room.isCustom && room.status !== "playing")
-      .map((room) => ({
-        id: room.id,
-        name: room.name,
-        gameType: room.gameType,
-        gameMode: room.gameMode,
-        creator: room.creator,
-        playerCount: room.players.length,
-        maxPlayers: room.maxPlayers,
-        hasPassword: room.hasPassword,
-        status: room.status,
-        createdAt: room.createdAt,
-      }));
+  socket.on("getActiveGames", (data) => {
+    const requestedGameType = data?.gameType;
+    console.log(
+      `📋 Requesting active games for gameType: ${requestedGameType}`
+    );
 
-    socket.emit("activeGamesUpdate", customGames);
+    let customGames = Array.from(gameRooms.values()).filter(
+      (room) => room.isCustom && room.status !== "playing"
+    );
+
+    // Filter by gameType if specified
+    if (requestedGameType) {
+      customGames = customGames.filter(
+        (room) => room.gameType === requestedGameType
+      );
+      console.log(
+        `🎯 Filtered to ${customGames.length} ${requestedGameType} games`
+      );
+    }
+
+    const gamesList = customGames.map((room) => ({
+      id: room.id,
+      name: room.name,
+      gameType: room.gameType,
+      gameMode: room.gameMode,
+      creator: room.creator,
+      playerCount: room.players.length,
+      maxPlayers: room.maxPlayers,
+      hasPassword: room.hasPassword,
+      status: room.status,
+      createdAt: room.createdAt,
+    }));
+
+    socket.emit("activeGamesUpdate", gamesList);
   });
 
   socket.on("leaveCustomGame", (roomId) => {
