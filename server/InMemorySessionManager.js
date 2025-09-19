@@ -18,10 +18,15 @@ class InMemorySessionManager {
       .substr(2, 9)}`;
     const sessionId = `id_${Date.now()}`;
 
+    // Generate stable userId if not provided
+    const userId =
+      userData.userId ||
+      `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
     const sessionData = {
       sessionToken,
       sessionId,
-      userId: userData.userId || null,
+      userId,
       userName: userData.name,
       email: userData.email || null,
       isGuest: userData.isGuest !== false,
@@ -33,8 +38,10 @@ class InMemorySessionManager {
 
     this.sessions.set(sessionToken, sessionData);
 
-    console.log(`✅ InMemory session created: ${userData.name} (${sessionId})`);
-    return { sessionToken, sessionId };
+    console.log(
+      `✅ InMemory session created: ${userData.name} (${sessionId}) userId: ${userId}`
+    );
+    return { sessionToken, sessionId, userId };
   }
 
   async validateSession(sessionToken) {

@@ -97,37 +97,439 @@ function sortCards(cards, gameType = "briskula") {
   });
 }
 
-function Game({ gameData, onGameEnd }) {
+function Game({
+  gameData,
+  onGameEnd,
+  isSpectatorMode = false,
+  spectatorRoomId = null,
+}) {
   const {
     socket,
     user,
     playCard,
     leaveRoom,
     leaveRoomPermanently,
+    forfeitMatch,
     findMatch,
     rematch,
     saveGameState,
     clearGameState,
+    gameState: savedGameStateFromContext,
   } = useSocket();
 
   const { addToast } = useToast();
 
+  // Spectator mode states
+  const [isSpectator, setIsSpectator] = useState(
+    isSpectatorMode || gameData?.spectator || gameData?.isSpectatorMode || false
+  );
+  const [spectatorState, setSpectatorState] = useState(null);
+  const [reconnectModalVisible, setReconnectModalVisible] = useState(false);
+  const [playerDisconnected, setPlayerDisconnected] = useState(false);
+
+  // New states for grace period and forfeit handling
+  const [disconnectionInfo, setDisconnectionInfo] = useState(null); // { graceEndsAt, message, canReconnect }
+  const [graceTimeLeft, setGraceTimeLeft] = useState(0);
+  const [playerForfeited, setPlayerForfeited] = useState(false);
+
   const mode = useMemo(() => {
-    if (!gameData) return "online";
-    if (
-      gameData?.gameMode === "1vAI" ||
-      gameData?.opponent?.isAI ||
-      gameData?.opponent?.name === "AI Bot"
-    ) {
-      return "ai";
+    // First check gameData if available
+    if (gameData) {
+      // Check for spectator mode first
+      if (isSpectator || gameData?.spectator || gameData?.isSpectatorMode) {
+        return "spectator";
+      }
+
+      if (
+        gameData?.gameMode === "1vAI" ||
+        gameData?.opponent?.isAI ||
+        gameData?.opponent?.name === "AI Bot"
+      ) {
+        return "ai";
+      }
+      return "online";
     }
+
+    // If no gameData, check saved state to determine mode
+    try {
+      const savedState = localStorage.getItem("gameState");
+      const savedAppGameMode = localStorage.getItem("gameMode");
+
+      if (savedState) {
+        const parsedState = JSON.parse(savedState);
+        if (
+          parsedState.mode === "ai" ||
+          parsedState.gameMode === "1vAI" ||
+          parsedState.opponent?.isAI ||
+          parsedState.opponent?.name === "AI Bot"
+        ) {
+          return "ai";
+        }
+      }
+
+      // Additional check: if app-level gameMode indicates AI
+      if (savedAppGameMode === "1vAI") {
+        return "ai";
+      }
+
+      // IMPORTANT: For AI games, check if we came from game selection
+      // AI games might not have gameState saved but should be detectable from URL/history
+      const currentURL = window.location.href;
+      if (currentURL.includes("ai") || currentURL.includes("AI")) {
+        return "ai";
+      }
+
+      // Check if the app was in AI mode before refresh by checking appState combination
+      const savedAppState = localStorage.getItem("appState");
+      const savedGameType = localStorage.getItem("gameType");
+
+      // If we're in game state but have no online game data, it's likely an AI game
+      if (savedAppState === "game" && savedGameType && !savedState) {
+        console.log("🤖 [Game] Detected AI game from app state pattern");
+        return "ai";
+      }
+    } catch (error) {
+      console.warn(
+        "🔄 [Game] Could not parse saved game state for mode detection:",
+        error
+      );
+    }
+
     return "online";
-  }, [gameData]);
+  }, [gameData, isSpectator]);
+
+  // Helper function to find opponent from players array
+  const findOpponentFromPlayers = (players, playerNumber, userName) => {
+    if (!players || !Array.isArray(players)) return null;
+    // Pronađi protivnika koji NIJE ja
+    let opponent = players.find((p) => p.playerNumber !== playerNumber);
+    // Ako je opponent isti kao user, probaj naći drugog
+    if (opponent && opponent.name === userName) {
+      opponent = players.find(
+        (p) => p.playerNumber !== playerNumber && p.name !== userName
+      );
+    }
+    return opponent
+      ? {
+          name: opponent.name,
+          userId: opponent.userId,
+          isGuest: opponent.isGuest,
+        }
+      : null;
+  };
+
+  // Create game state from provided data (for gameStart events)
+  const createGameStateFromData = (data) => {
+    if (!data || !data.roomId) {
+      console.warn("⚠️ No data provided to createGameStateFromData");
+      return null;
+    }
+
+    // DEBUG: Log everything bitno
+    console.log("🔍 [createGameStateFromData] Data:", data);
+    console.log("🔍 [createGameStateFromData] Spectator flags:", {
+      spectator: data.spectator,
+      isSpectatorMode: data.isSpectatorMode,
+      playerNumber: data.playerNumber,
+    });
+    console.log("🔍 [createGameStateFromData] Players:", data.players);
+
+    // --- SPECTATOR MODE: Only if explicitly flagged ---
+    if (data.spectator === true || data.isSpectatorMode === true) {
+      console.log("👁️ Creating spectator state");
+      const player1 = data.players?.find((p) => p.playerNumber === 1);
+      const player2 = data.players?.find((p) => p.playerNumber === 2);
+      return {
+        mode: "spectator",
+        roomId: data.roomId,
+        playerNumber: null, // Spectators have no playerNumber
+        opponent: null, // Spectators have no specific opponent
+        gameType: data.gameType,
+        myHand: [],
+        opponentHandCount: 0,
+        myCards: [],
+        opponentCards: [],
+        trump: data.gameState?.trump,
+        currentPlayer: data.gameState?.currentPlayer,
+        playedCards: data.gameState?.playedCards || [],
+        gamePhase: "spectating",
+        winner: data.gameState?.winner,
+        message: `👁️ Gledate: ${player1?.name || "Igrač 1"} vs ${
+          player2?.name || "Igrač 2"
+        }`,
+        remainingCardsCount: data.gameState?.remainingCardsCount || 0,
+        playableCards: [],
+        myPoints: data.gameState?.player1Points || 0,
+        opponentPoints: data.gameState?.player2Points || 0,
+        player1Name: player1?.name || "Igrač 1",
+        player2Name: player2?.name || "Igrač 2",
+        players: data.players || [],
+        isTournamentMatch: data.isTournamentMatch || false,
+        tournamentId: data.tournamentId,
+        matchId: data.matchId,
+        ...(data.gameType === "treseta" && {
+          akuzeEnabled:
+            data.gameState?.akuzeEnabled !== undefined
+              ? data.gameState.akuzeEnabled
+              : true,
+          totalMyPoints: data.gameState?.totalPlayer1Points || 0,
+          totalOpponentPoints: data.gameState?.totalPlayer2Points || 0,
+          partijas: data.gameState?.partijas || [],
+          currentPartija: data.gameState?.currentPartija || 1,
+          hasPlayedFirstCard: data.gameState?.hasPlayedFirstCard || false,
+          hasPlayedFirstRound: data.gameState?.hasPlayedFirstRound || false,
+          targetScore: data.targetScore || data.gameState?.targetScore || 31,
+        }),
+      };
+    }
+
+    // --- PLAYER MODE: If playerNumber is present, treat as player ---
+    if (data.playerNumber) {
+      // Find opponent
+      const opponent = data.players?.find(
+        (p) => p.playerNumber !== data.playerNumber
+      );
+      const me = data.players?.find(
+        (p) => p.playerNumber === data.playerNumber
+      );
+
+      // Extract my hand based on playerNumber
+      const myHand =
+        data.playerNumber === 1
+          ? data.gameState?.player1Hand || []
+          : data.gameState?.player2Hand || [];
+
+      return {
+        mode: "online",
+        roomId: data.roomId,
+        playerNumber: data.playerNumber,
+        opponent: opponent
+          ? { name: opponent.name, userId: opponent.userId }
+          : null,
+        gameType: data.gameType,
+        myHand: myHand,
+        opponentHandCount:
+          data.playerNumber === 1
+            ? (data.gameState?.player2Hand || []).length
+            : (data.gameState?.player1Hand || []).length,
+        myCards: data.gameState?.myCards || [],
+        opponentCards: data.gameState?.opponentCards || [],
+        trump: data.gameState?.trump,
+        currentPlayer: data.gameState?.currentPlayer,
+        playedCards: data.gameState?.playedCards || [],
+        gamePhase: data.gameState?.gamePhase || "playing",
+        winner: data.gameState?.winner,
+        message: data.gameState?.message || "",
+        remainingCardsCount: data.gameState?.remainingCardsCount || 0,
+        playableCards: data.gameState?.playableCards || [],
+        myPoints: data.gameState?.myPoints || 0,
+        opponentPoints: data.gameState?.opponentPoints || 0,
+        player1Name:
+          data.players?.find((p) => p.playerNumber === 1)?.name || "Igrač 1",
+        player2Name:
+          data.players?.find((p) => p.playerNumber === 2)?.name || "Igrač 2",
+        players: data.players || [],
+        isTournamentMatch: data.isTournamentMatch || false,
+        tournamentId: data.tournamentId,
+        matchId: data.matchId,
+        ...(data.gameType === "treseta" && {
+          akuzeEnabled:
+            data.gameState?.akuzeEnabled !== undefined
+              ? data.gameState.akuzeEnabled
+              : true,
+          totalMyPoints: data.gameState?.totalPlayer1Points || 0,
+          totalOpponentPoints: data.gameState?.totalPlayer2Points || 0,
+          partijas: data.gameState?.partijas || [],
+          currentPartija: data.gameState?.currentPartija || 1,
+          hasPlayedFirstCard: data.gameState?.hasPlayedFirstCard || false,
+          hasPlayedFirstRound: data.gameState?.hasPlayedFirstRound || false,
+          targetScore: data.targetScore || data.gameState?.targetScore || 31,
+        }),
+      };
+    }
+
+    // --- REGULAR PLAYER MODE (existing logic) ---
+    let playerNumber = data.playerNumber;
+    if (!playerNumber && data.players && user && user.name) {
+      const me = data.players.find((p) => p.name === user.name);
+      if (me) playerNumber = me.playerNumber;
+    }
+
+    console.log("🔍 [createGameStateFromData] Opponent:", data.opponent);
+    console.log("🔍 [createGameStateFromData] playerNumber:", playerNumber);
+    console.log("🔍 [createGameStateFromData] user:", user?.name);
+
+    // Online state – kompatibilno s postojećim backendom
+    let myHand =
+      playerNumber === 1
+        ? data.gameState.player1Hand
+        : data.gameState.player2Hand;
+    let opponentHandCount =
+      playerNumber === 1
+        ? (data.gameState.player2Hand || []).length
+        : (data.gameState.player1Hand || []).length;
+
+    // Ako su sve karte u myHand hidden, to je bug!
+    if (myHand && myHand.length > 0 && myHand.every((c) => c.hidden)) {
+      console.error(
+        "❌ [createGameStateFromData] SVE KARTE SU HIDDEN! Ovo je bug u mappingu ili payloadu.",
+        myHand
+      );
+      // Pokušaj fallback: uzmi karte iz gameState prema playerNumber
+      if (
+        playerNumber === 1 &&
+        data.gameState.player1Hand &&
+        data.gameState.player1Hand.some((c) => !c.hidden)
+      ) {
+        myHand = data.gameState.player1Hand;
+      } else if (
+        playerNumber === 2 &&
+        data.gameState.player2Hand &&
+        data.gameState.player2Hand.some((c) => !c.hidden)
+      ) {
+        myHand = data.gameState.player2Hand;
+      }
+    }
+
+    // Fallback za opponent: ako je opponent isti kao user, probaj iz players arraya
+    let opponentObj = data.opponent;
+    if (opponentObj && user && opponentObj.name === user.name && data.players) {
+      const found = findOpponentFromPlayers(
+        data.players,
+        playerNumber,
+        user.name
+      );
+      if (found) {
+        opponentObj = found;
+        console.warn(
+          "⚠️ [createGameStateFromData] Opponent bio isti kao user, fallback na:",
+          found
+        );
+      }
+    }
+    if (!opponentObj && data.players) {
+      opponentObj = findOpponentFromPlayers(
+        data.players,
+        playerNumber,
+        user?.name
+      );
+    }
+
+    const state = {
+      mode: "online",
+      roomId: data.roomId,
+      playerNumber: playerNumber,
+      opponent: opponentObj,
+      gameType: data.gameType, // Add gameType to state
+      myHand: myHand,
+      opponentHandCount: opponentHandCount,
+      myCards: [],
+      opponentCards: [],
+      trump: data.gameState.trump,
+      currentPlayer: data.gameState.currentPlayer,
+      playedCards: [],
+      gamePhase: "playing",
+      winner: null,
+      message:
+        data.gameState.currentPlayer === playerNumber
+          ? "Vaš red! Odaberite kartu za igranje."
+          : "Protivnikov red. Čekajte...",
+      remainingCardsCount: (data.gameState.remainingDeck || []).length,
+      playableCards: data.gameState.playableCards || [], // Lista ID-jeva karata koje se mogu igrati
+      myPoints: 0, // Bodovi igrača
+      opponentPoints: 0, // Bodovi protivnika
+
+      // Tournament support
+      isTournamentMatch: data.isTournamentMatch || false,
+      tournamentId: data.tournamentId,
+      matchId: data.matchId,
+
+      // Akuže support for Treseta online games
+      ...(data.gameType === "treseta" && {
+        akuzeEnabled:
+          data.akuzeEnabled !== undefined ? data.akuzeEnabled : true,
+
+        // Long-term scoring system for Treseta
+        totalMyPoints: data.gameState?.totalMyPoints || 0,
+        totalOpponentPoints: data.gameState?.totalOpponentPoints || 0,
+        partijas: data.gameState?.partijas || [], // Historia partija
+        currentPartija: data.gameState?.currentPartija || 1,
+        hasPlayedFirstCard: data.gameState?.hasPlayedFirstCard || false,
+        hasPlayedFirstRound: data.gameState?.hasPlayedFirstRound || false,
+        targetScore: data.targetScore || data.gameState?.targetScore || 31, // Target score from gameData or default
+      }),
+    };
+
+    console.log("🎮 Final game state from createGameStateFromData:", state);
+    console.log("🎮 Final opponent:", state.opponent);
+    return state;
+  };
 
   const initializeGameState = () => {
     if (!gameData) return null;
 
+    console.log("🔍 [Game] Initializing with gameData:", gameData);
+    console.log("🔍 [Game] Spectator flags:", {
+      spectator: gameData?.spectator,
+      isSpectatorMode: gameData?.isSpectatorMode,
+      mode: mode,
+    });
+
+    // Check for spectator mode early
+    if (
+      gameData?.spectator === true ||
+      gameData?.isSpectatorMode === true ||
+      mode === "spectator"
+    ) {
+      console.log(
+        "👁️ [Game] Detected spectator mode - clearing any saved state and using createGameStateFromData"
+      );
+      clearGameState(); // Clear any saved game state for spectators
+      return createGameStateFromData(gameData);
+    }
+
+    console.log("🔍 [Game] Opponent data:", gameData?.opponent);
+    console.log("🔍 [Game] Players data:", gameData?.players);
+    console.log("🔍 [Game] Tournament data:", {
+      isTournamentMatch: gameData?.isTournamentMatch,
+      tournamentId: gameData?.tournamentId,
+      matchId: gameData?.matchId,
+    });
+
+    // DEBUG: Check if gameData has required fields for online games
+    console.log("🔍 [Game] gameData structure check:", {
+      hasGameState: !!gameData?.gameState,
+      hasPlayers: !!gameData?.players,
+      hasOpponent: !!gameData?.opponent,
+      hasRoomId: !!gameData?.roomId,
+      gameMode: gameData?.gameMode,
+      player1Hand: gameData?.gameState?.player1Hand?.length || 0,
+      player2Hand: gameData?.gameState?.player2Hand?.length || 0,
+    });
+
+    // Tournament branch removed: server now emits standard 'gameStart' for tournaments too
+
     if (mode === "ai") {
+      // Check if there's a saved AI game state first
+      const savedState = localStorage.getItem("gameState");
+      if (savedState) {
+        try {
+          const parsedState = JSON.parse(savedState);
+          if (parsedState.mode === "ai" && parsedState.roomId === "local-ai") {
+            console.log("🤖 [Game] Found saved AI game state, restoring it");
+            return parsedState; // Return the exact saved state
+          }
+        } catch (error) {
+          console.warn(
+            "🔄 [Game] Error parsing saved AI state, creating new game:",
+            error
+          );
+        }
+      }
+
+      // No saved state found or error parsing - create new AI game
+      console.log("🤖 [Game] No saved AI state found, creating new AI game");
+
       // Lokalna partija 1v1 protiv AI-ja
       const useTreseta = (gameData.gameType || "briskula") === "treseta";
       const deck = useTreseta
@@ -202,39 +604,77 @@ function Game({ gameData, onGameEnd }) {
     }
 
     // Online state – kompatibilno s postojećim backendom
+    // --- FIX: Check if gameState exists before proceeding ---
+    if (!gameData.gameState) {
+      console.log(
+        "⚠️ [Game] gameState is missing from gameData, attempting fallback"
+      );
+      // Try to use saved game state as fallback
+      const savedState = localStorage.getItem("gameState");
+      if (savedState) {
+        try {
+          const parsedState = JSON.parse(savedState);
+          if (parsedState.mode === "online" && parsedState.roomId) {
+            console.log("🔄 [Game] Using saved online game state as fallback");
+            return parsedState;
+          }
+        } catch (error) {
+          console.warn("❌ [Game] Error parsing saved state:", error);
+        }
+      }
+
+      // If no valid fallback, create minimal state and let reconnection handle it
+      console.log("🔄 [Game] Creating minimal state for reconnection");
+      return createGameStateFromData(gameData);
+    }
+
+    // --- FIX: Odredi playerNumber ako nije definiran ---
+    let playerNumber = gameData.playerNumber;
+    if (!playerNumber && gameData.players && user && user.name) {
+      const me = gameData.players.find((p) => p.name === user.name);
+      if (me) playerNumber = me.playerNumber;
+    }
+
     const myHand =
-      gameData.playerNumber === 1
-        ? gameData.gameState.player1Hand
-        : gameData.gameState.player2Hand;
+      playerNumber === 1
+        ? gameData.gameState.player1Hand || []
+        : gameData.gameState.player2Hand || [];
 
     const opponentHandCount =
-      gameData.playerNumber === 1
+      playerNumber === 1
         ? (gameData.gameState.player2Hand || []).length
         : (gameData.gameState.player1Hand || []).length;
 
     const state = {
       mode: "online",
       roomId: gameData.roomId,
-      playerNumber: gameData.playerNumber,
-      opponent: gameData.opponent,
+      playerNumber: playerNumber,
+      opponent:
+        gameData.opponent ||
+        findOpponentFromPlayers(gameData.players, playerNumber, user?.name),
       gameType: gameData.gameType, // Add gameType to state
       myHand: myHand,
       opponentHandCount: opponentHandCount,
       myCards: [],
       opponentCards: [],
-      trump: gameData.gameState.trump,
-      currentPlayer: gameData.gameState.currentPlayer,
+      trump: gameData.gameState?.trump || null,
+      currentPlayer: gameData.gameState?.currentPlayer || 1,
       playedCards: [],
       gamePhase: "playing",
       winner: null,
       message:
-        gameData.gameState.currentPlayer === gameData.playerNumber
+        (gameData.gameState?.currentPlayer || 1) === playerNumber
           ? "Vaš red! Odaberite kartu za igranje."
           : "Protivnikov red. Čekajte...",
-      remainingCardsCount: (gameData.gameState.remainingDeck || []).length,
-      playableCards: gameData.gameState.playableCards || [], // Lista ID-jeva karata koje se mogu igrati
+      remainingCardsCount: (gameData.gameState?.remainingDeck || []).length,
+      playableCards: gameData.gameState?.playableCards || [], // Lista ID-jeva karata koje se mogu igrati
       myPoints: 0, // Bodovi igrača
       opponentPoints: 0, // Bodovi protivnika
+
+      // Tournament support
+      isTournamentMatch: gameData.isTournamentMatch || false,
+      tournamentId: gameData.tournamentId,
+      matchId: gameData.matchId,
 
       // Akuže support for Treseta online games
       ...(gameData.gameType === "treseta" && {
@@ -261,7 +701,120 @@ function Game({ gameData, onGameEnd }) {
     return state;
   };
 
-  const [gameState, setGameState] = useState(initializeGameState);
+  const [gameState, setGameState] = useState(() => {
+    const initialState = initializeGameState();
+    console.log("🎯 [Game] Initial gameState:", initialState);
+    console.log("🎯 [Game] GamePhase:", initialState?.gameState?.gamePhase);
+
+    // If no initial state, try to get game type from localStorage
+    let savedGameType = "briskula";
+    let savedGameMode = "1v1";
+    let savedOpponent = null;
+    let savedMode = "online"; // Default mode
+
+    if (!initialState) {
+      // Try to get game type from localStorage
+      try {
+        const savedState = localStorage.getItem("gameState");
+        const savedAppGameType = localStorage.getItem("gameType");
+        const savedAppGameMode = localStorage.getItem("gameMode");
+
+        if (savedState) {
+          const parsedState = JSON.parse(savedState);
+          if (parsedState.gameType) {
+            savedGameType = parsedState.gameType;
+          }
+          if (parsedState.gameMode) {
+            savedGameMode = parsedState.gameMode;
+          }
+          if (parsedState.opponent) {
+            savedOpponent = parsedState.opponent;
+          }
+          // Check if it was an AI game
+          if (
+            parsedState.mode === "ai" ||
+            parsedState.gameMode === "1vAI" ||
+            parsedState.opponent?.isAI ||
+            parsedState.opponent?.name === "AI Bot"
+          ) {
+            savedMode = "ai";
+          }
+        }
+
+        // Fallback to app-level saved game type
+        if (savedAppGameType) {
+          savedGameType = savedAppGameType;
+        }
+        if (savedAppGameMode) {
+          savedGameMode = savedAppGameMode;
+          // Also check mode from saved app game mode
+          if (savedAppGameMode === "1vAI") {
+            savedMode = "ai";
+          }
+        }
+
+        // IMPORTANT: Additional AI detection for refresh scenarios
+        // If we're in game state but have no online game data, it's likely an AI game
+        const savedAppState = localStorage.getItem("appState");
+        if (savedAppState === "game" && savedAppGameType && !savedState) {
+          console.log(
+            "🤖 [Game] Detected AI game from app state pattern in fallback"
+          );
+          savedMode = "ai";
+        }
+      } catch (error) {
+        console.warn(
+          "🔄 [Game] Could not parse saved game state for fallback:",
+          error
+        );
+      }
+
+      console.log(
+        "🔄 [Game] Using fallback state with gameType:",
+        savedGameType,
+        "gameMode:",
+        savedGameMode,
+        "mode:",
+        savedMode
+      );
+    }
+
+    // Return safe default state if no initial state to prevent crashes
+    return (
+      initialState || {
+        mode: savedMode,
+        roomId: null,
+        playerNumber: null,
+        opponent: savedOpponent,
+        gameType: savedGameType,
+        myHand: [],
+        opponentHandCount: 0,
+        myCards: [],
+        opponentCards: [],
+        trump: null,
+        currentPlayer: 1,
+        playedCards: [],
+        gamePhase: "waiting",
+        winner: null,
+        message: "Učitavanje igre...",
+        remainingCardsCount: 0,
+        playableCards: [],
+        myPoints: 0,
+        opponentPoints: 0,
+        player1Name: "Igrač 1",
+        player2Name: "Igrač 2",
+        players: [],
+        // Treseta defaults
+        partijas: [],
+        myAkuze: [],
+        opponentAkuze: [],
+        totalMyPoints: 0,
+        totalOpponentPoints: 0,
+        currentPartija: 1,
+        hasPlayedFirstCard: false,
+      }
+    );
+  });
   const [showScores, setShowScores] = useState(false);
   const [showAkuzeModal, setShowAkuzeModal] = useState(false);
   // Determine if we're on mobile
@@ -279,6 +832,28 @@ function Game({ gameData, onGameEnd }) {
   const roundFirstPlayerRef = useRef(null);
   const aiThinking = useRef(false);
   const roundResolving = useRef(false);
+
+  // Early return if gameState is invalid
+  if (!gameState) {
+    console.error("❌ [Game] gameState is null/undefined!");
+    return (
+      <div className="game-container">
+        <div className="error-message">Greška: Nema podataka o igri</div>
+      </div>
+    );
+  }
+
+  // Show loading state if myHand is not yet loaded from server
+  if (!Array.isArray(gameState?.myHand) && gameState.gamePhase === "waiting") {
+    return (
+      <div className="game-container">
+        <div className="loading-message">
+          <div className="spinner"></div>
+          <p>Obnavljam igru...</p>
+        </div>
+      </div>
+    );
+  }
 
   const playLocalCard = (card, playerNum) => {
     setGameState((prevState) => {
@@ -651,11 +1226,56 @@ function Game({ gameData, onGameEnd }) {
   };
 
   useEffect(() => {
+    // Only initialize when we have gameData and no current gameState
+    if (!gameData || (gameState && Object.keys(gameState).length > 0)) {
+      return;
+    }
+
+    console.log("🔄 [Game] useEffect triggered with gameData:", gameData);
     const initialState = initializeGameState();
+    console.log("🔄 [Game] initializeGameState returned:", initialState);
     if (initialState) {
       setGameState(initialState);
+      console.log("✅ [Game] gameState set successfully");
+    } else {
+      console.log("❌ [Game] initializeGameState returned null/undefined");
     }
-  }, [gameData]);
+  }, [gameData, gameState]);
+
+  // Handle game state restoration from SocketContext
+  useEffect(() => {
+    if (savedGameStateFromContext && !gameData) {
+      console.log(
+        "🔄 [Game] Restoring game state from SocketContext:",
+        savedGameStateFromContext
+      );
+
+      // For AI games, restore the exact saved state directly
+      if (savedGameStateFromContext.mode === "ai") {
+        console.log("🤖 [Game] Restoring AI game state directly");
+        setGameState(savedGameStateFromContext);
+        console.log("✅ [Game] AI game state restored from SocketContext");
+      } else {
+        // For online games, use the server data processing function
+        const restoredState = createGameStateFromData(
+          savedGameStateFromContext
+        );
+        if (restoredState) {
+          setGameState(restoredState);
+          console.log(
+            "✅ [Game] Online game state restored from SocketContext"
+          );
+        }
+      }
+    }
+  }, [savedGameStateFromContext, gameData]);
+
+  // Auto-reconnect handled by SocketContext now
+  useEffect(() => {
+    console.log(
+      "🔄 Game component mounted - auto-reconnect handled by SocketContext"
+    );
+  }, []);
 
   // AI Akuze notification effect - show AI akuze at start of partija
   useEffect(() => {
@@ -704,32 +1324,27 @@ function Game({ gameData, onGameEnd }) {
   ]);
 
   useEffect(() => {
-    // Add null check for gameState
-    if (!gameState) {
-      return;
-    }
+    // Disable AI logic in tournament matches or non-AI modes
+    if (gameState?.isTournamentMatch) return;
+    if (!gameState) return;
+    // Only apply to AI mode
+    if (mode !== "ai") return;
+
+    const played = Array.isArray(gameState.playedCards)
+      ? gameState.playedCards
+      : [];
 
     if (
       gameState.currentPlayer === 2 &&
       !aiThinking.current &&
       !roundResolving.current &&
       gameState.gamePhase === "playing" &&
-      gameState.playedCards.filter((c) => c).length < 2
+      played.filter((c) => c).length < 2
     ) {
-      console.log("[v0] ✅ AI SHOULD PLAY - all conditions met");
       aiThinking.current = true;
-
       setTimeout(() => {
-        console.log("[v0] 🤖 AI is choosing card...");
-
-        const aiIsFirst = !gameState.playedCards[0]; // AI is first if no card played yet
-        console.log("[v0] AI is first:", aiIsFirst);
-        console.log("[v0] Opponent card (if any):", gameState.playedCards[0]);
-
-        const firstPlayedCard =
-          (gameState.playedCards || []).find((c) => c) || null;
-
-        // For Trešeta, restrict AI's candidate hand to follow-suit if necessary
+        const aiIsFirst = !played[0];
+        const firstPlayedCard = (played || []).find((c) => c) || null;
         let aiHandForChoice = gameState.aiHand || [];
         if (gameState.gameType === "treseta" && firstPlayedCard && !aiIsFirst) {
           const sameSuit = (gameState.aiHand || []).filter(
@@ -737,14 +1352,6 @@ function Game({ gameData, onGameEnd }) {
           );
           if (sameSuit.length > 0) aiHandForChoice = sameSuit;
         }
-
-        console.log(
-          "[AI DEBUG] AI candidate hand:",
-          aiHandForChoice,
-          "firstPlayedCard:",
-          firstPlayedCard
-        );
-
         const aiCard =
           gameState.gameType === "treseta"
             ? chooseAiTreseta({
@@ -758,27 +1365,14 @@ function Game({ gameData, onGameEnd }) {
                 trumpSuit: gameState.trumpSuit,
                 aiIsFirst: aiIsFirst,
               });
-
-        console.log("[v0] 🎯 AI chose card:", aiCard);
         if (aiCard) {
           playLocalCard(aiCard, 2);
         } else {
-          console.log("[v0] ❌ AI could not choose a card!");
           aiThinking.current = false;
         }
       }, 1200);
-    } else {
-      console.log("[v0] ❌ AI should NOT play - conditions not met");
-      if (gameState.currentPlayer !== 2)
-        console.log("[v0] - currentPlayer is not 2 (AI)");
-      if (aiThinking.current) console.log("[v0] - AI is already thinking");
-      if (roundResolving.current) console.log("[v0] - Round is resolving");
-      if (gameState.gamePhase !== "playing")
-        console.log("[v0] - Game phase is not 'playing'");
-      if (gameState.playedCards.filter((c) => c).length >= 2)
-        console.log("[v0] - Already 2 cards played");
     }
-  }, [gameState]);
+  }, [gameState, mode]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -791,73 +1385,457 @@ function Game({ gameData, onGameEnd }) {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Countdown timer for player disconnection grace period
+  useEffect(() => {
+    if (!disconnectionInfo || !disconnectionInfo.graceEndsAt) return;
+
+    const updateCountdown = () => {
+      const timeLeft = Math.max(0, disconnectionInfo.graceEndsAt - Date.now());
+      setGraceTimeLeft(Math.ceil(timeLeft / 1000));
+
+      if (timeLeft <= 0) {
+        // Grace period ended, reset disconnection info
+        setDisconnectionInfo(null);
+        setPlayerDisconnected(false);
+      }
+    };
+
+    updateCountdown(); // Initial update
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [disconnectionInfo]);
+
   // Separate useEffect for saving game state to avoid infinite loops
   useEffect(() => {
     if (
       gameState?.gamePhase === "playing" &&
       gameState?.roomId &&
-      gameState?.mode === "online"
+      gameState?.mode === "online" &&
+      gameState?.mode !== "spectator" // Don't save state for spectators
     ) {
       const timeoutId = setTimeout(() => {
-        saveGameState({
+        // Avoid nesting gameState - just save the enhanced state directly
+        const onlineGameState = {
           ...gameState,
           roomId: gameState.roomId,
           gameMode: gameData?.gameMode || "1v1",
           gameType: gameState.gameType,
           opponent: gameState.opponent,
           playerNumber: gameState.playerNumber,
-          gameState: {
-            ...gameState,
-            playableCards: gameState.playableCards,
-          },
-        });
+          // No nested gameState - all data is at top level
+        };
+        saveGameState(onlineGameState);
       }, 1000); // Debounce saving to prevent too frequent calls
+
+      return () => clearTimeout(timeoutId);
+    }
+
+    // Also save AI game state to enable proper refresh handling
+    if (
+      gameState &&
+      gameState.mode === "ai" &&
+      gameState.gamePhase !== "finished"
+    ) {
+      const timeoutId = setTimeout(() => {
+        // Save complete AI game state for perfect restoration
+        const completeAIState = {
+          ...gameState, // Include all current game state
+          roomId: gameState.roomId || "local-ai",
+          gameMode: "1vAI", // Important: save as 1vAI to indicate AI mode
+          gameType: gameState.gameType,
+          opponent: gameState.opponent,
+          playerNumber: gameState.playerNumber,
+          mode: "ai", // Explicitly save mode
+          // Ensure AI-specific fields are preserved
+          aiHand: gameState.aiHand,
+          myHand: gameState.myHand,
+          remainingDeck: gameState.remainingDeck,
+          trump: gameState.trump,
+          trumpSuit: gameState.trumpSuit,
+          playedCards: gameState.playedCards,
+          myCards: gameState.myCards,
+          aiCards: gameState.aiCards,
+          currentPlayer: gameState.currentPlayer,
+          gamePhase: gameState.gamePhase,
+          myPoints: gameState.myPoints,
+          opponentPoints: gameState.opponentPoints,
+          // Treseta specific fields
+          ...(gameState.gameType === "treseta" && {
+            totalMyPoints: gameState.totalMyPoints,
+            totalOpponentPoints: gameState.totalOpponentPoints,
+            partijas: gameState.partijas,
+            currentPartija: gameState.currentPartija,
+            myAkuze: gameState.myAkuze,
+            opponentAkuze: gameState.opponentAkuze,
+            akuzeEnabled: gameState.akuzeEnabled,
+            canAkuze: gameState.canAkuze,
+            hasPlayedFirstCard: gameState.hasPlayedFirstCard,
+            hasPlayedFirstRound: gameState.hasPlayedFirstRound,
+            targetScore: gameState.targetScore,
+            aiAkuzeAnnounced: gameState.aiAkuzeAnnounced,
+          }),
+        };
+
+        console.log(
+          "💾 [Game] Saving complete AI game state:",
+          completeAIState
+        );
+        saveGameState(completeAIState);
+      }, 1000);
 
       return () => clearTimeout(timeoutId);
     }
   }, [gameState]);
 
-  // Socket event listeners (keeping the same logic as original)
+  // --- NOVO: Spectator mode and reconnect socket handlers ---
   useEffect(() => {
-    if (!socket || !gameState?.roomId || gameState?.mode !== "online") return;
+    if (!socket) return;
 
-    // Listener za novu igru nakon revan��a
-    socket.on("gameStart", (newGameData) => {
-      console.log("🎮 Nova igra počinje (revanš):", newGameData);
-      // Reset game state s novim podacima
-      const newState = initializeGameState();
-      if (newState) {
-        // Ažuriraj s novim game data
-        setGameState({
-          ...newState,
-          roomId: newGameData.roomId,
-          playerNumber: newGameData.playerNumber,
-          opponent: newGameData.opponent,
-          gameType: newGameData.gameType,
-          myHand:
-            newGameData.playerNumber === 1
-              ? newGameData.gameState.player1Hand
-              : newGameData.gameState.player2Hand,
-          opponentHandCount:
-            newGameData.playerNumber === 1
-              ? (newGameData.gameState.player2Hand || []).length
-              : (newGameData.gameState.player1Hand || []).length,
-          trump: newGameData.gameState.trump,
-          currentPlayer: newGameData.gameState.currentPlayer,
-          remainingCardsCount: (newGameData.gameState.remainingDeck || [])
-            .length,
-          playableCards: newGameData.gameState.playableCards || [],
-          gamePhase: "playing",
-          message:
-            newGameData.gameState.currentPlayer === newGameData.playerNumber
-              ? "Vaš red! Odaberite kartu za igranje."
-              : "Protivnikov red. Čekajte...",
+    // Reconnect handlers
+    socket.on("gameStateReconnected", (data) => {
+      console.log("🔄 Reconnected to game:", data);
+      setPlayerDisconnected(false);
+      setReconnectModalVisible(false);
+
+      // Save reconnect data for future use
+      if (data.playerId && data.roomId) {
+        localStorage.setItem("playerId", data.playerId);
+        localStorage.setItem("roomId", data.roomId);
+      }
+
+      // Convert raw server gameState to frontend format
+      const rawGameState = data.gameState;
+      const playerNumber = data.playerNumber;
+      const opponent = data.players?.find(
+        (p) => p.playerNumber !== playerNumber
+      );
+
+      // Create properly formatted gameState for frontend
+      const convertedGameState = {
+        ...rawGameState,
+        myHand: rawGameState[`player${playerNumber}Hand`] || [],
+        opponentHandCount:
+          rawGameState[`player${playerNumber === 1 ? 2 : 1}Hand`]?.length || 0,
+        myCards: rawGameState[`player${playerNumber}Cards`] || [],
+        opponentCards:
+          rawGameState[`player${playerNumber === 1 ? 2 : 1}Cards`] || [],
+        myPoints: rawGameState[`player${playerNumber}Points`] || 0,
+        opponentPoints:
+          rawGameState[`player${playerNumber === 1 ? 2 : 1}Points`] || 0,
+        playableCards: data.playableCards || rawGameState.playableCards || [],
+        // For Treseta specific fields
+        myAkuze: rawGameState[`player${playerNumber}Akuze`] || {
+          points: 0,
+          details: [],
+        },
+        opponentAkuze: rawGameState[
+          `player${playerNumber === 1 ? 2 : 1}Akuze`
+        ] || { points: 0, details: [] },
+        totalMyPoints:
+          playerNumber === 1
+            ? rawGameState.totalPlayer1Points
+            : rawGameState.totalPlayer2Points,
+        totalOpponentPoints:
+          playerNumber === 1
+            ? rawGameState.totalPlayer2Points
+            : rawGameState.totalPlayer1Points,
+      };
+
+      // Restore game state from reconnection data
+      const reconnectedState = createGameStateFromData({
+        roomId: data.roomId,
+        gameState: convertedGameState,
+        playerNumber: data.playerNumber,
+        gameType: data.gameType,
+        gameMode: data.gameMode,
+        players: data.players,
+        opponent: opponent,
+        playableCards: data.playableCards,
+      });
+
+      if (reconnectedState) {
+        setGameState(reconnectedState);
+        addToast("Uspješno reconnectani u igru!", "success");
+      }
+    });
+
+    socket.on("reconnectError", (data) => {
+      addToast(`Reconnect greška: ${data.message}`, "error");
+      setReconnectModalVisible(false);
+
+      // Clear reconnect data if permanently left or room deleted
+      if (
+        data.message?.includes("napustili") ||
+        data.message?.includes("ne postoji")
+      ) {
+        localStorage.removeItem("playerId");
+        localStorage.removeItem("roomId");
+      }
+    });
+
+    socket.on("playerDisconnected", (data) => {
+      console.log("⚠️ Player disconnected:", data);
+      if (data.canReconnect) {
+        setPlayerDisconnected(true);
+        setDisconnectionInfo({
+          graceEndsAt: data.graceEndsAt,
+          message: data.message,
+          canReconnect: data.canReconnect,
+          graceMs: data.graceMs,
+        });
+        addToast(`${data.message}`, "info");
+      }
+    });
+
+    socket.on("playerReconnected", (data) => {
+      setPlayerDisconnected(false);
+      setDisconnectionInfo(null);
+      setGraceTimeLeft(0);
+      addToast(`${data.message}`, "success");
+    });
+
+    // Handle permanent player disconnect
+    socket.on("playerLeft", (data) => {
+      console.log("❌ Player permanently left:", data);
+      if (data.permanent) {
+        // Show permanent disconnect modal
+        setPlayerDisconnected(true);
+        setDisconnectionInfo({
+          message: data.message,
+          canReconnect: false,
+          permanent: true,
+          reason: data.reason,
+        });
+        addToast(data.message, "error");
+      }
+    });
+
+    // Add new event handlers
+    socket.on("playerForfeited", (data) => {
+      console.log("⚠️ Player forfeited:", data);
+      setPlayerForfeited(true);
+      setPlayerDisconnected(false);
+      setDisconnectionInfo(null);
+
+      let message = `${data.playerName} je predao meč`;
+      if (
+        data.winnerPlayerNumber &&
+        data.winnerPlayerNumber === gameState?.playerNumber
+      ) {
+        message += ". Vi ste pobjednik!";
+      }
+      addToast(message, data.reason === "forfeit" ? "warning" : "info");
+
+      // For tournament games or when there's a clear winner, set game to finished
+      if (gameState?.isTournamentMatch || data.winnerPlayerNumber) {
+        setGameState((prev) => {
+          // If server provides updated gameState, use it
+          if (data.gameState) {
+            const isWinner = data.winnerPlayerNumber === prev.playerNumber;
+            const winnerPoints = prev.gameType === "treseta" ? 31 : 61;
+
+            return {
+              ...prev,
+              ...data.gameState,
+              // Ensure proper client-side fields for display
+              myPoints: isWinner ? winnerPoints : 0,
+              opponentPoints: isWinner ? 0 : winnerPoints,
+              totalMyPoints: isWinner ? winnerPoints : 0,
+              totalOpponentPoints: isWinner ? 0 : winnerPoints,
+              message: isWinner
+                ? "🏆 Pobijedili ste! Protivnik je predao meč."
+                : "😔 Predali ste meč.",
+              gameInterrupted: false, // This is a clean finish, not an interruption
+            };
+          }
+
+          // Fallback to old logic if no gameState provided
+          const isWinner = data.winnerPlayerNumber === prev.playerNumber;
+          const winnerPoints = prev.gameType === "treseta" ? 31 : 61;
+
+          return {
+            ...prev,
+            gamePhase: "finished",
+            winner: data.winnerPlayerNumber,
+            myPoints: isWinner ? winnerPoints : 0,
+            opponentPoints: isWinner ? 0 : winnerPoints,
+            totalMyPoints: isWinner ? winnerPoints : 0,
+            totalOpponentPoints: isWinner ? 0 : winnerPoints,
+            message: isWinner
+              ? "🏆 Pobijedili ste! Protivnik je predao meč."
+              : "😔 Predali ste meč.",
+            gameInterrupted: false, // This is a clean finish, not an interruption
+          };
         });
       }
+
+      // Clear game state for the forfeited player
+      if (data.playerName === user?.name) {
+        setTimeout(() => {
+          clearGameState();
+          navigate("/"); // Navigate back to main menu
+        }, 3000);
+      } else {
+        // Also clear game state for the winner after showing the victory screen
+        // This prevents reconnect dialogs when they refresh later
+        setTimeout(() => {
+          clearGameState();
+        }, 10000); // Give them 10 seconds to see the victory screen
+      }
+    });
+
+    socket.on("gameRoomDeleted", (data) => {
+      console.log("🗑️ Game room deleted:", data);
+      addToast(data.message, "warning");
+      clearGameState();
+      setTimeout(() => {
+        navigate("/");
+      }, 2000);
+    });
+
+    socket.on("spectatorUpdate", (data) => {
+      console.log("👁️ Spectator update received");
+      // Update spectator state if we're spectating
+      if (isSpectator && data.roomId === gameState?.roomId) {
+        setSpectatorState((prev) => ({
+          ...prev,
+          gameState: data.gameState,
+          players: data.players,
+        }));
+      }
+    });
+
+    return () => {
+      socket.off("gameStateReconnected");
+      socket.off("reconnectError");
+      socket.off("playerDisconnected");
+      socket.off("playerReconnected");
+      socket.off("playerLeft");
+      socket.off("playerForfeited");
+      socket.off("gameRoomDeleted");
+      socket.off("spectatorStart");
+      socket.off("spectatorUpdate");
+    };
+  }, [socket, addToast]);
+
+  // Auto-join as spectator if in spectator mode
+  useEffect(() => {
+    if (isSpectator && spectatorRoomId && socket && !spectatorState) {
+      console.log("👁️ Auto-joining as spectator for room:", spectatorRoomId);
+      socket.emit("joinAsSpectator", { roomId: spectatorRoomId });
+    }
+  }, [isSpectator, spectatorRoomId, socket, spectatorState]);
+
+  // Socket event listeners (keeping the same logic as original)
+  useEffect(() => {
+    if (!socket || !gameState?.roomId) return;
+
+    // Skip if not online mode and not spectator mode
+    if (gameState?.mode !== "online" && gameState?.mode !== "spectator") return;
+
+    // Listener za novu igru nakon revan��a ili spectator join
+    socket.on("gameStart", (newGameData) => {
+      console.log("🎮 Nova igra počinje (revanš ili spectator):", newGameData);
+      console.log("🎮 Spectator flag:", newGameData.spectator);
+      console.log("🎮 Opponent data received:", newGameData.opponent);
+      console.log("🎮 Player number:", newGameData.playerNumber);
+
+      // Save reconnect data if this is a player (not spectator)
+      if (
+        !newGameData.spectator &&
+        newGameData.playerId &&
+        newGameData.roomId
+      ) {
+        localStorage.setItem("playerId", newGameData.playerId);
+        localStorage.setItem("roomId", newGameData.roomId);
+        console.log("💾 Saved reconnect data:", {
+          playerId: newGameData.playerId,
+          roomId: newGameData.roomId,
+        });
+      }
+
+      // If this is spectator data, update spectator state
+      if (newGameData.spectator) {
+        setIsSpectator(true);
+        setSpectatorState(newGameData);
+      }
+
+      // Create new state directly from newGameData
+      const newState = createGameStateFromData(newGameData);
+      if (newState) {
+        setGameState(newState);
+      }
+    });
+
+    // Spectator start handler
+    socket.on("spectatorStart", (spectatorData) => {
+      console.log("👁️ Spectator start:", spectatorData);
+      setIsSpectator(true);
+      setSpectatorState(spectatorData);
+
+      // Create spectator game state
+      const spectatorGameState = {
+        mode: "spectator",
+        roomId: spectatorData.roomId,
+        playerNumber: null,
+        opponent: null,
+        gameType: spectatorData.gameType,
+        gameMode: spectatorData.gameMode,
+        myHand: [],
+        opponentHandCount: 0,
+        myCards: [],
+        opponentCards: [],
+        ...spectatorData.publicState,
+        player1Name:
+          spectatorData.roomPlayers?.find((p) => p.playerNumber === 1)?.name ||
+          "Igrač 1",
+        player2Name:
+          spectatorData.roomPlayers?.find((p) => p.playerNumber === 2)?.name ||
+          "Igrač 2",
+        players: spectatorData.roomPlayers || [],
+        isTournamentMatch: spectatorData.isTournamentMatch || false,
+        tournamentId: spectatorData.tournamentId,
+        matchId: spectatorData.matchId,
+        playableCards: [],
+        message: `👁️ Gledate: ${
+          spectatorData.roomPlayers?.find((p) => p.playerNumber === 1)?.name ||
+          "Igrač 1"
+        } vs ${
+          spectatorData.roomPlayers?.find((p) => p.playerNumber === 2)?.name ||
+          "Igrač 2"
+        }`,
+      };
+
+      setGameState(spectatorGameState);
+    });
+
+    // Spectator update handler
+    socket.on("spectatorUpdate", (publicStateUpdate) => {
+      console.log("👁️ Spectator update:", publicStateUpdate);
+      setGameState((prev) => ({
+        ...prev,
+        ...publicStateUpdate,
+        message: `👁️ Gledate: ${prev.player1Name || "Igrač 1"} vs ${
+          prev.player2Name || "Igrač 2"
+        }`,
+      }));
     });
 
     socket.on("cardPlayed", (data) => {
       setGameState((prev) => {
+        // For spectators, just update played cards and public info
+        if (prev.mode === "spectator") {
+          return {
+            ...prev,
+            playedCards: data.playedCards,
+            currentPlayer: data.nextPlayer || prev.currentPlayer,
+            message: `👁️ Gledate: ${prev.player1Name || "Igrač 1"} vs ${
+              prev.player2Name || "Igrač 2"
+            }`,
+          };
+        }
+
         // Check if this is the first card played in the partija
         const isFirstCardInPartija =
           prev.gameType === "treseta" && !prev.hasPlayedFirstCard;
@@ -889,14 +1867,27 @@ function Game({ gameData, onGameEnd }) {
     });
 
     socket.on("turnChange", (data) => {
-      setGameState((prev) => ({
-        ...prev,
-        currentPlayer: data.currentPlayer,
-        message:
-          data.currentPlayer === prev.playerNumber
-            ? "Vaš red! Odaberite kartu."
-            : "Protivnikov red. Čekajte...",
-      }));
+      setGameState((prev) => {
+        // For spectators, don't show turn-based messages
+        if (prev.mode === "spectator") {
+          return {
+            ...prev,
+            currentPlayer: data.currentPlayer,
+            message: `👁️ Gledate: ${prev.player1Name || "Igrač 1"} vs ${
+              prev.player2Name || "Igrač 2"
+            }`,
+          };
+        }
+
+        return {
+          ...prev,
+          currentPlayer: data.currentPlayer,
+          message:
+            data.currentPlayer === prev.playerNumber
+              ? "Vaš red! Odaberite kartu."
+              : "Protivnikov red. Čekajte...",
+        };
+      });
     });
 
     socket.on("roundFinished", (data) => {
@@ -1154,16 +2145,23 @@ function Game({ gameData, onGameEnd }) {
     });
 
     socket.on("playerDisconnected", (data) => {
-      setGameState((prev) => ({
-        ...prev,
-        gamePhase: "finished",
-        gameInterrupted: true, // Dodaj flag da je igra prekinuta
-        message: `${data.message}. Kliknite 'Glavni meni' za povratak.`,
-      }));
-      // Ne automatski preusmjeravaj - neka igrač sam odluči
+      // Let the modern handler (first useEffect) manage all disconnections with toasts and grace periods
+      // This applies to both Briskula and Treseta games
+      return;
     });
 
     socket.on("playerLeft", (data) => {
+      // In tournaments, don't kick the local player; show info and let them spectate/rejoin
+      if (gameState?.isTournamentMatch) {
+        addToast(data.message, data.permanent ? "warning" : "info");
+        setGameState((prev) => ({
+          ...prev,
+          gameInterrupted: true,
+          message: data.message,
+        }));
+        return;
+      }
+
       if (data.permanent) {
         // Permanent leave - room will be deleted, clear state and redirect
         clearGameState();
@@ -1175,13 +2173,9 @@ function Game({ gameData, onGameEnd }) {
           onGameEnd();
         }, 2000);
       } else {
-        // Temporary leave - game can continue with reconnection
-        setGameState((prev) => ({
-          ...prev,
-          gamePhase: "finished",
-          gameInterrupted: true,
-          message: `${data.message} Kliknite 'Glavni meni' za povratak.`,
-        }));
+        // Temporary leave - let the modern handler manage this for all games
+        // This applies to both Briskula and Treseta games
+        return;
       }
     });
 
@@ -1430,6 +2424,11 @@ function Game({ gameData, onGameEnd }) {
   const handleCardClick = (card) => {
     if (!gameState) return;
 
+    // Spectatori ne mogu igrati karte
+    if (isSpectator || gameState.gamePhase === "spectating") {
+      return;
+    }
+
     // Block clicks if card is already playing
     if (isCardPlaying) {
       return;
@@ -1552,164 +2551,424 @@ function Game({ gameData, onGameEnd }) {
       ? gameState.remainingDeck?.length || 0
       : gameState.remainingCardsCount;
 
+  // Spectator and reconnect functions
+  const handleReconnectAttempt = () => {
+    if (!gameState?.roomId || !user?.name) {
+      addToast("Nema podataka za reconnect", "error");
+      return;
+    }
+
+    console.log(
+      `🔄 Attempting reconnect to room ${gameState.roomId} as ${user.name}`
+    );
+    socket?.emit("reconnectToGame", {
+      roomId: gameState.roomId,
+      playerName: user.name,
+    });
+  };
+
+  const handleJoinAsSpectator = (roomId) => {
+    console.log(`👁️ Joining as spectator for room ${roomId}`);
+    socket?.emit("joinAsSpectator", { roomId });
+  };
+
+  // Loading state for reconnect scenarios
+  if (
+    mode === "online" &&
+    gameState &&
+    !Array.isArray(gameState?.myHand) &&
+    gameState.gamePhase === "waiting"
+  ) {
+    return (
+      <div className="game-loading">
+        <div className="loading-spinner"></div>
+        <p>Obnavljam igru...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="game-wrapper">
+      {/* Spectator Mode Badge */}
+      {(isSpectator || gameState?.gamePhase === "spectating") && (
+        <div
+          style={{
+            position: "fixed",
+            top: "80px",
+            right: "20px",
+            background: "rgba(20,20,35,0.75)",
+            backdropFilter: "blur(4px)",
+            padding: "10px 18px",
+            border: "1px solid #6366f1",
+            borderRadius: "10px",
+            color: "#e0e7ff",
+            fontWeight: 600,
+            zIndex: 1500,
+            boxShadow: "0 4px 14px rgba(0,0,0,0.4)",
+          }}
+        >
+          👁️ Spectator mode
+        </div>
+      )}
+
+      {/* Player Disconnected - Grace Period Banner */}
+      {playerDisconnected &&
+        !isSpectator &&
+        disconnectionInfo &&
+        disconnectionInfo.canReconnect && (
+          <div
+            className="disconnection-banner"
+            style={{
+              position: "fixed",
+              top: "10px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              backgroundColor: "#ff9800",
+              color: "white",
+              padding: "10px 20px",
+              borderRadius: "8px",
+              zIndex: 2000,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
+              textAlign: "center",
+              maxWidth: "90%",
+              width: "auto",
+            }}
+          >
+            <div style={{ fontSize: "0.9em", fontWeight: "bold" }}>
+              ⏳ {disconnectionInfo.message}
+            </div>
+            <div style={{ fontSize: "0.8em", marginTop: "5px" }}>
+              Čeka se reconnect...{" "}
+              {graceTimeLeft > 0 ? `(${Math.ceil(graceTimeLeft / 1000)}s)` : ""}
+            </div>
+          </div>
+        )}
+
+      {/* Player Disconnected - Final Modal (only for permanent disconnect) */}
+      {playerDisconnected &&
+        !isSpectator &&
+        disconnectionInfo &&
+        !disconnectionInfo.canReconnect && (
+          <div className="modal-overlay" style={{ zIndex: 2000 }}>
+            <div
+              className="modal-content"
+              style={{ maxWidth: "400px", textAlign: "center" }}
+            >
+              <h3>⚠️ Igra završena</h3>
+              <p>{disconnectionInfo.message}</p>
+              <p>Igrač je napustio igru.</p>
+              <div
+                className="countdown-timer"
+                style={{
+                  fontSize: "1.2em",
+                  fontWeight: "bold",
+                  color: "#ff6b35",
+                  margin: "15px 0",
+                }}
+              >
+                ⏰ {graceTimeLeft}s
+              </div>
+              <p style={{ fontSize: "0.9em", color: "#666" }}>
+                Igra će se automatski nastaviti kad se igrač vrati.
+              </p>
+            </div>
+          </div>
+        )}
+
+      {/* Reconnect Modal - Only for other scenarios */}
+      {reconnectModalVisible && !playerDisconnected && !isSpectator && (
+        <div className="modal-overlay" style={{ zIndex: 2000 }}>
+          <div className="modal-content" style={{ maxWidth: "400px" }}>
+            <h3>🔄 Reconnect</h3>
+            <p>
+              {playerDisconnected
+                ? "Neki igrač se odspojio iz igre. Možete se reconnectati ili gledati kao spectator."
+                : "Želite se reconnectati u igru?"}
+            </p>
+            <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+              <button
+                onClick={handleReconnectAttempt}
+                className="btn-primary"
+                style={{ flex: 1 }}
+              >
+                🔄 Reconnect
+              </button>
+              <button
+                onClick={() => handleJoinAsSpectator(gameState?.roomId)}
+                className="btn-secondary"
+                style={{ flex: 1 }}
+              >
+                👁️ Spectate
+              </button>
+              <button
+                onClick={() => {
+                  setReconnectModalVisible(false);
+                  if (onGameEnd) onGameEnd();
+                }}
+                className="btn-danger"
+                style={{ flex: 1 }}
+              >
+                🏠 Exit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {gameState?.spectator && (
+        <div
+          style={{
+            position: "fixed",
+            top: "80px",
+            right: "20px",
+            background: "rgba(20,20,35,0.75)",
+            backdropFilter: "blur(4px)",
+            padding: "10px 18px",
+            border: "1px solid #6366f1",
+            borderRadius: "10px",
+            color: "#e0e7ff",
+            fontWeight: 600,
+            zIndex: 1500,
+            boxShadow: "0 4px 14px rgba(0,0,0,0.4)",
+          }}
+        >
+          👁️ Spectator mode
+        </div>
+      )}
       {/* Header */}
       <div className="game-header">
-        <h1 className="game-title">
+        <span className="game-title">
           <img
-            src="/cards_img/dinarICON.png"
-            alt="Dinari"
+            src={
+              gameState.gameType === "treseta"
+                ? "/cards_img/spadiICON.png"
+                : "/cards_img/batiICON.png"
+            }
+            alt={gameState.gameType}
             className="title-suit-icon"
-          />{" "}
+          />
           {gameState.gameType === "treseta" ? "Trešeta" : "Briskula"}{" "}
           {mode === "ai" ? "(AI)" : "Online"}
-        </h1>
+          {gameState.isTournamentMatch && (
+            <span
+              style={{
+                marginLeft: 12,
+                fontSize: "0.7em",
+                padding: "4px 8px",
+                background: "linear-gradient(45deg,#6366f1,#4338ca)",
+                borderRadius: 8,
+                fontWeight: 600,
+                color: "#fff",
+              }}
+            >
+              Turnir
+            </span>
+          )}
+        </span>
 
         {/* Simple player names with colors - desktop only */}
         <div className="players-names">
           <span
             className={`player-name-simple ${
-              gameState.currentPlayer === gameState.playerNumber ? "active" : ""
+              gameState.mode !== "spectator" &&
+              gameState.currentPlayer === gameState.playerNumber
+                ? "active"
+                : ""
             }`}
           >
-            {user?.name}
+            {gameState.mode === "spectator"
+              ? gameState.player1Name || "Igrač 1"
+              : user?.name}
           </span>
-          <span className="vs-simple">vs</span>
+          <span className="vs-simple">VS</span>
           <span
             className={`opponent-name-simple ${
-              gameState.currentPlayer !== gameState.playerNumber ? "active" : ""
+              gameState.mode !== "spectator" &&
+              gameState.currentPlayer !== gameState.playerNumber
+                ? "active"
+                : ""
             }`}
           >
-            {gameState.opponent?.name}
+            {gameState.mode === "spectator"
+              ? gameState.player2Name || "Igrač 2"
+              : gameState.opponent?.name || "?"}
           </span>
         </div>
 
         {/* Desktop controls */}
-        <div className="desktop-controls">
-          <button
-            onClick={() => setShowScores(!showScores)}
-            className="game-btn btn-primary"
-          >
-            {showScores ? "Sakrij" : "Detalji"}
-          </button>
-
-          {/* Akužaj button za Trešeta */}
-          {(() => {
-            const shouldShowAkuze =
-              gameState.gameType === "treseta" &&
-              gameState.akuzeEnabled &&
-              gameState.canAkuze &&
-              !gameState.hasPlayedFirstRound &&
-              gameState.currentPlayer === gameState.playerNumber &&
-              gameState.gamePhase === "playing";
-
-            if (!shouldShowAkuze) return null;
-
-            const availableAkuze = checkAkuze(gameState.myHand);
-
-            return (
-              availableAkuze.length > 0 && (
-                <button
-                  onClick={() => setShowAkuzeModal(true)}
-                  className="game-btn btn-warning"
-                  style={{ background: "#ffc107", color: "black" }}
-                >
-                  🃏 Akužaj
-                </button>
-              )
-            );
-          })()}
-
-          {gameState.gamePhase === "playing" && (
+        {gameState.mode !== "spectator" && (
+          <div className="desktop-controls">
             <button
-              onClick={() => {
-                if (mode === "online") {
-                  clearGameState(); // Clear saved state on manual leave
-                  leaveRoomPermanently(gameState.roomId); // Use permanent leave
-                }
-                onGameEnd();
-              }}
-              className="game-btn btn-danger"
+              onClick={() => setShowScores(!showScores)}
+              className="game-btn btn-primary"
             >
-              Napusti
+              {showScores ? "Sakrij" : "Detalji"}
             </button>
-          )}
 
-          {gameState.gamePhase === "finished" && (
-            <button onClick={onGameEnd} className="game-btn btn-secondary">
-              Povratak
-            </button>
-          )}
-        </div>
+            {/* Akužaj button za Trešeta */}
+            {(() => {
+              const shouldShowAkuze =
+                gameState.gameType === "treseta" &&
+                gameState.akuzeEnabled &&
+                gameState.canAkuze &&
+                !gameState.hasPlayedFirstRound &&
+                gameState.currentPlayer === gameState.playerNumber &&
+                gameState.gamePhase === "playing";
+
+              if (!shouldShowAkuze) return null;
+
+              const hand = Array.isArray(gameState?.myHand)
+                ? gameState.myHand
+                : [];
+              const availableAkuze = checkAkuze(hand);
+
+              return (
+                availableAkuze.length > 0 && (
+                  <button
+                    onClick={() => setShowAkuzeModal(true)}
+                    className="game-btn btn-warning"
+                    style={{ background: "#ffc107", color: "black" }}
+                  >
+                    🃏 Akužaj
+                  </button>
+                )
+              );
+            })()}
+
+            {(gameState.gamePhase === "playing" ||
+              gameState.gamePhase === "waiting" ||
+              gameState.isTournamentMatch) && (
+              <button
+                onClick={() => {
+                  if (mode === "online") {
+                    clearGameState(); // Clear saved state on manual leave
+                    // Clear reconnect data - this is forfeit, can't come back
+                    localStorage.removeItem("playerId");
+                    localStorage.removeItem("roomId");
+
+                    // For tournament games, use forfeit instead of permanent leave
+                    if (gameState.isTournamentMatch) {
+                      forfeitMatch(gameState.roomId, "forfeit");
+                    } else {
+                      leaveRoomPermanently(gameState.roomId); // Use permanent leave for regular games
+                    }
+                  } else if (mode === "ai") {
+                    // For AI games, clear the saved state since they're local
+                    clearGameState();
+                  }
+                  onGameEnd();
+                }}
+                className="game-btn btn-danger"
+              >
+                Napusti
+              </button>
+            )}
+
+            {gameState.gamePhase === "finished" && (
+              <button
+                onClick={() => {
+                  // Clear AI game state when returning from finished game
+                  if (mode === "ai") {
+                    clearGameState();
+                  }
+                  onGameEnd();
+                }}
+                className="game-btn btn-secondary"
+              >
+                Povratak
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Mobile floating buttons in header */}
-        <div className="mobile-header-buttons">
-          <button
-            onClick={() => setShowScores(!showScores)}
-            className="floating-btn details-btn"
-            title="Detalji"
-          >
-            🔍
-          </button>
-
-          {/* Mobile Akužaj button za Trešeta */}
-          {(() => {
-            const shouldShowMobileAkuze =
-              gameState.gameType === "treseta" &&
-              gameState.akuzeEnabled &&
-              gameState.canAkuze &&
-              !gameState.hasPlayedFirstRound &&
-              gameState.currentPlayer === gameState.playerNumber &&
-              gameState.gamePhase === "playing";
-
-            if (!shouldShowMobileAkuze) return null;
-
-            const availableAkuze = checkAkuze(gameState.myHand);
-
-            return (
-              availableAkuze.length > 0 && (
-                <button
-                  onClick={() => setShowAkuzeModal(true)}
-                  className="floating-btn akuze-btn"
-                  title="Akužaj"
-                  style={{
-                    background: "#ffc107",
-                    color: "black",
-                  }}
-                >
-                  🃏
-                </button>
-              )
-            );
-          })()}
-
-          {gameState.gamePhase === "playing" && (
+        {gameState.mode !== "spectator" && (
+          <div className="mobile-header-buttons">
             <button
-              onClick={() => {
-                if (mode === "online") {
-                  clearGameState(); // Clear saved state on manual leave
-                  leaveRoomPermanently(gameState.roomId); // Use permanent leave
-                }
-                onGameEnd();
-              }}
-              className="floating-btn exit-btn"
-              title="Napusti"
+              onClick={() => setShowScores(!showScores)}
+              className="floating-btn details-btn"
+              title="Detalji"
             >
-              🚪
+              🔍
             </button>
-          )}
 
-          {gameState.gamePhase === "finished" && (
-            <button
-              onClick={onGameEnd}
-              className="floating-btn exit-btn"
-              title="Povratak"
-            >
-              ↩️
-            </button>
-          )}
-        </div>
+            {/* Mobile Akužaj button za Trešeta */}
+            {(() => {
+              const shouldShowMobileAkuze =
+                gameState.gameType === "treseta" &&
+                gameState.akuzeEnabled &&
+                gameState.canAkuze &&
+                !gameState.hasPlayedFirstRound &&
+                gameState.currentPlayer === gameState.playerNumber &&
+                gameState.gamePhase === "playing";
+
+              if (!shouldShowMobileAkuze) return null;
+
+              const availableAkuze = checkAkuze(gameState.myHand);
+
+              return (
+                availableAkuze.length > 0 && (
+                  <button
+                    onClick={() => setShowAkuzeModal(true)}
+                    className="floating-btn akuze-btn"
+                    title="Akužaj"
+                    style={{
+                      background: "#ffc107",
+                      color: "black",
+                    }}
+                  >
+                    🃏
+                  </button>
+                )
+              );
+            })()}
+
+            {(gameState.gamePhase === "playing" ||
+              gameState.isTournamentMatch) && (
+              <button
+                onClick={() => {
+                  if (mode === "online") {
+                    clearGameState(); // Clear saved state on manual leave
+                    // Clear reconnect data - this is forfeit, can't come back
+                    localStorage.removeItem("playerId");
+                    localStorage.removeItem("roomId");
+
+                    // For tournament games, use forfeit instead of permanent leave
+                    if (gameState.isTournamentMatch) {
+                      forfeitMatch(gameState.roomId, "forfeit");
+                    } else {
+                      leaveRoomPermanently(gameState.roomId); // Use permanent leave for regular games
+                    }
+                  } else if (mode === "ai") {
+                    // For AI games, clear the saved state since they're local
+                    clearGameState();
+                  }
+                  onGameEnd();
+                }}
+                className="floating-btn exit-btn"
+                title="Napusti"
+              >
+                🚪
+              </button>
+            )}
+
+            {gameState.gamePhase === "finished" && (
+              <button
+                onClick={() => {
+                  // Clear AI game state when returning from finished game
+                  if (mode === "ai") {
+                    clearGameState();
+                  }
+                  onGameEnd();
+                }}
+                className="floating-btn exit-btn"
+                title="Povratak"
+              >
+                ↩️
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Main game area with responsive scaling */}
@@ -1718,10 +2977,14 @@ function Game({ gameData, onGameEnd }) {
         <div className="opponent-section">
           <div className="opponent-avatar-display">
             <div className="player-avatar opponent">
-              {gameState.opponent?.name?.charAt(0)?.toUpperCase() || "?"}
+              {gameState.mode === "spectator"
+                ? gameState.player2Name?.charAt(0)?.toUpperCase() || "2"
+                : gameState.opponent?.name?.charAt(0)?.toUpperCase() || "?"}
             </div>
             <div className="opponent-name">
-              {gameState.opponent?.name}
+              {gameState.mode === "spectator"
+                ? gameState.player2Name || "Igrač 2"
+                : gameState.opponent?.name}
               {gameState.currentPlayer === 2 && (
                 <span className="turn-indicator"> (Na redu)</span>
               )}
@@ -1742,11 +3005,13 @@ function Game({ gameData, onGameEnd }) {
           <div className="played-cards-section">
             <div className="played-cards-label">Odigrane karte</div>
             <div className="played-cards-area">
-              {gameState.playedCards
+              {(gameState.playedCards || [])
                 .filter((card) => card)
                 .map((card, index) => (
                   <Card
-                    key={`played-${card.id}`}
+                    key={`played-${
+                      card.id || `${card.suit}-${card.value}-${index}`
+                    }`}
                     card={card}
                     size={playedCardSize}
                   />
@@ -1791,56 +3056,74 @@ function Game({ gameData, onGameEnd }) {
           </div>
 
           <div className="player-cards">
-            {sortCards(gameState.myHand, gameState.gameType).map((card) => {
-              let isPlayable =
-                gameState.gamePhase === "playing" &&
-                gameState.currentPlayer === gameState.playerNumber &&
-                !isCardPlaying; // Add check for card playing state
+            {/* Hide hand cards for spectators */}
+            {gameState.mode !== "spectator" &&
+              Array.isArray(gameState.myHand) &&
+              sortCards(gameState.myHand, gameState.gameType).map((card) => {
+                let isPlayable =
+                  gameState.gamePhase === "playing" &&
+                  gameState.currentPlayer === gameState.playerNumber &&
+                  !isCardPlaying; // Add check for card playing state
 
-              if (gameState.gameType === "treseta") {
-                if (mode === "ai") {
-                  // For local AI mode, enforce follow-suit rule locally
-                  const firstCard = (gameState.playedCards || []).find(
-                    (c) => c
-                  );
-                  if (firstCard) {
-                    const hasSameSuit = (gameState.myHand || []).some(
-                      (c) => c.suit === firstCard.suit
+                if (gameState.gameType === "treseta") {
+                  if (mode === "ai") {
+                    // For local AI mode, enforce follow-suit rule locally
+                    const firstCard = (gameState.playedCards || []).find(
+                      (c) => c
                     );
+                    if (firstCard) {
+                      const hasSameSuit = (gameState.myHand || []).some(
+                        (c) => c.suit === firstCard.suit
+                      );
+                      isPlayable =
+                        isPlayable &&
+                        (!hasSameSuit || card.suit === firstCard.suit);
+                    } else {
+                      // no lead card yet -> any card playable
+                      isPlayable = isPlayable;
+                    }
+                  } else {
+                    // Online mode - server provides playableCards list
                     isPlayable =
                       isPlayable &&
-                      (!hasSameSuit || card.suit === firstCard.suit);
-                  } else {
-                    // no lead card yet -> any card playable
-                    isPlayable = isPlayable;
+                      (gameState.playableCards || []).includes(card.id);
                   }
                 } else {
-                  // Online mode - server provides playableCards list
+                  // Briskula and other games - use server-provided playableCards if present
                   isPlayable =
                     isPlayable &&
-                    (gameState.playableCards || []).includes(card.id);
+                    ((gameState.playableCards &&
+                      gameState.playableCards.includes(card.id)) ||
+                      !isCardPlaying); // Also check isCardPlaying for Briskula
                 }
-              } else {
-                // Briskula and other games - use server-provided playableCards if present
-                isPlayable =
-                  isPlayable &&
-                  ((gameState.playableCards &&
-                    gameState.playableCards.includes(card.id)) ||
-                    !isCardPlaying); // Also check isCardPlaying for Briskula
-              }
 
-              return (
-                <Card
-                  key={card.id}
-                  card={card}
-                  isPlayable={isPlayable}
-                  isSelected={false}
-                  disabled={isCardPlaying}
-                  onClick={handleCardClick}
-                  size={cardSize}
-                />
-              );
-            })}
+                return (
+                  <Card
+                    key={card.id}
+                    card={card}
+                    isPlayable={isPlayable}
+                    isSelected={false}
+                    disabled={isCardPlaying}
+                    onClick={handleCardClick}
+                    size={cardSize}
+                  />
+                );
+              })}
+
+            {/* Spectator message when no hand to show */}
+            {gameState.mode === "spectator" && (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "20px",
+                  color: "#a3a3a3",
+                  fontSize: "16px",
+                  fontStyle: "italic",
+                }}
+              >
+                {gameState.message}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1855,21 +3138,29 @@ function Game({ gameData, onGameEnd }) {
 
             <div className="scores-grid">
               <div className="player-stats">
-                <h3>{user?.name}</h3>
+                <h3>
+                  {gameState.mode === "spectator"
+                    ? gameState.player1Name || "Igrač 1"
+                    : user?.name}
+                </h3>
                 <div className="stat-item">
                   <span>Bodovi:</span>
                   <span>{myPoints}</span>
                 </div>
-                <div className="stat-item">
-                  <span>Karte u ruci:</span>
-                  <span>{getCardCountText(gameState.myHand.length)}</span>
-                </div>
-                <div className="stat-item">
-                  <span>Osvojene karte:</span>
-                  <span>
-                    {getCardCountText((gameState.myCards || []).length)}
-                  </span>
-                </div>
+                {gameState.mode !== "spectator" && (
+                  <>
+                    <div className="stat-item">
+                      <span>Karte u ruci:</span>
+                      <span>{getCardCountText(gameState.myHand.length)}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span>Osvojene karte:</span>
+                      <span>
+                        {getCardCountText((gameState.myCards || []).length)}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="trump-info">
@@ -1890,26 +3181,34 @@ function Game({ gameData, onGameEnd }) {
               </div>
 
               <div className="player-stats">
-                <h3>{gameState.opponent?.name}</h3>
+                <h3>
+                  {gameState.mode === "spectator"
+                    ? gameState.player2Name || "Igrač 2"
+                    : gameState.opponent?.name}
+                </h3>
                 <div className="stat-item">
                   <span>Bodovi:</span>
                   <span>{opponentPoints}</span>
                 </div>
-                <div className="stat-item">
-                  <span>Karte u ruci:</span>
-                  <span>{getCardCountText(opponentHandCount)}</span>
-                </div>
-                <div className="stat-item">
-                  <span>Osvojene karte:</span>
-                  <span>
-                    {getCardCountText(
-                      (mode === "ai"
-                        ? gameState.aiCards
-                        : gameState.opponentCards || []
-                      ).length
-                    )}
-                  </span>
-                </div>
+                {gameState.mode !== "spectator" && (
+                  <>
+                    <div className="stat-item">
+                      <span>Karte u ruci:</span>
+                      <span>{getCardCountText(opponentHandCount)}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span>Osvojene karte:</span>
+                      <span>
+                        {getCardCountText(
+                          (mode === "ai"
+                            ? gameState.aiCards
+                            : gameState.opponentCards || []
+                          ).length
+                        )}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1937,23 +3236,24 @@ function Game({ gameData, onGameEnd }) {
                     <div className="partijas-history">
                       <h4>Prošle partije:</h4>
                       <div className="partijas-list">
-                        {gameState.partijas.map((partija, index) => (
-                          <div key={index} className="partija-item">
-                            <span className="partija-number">
-                              Partija {partija.partija}:
-                            </span>
-                            <span className="partija-score">
-                              {partija.myPoints} - {partija.opponentPoints}
-                            </span>
-                            <span className="partija-winner">
-                              {partija.myPoints > partija.opponentPoints
-                                ? "🏆 Vi"
-                                : partija.opponentPoints > partija.myPoints
-                                ? "😔 Protivnik"
-                                : "🤝 Neriješeno"}
-                            </span>
-                          </div>
-                        ))}
+                        {Array.isArray(gameState.partijas) &&
+                          gameState.partijas.map((partija, index) => (
+                            <div key={index} className="partija-item">
+                              <span className="partija-number">
+                                Partija {partija.partija}:
+                              </span>
+                              <span className="partija-score">
+                                {partija.myPoints} - {partija.opponentPoints}
+                              </span>
+                              <span className="partija-winner">
+                                {partija.myPoints > partija.opponentPoints
+                                  ? "🏆 Vi"
+                                  : partija.opponentPoints > partija.myPoints
+                                  ? "😔 Protivnik"
+                                  : "🤝 Neriješeno"}
+                              </span>
+                            </div>
+                          ))}
                       </div>
                     </div>
                   )}
@@ -1967,17 +3267,18 @@ function Game({ gameData, onGameEnd }) {
                         <div className="my-akuze">
                           <strong>Vaši akuži:</strong>
                           <ul>
-                            {gameState.myAkuze.map((akuz, index) => (
-                              <li key={index}>
-                                {akuz.description} (+{akuz.points} bod
-                                {akuz.points === 1
-                                  ? ""
-                                  : akuz.points <= 4
-                                  ? "a"
-                                  : "ova"}
-                                )
-                              </li>
-                            ))}
+                            {Array.isArray(gameState.myAkuze) &&
+                              gameState.myAkuze.map((akuz, index) => (
+                                <li key={index}>
+                                  {akuz.description} (+{akuz.points} bod
+                                  {akuz.points === 1
+                                    ? ""
+                                    : akuz.points <= 4
+                                    ? "a"
+                                    : "ova"}
+                                  )
+                                </li>
+                              ))}
                           </ul>
                         </div>
                       )}
@@ -1985,17 +3286,18 @@ function Game({ gameData, onGameEnd }) {
                         <div className="opponent-akuze">
                           <strong>Protivnikovi akuži:</strong>
                           <ul>
-                            {gameState.opponentAkuze.map((akuz, index) => (
-                              <li key={index}>
-                                {akuz.description} (+{akuz.points} bod
-                                {akuz.points === 1
-                                  ? ""
-                                  : akuz.points <= 4
-                                  ? "a"
-                                  : "ova"}
-                                )
-                              </li>
-                            ))}
+                            {Array.isArray(gameState.opponentAkuze) &&
+                              gameState.opponentAkuze.map((akuz, index) => (
+                                <li key={index}>
+                                  {akuz.description} (+{akuz.points} bod
+                                  {akuz.points === 1
+                                    ? ""
+                                    : akuz.points <= 4
+                                    ? "a"
+                                    : "ova"}
+                                  )
+                                </li>
+                              ))}
                           </ul>
                         </div>
                       )}
@@ -2034,7 +3336,10 @@ function Game({ gameData, onGameEnd }) {
                 gameState.canAkuze &&
                 !gameState.hasPlayedFirstRound &&
                 (() => {
-                  const availableAkuze = checkAkuze(gameState.myHand);
+                  const hand = Array.isArray(gameState?.myHand)
+                    ? gameState.myHand
+                    : [];
+                  const availableAkuze = checkAkuze(hand);
                   return availableAkuze.map((akuz, index) => (
                     <button
                       key={index}
@@ -2082,29 +3387,45 @@ function Game({ gameData, onGameEnd }) {
             <div className="pickup-header">
               <h3>Pokupljene karte iz špila:</h3>
             </div>
-
-            <div className="pickup-cards">
-              {cardPickupAnimation.myCard && (
-                <div className="pickup-player">
-                  <div className="pickup-label">Vi:</div>
-                  <Card card={cardPickupAnimation.myCard} size="medium" />
+            {gameState?.mode === "spectator" ? (
+              <div
+                className="pickup-cards"
+                style={{
+                  textAlign: "center",
+                  color: "#aaa",
+                  fontStyle: "italic",
+                  padding: "16px",
+                }}
+              >
+                Karte su pokupljene, ali kao spectator ne možete vidjeti koje.
+              </div>
+            ) : (
+              <>
+                <div className="pickup-cards">
+                  {cardPickupAnimation.myCard && (
+                    <div className="pickup-player">
+                      <div className="pickup-label">Vi:</div>
+                      <Card card={cardPickupAnimation.myCard} size="medium" />
+                    </div>
+                  )}
+                  {cardPickupAnimation.opponentCard && (
+                    <div className="pickup-player">
+                      <div className="pickup-label">Protivnik:</div>
+                      <Card
+                        card={cardPickupAnimation.opponentCard}
+                        size="medium"
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-
-              {cardPickupAnimation.opponentCard && (
-                <div className="pickup-player">
-                  <div className="pickup-label">Protivnik:</div>
-                  <Card card={cardPickupAnimation.opponentCard} size="medium" />
+                <div className="pickup-winner">
+                  {cardPickupAnimation.roundWinner ===
+                  cardPickupAnimation.playerNumber
+                    ? "🎉 Vi ste uzeli rundu!"
+                    : "😔 Protivnik je uzeo rundu"}
                 </div>
-              )}
-            </div>
-
-            <div className="pickup-winner">
-              {cardPickupAnimation.roundWinner ===
-              cardPickupAnimation.playerNumber
-                ? "🎉 Vi ste uzeli rundu!"
-                : "😔 Protivnik je uzeo rundu"}
-            </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -2113,7 +3434,42 @@ function Game({ gameData, onGameEnd }) {
       {gameState.gamePhase === "finished" && (
         <div className="final-score-overlay">
           <div className="final-score-container">
-            {gameState.gameInterrupted ? (
+            {/* Spectator Game End Screen */}
+            {gameState.mode === "spectator" ? (
+              <>
+                <div className="final-score-header">
+                  <h2>🏁 Igra završena</h2>
+                  <div className="result-emoji">👁️</div>
+                </div>
+                <div className="game-result">
+                  <p>
+                    Gledali ste: {gameState.player1Name || "Igrač 1"} vs{" "}
+                    {gameState.player2Name || "Igrač 2"}
+                  </p>
+                  {gameState.winner && (
+                    <p>
+                      🏆 Pobjednik:{" "}
+                      <strong>
+                        {gameState.winner === 1
+                          ? gameState.player1Name
+                          : gameState.player2Name}
+                      </strong>
+                    </p>
+                  )}
+                  {gameState.gameType === "treseta" && (
+                    <div className="final-total-score">
+                      Konačni rezultat: {gameState.totalMyPoints || 0} -{" "}
+                      {gameState.totalOpponentPoints || 0}
+                    </div>
+                  )}
+                </div>
+                <div className="final-score-actions">
+                  <button onClick={onGameEnd} className="btn-secondary-large">
+                    🏠 Glavni meni
+                  </button>
+                </div>
+              </>
+            ) : gameState.gameInterrupted ? (
               // Prikaz za prekinutu igru
               <>
                 <div className="final-score-header">
@@ -2217,7 +3573,8 @@ function Game({ gameData, onGameEnd }) {
                 </div>
 
                 <div className="final-score-actions">
-                  {mode === "online" ? (
+                  {/* Don't show Revanš button for tournament games */}
+                  {!gameState.isTournamentMatch && mode === "online" && (
                     <button
                       onClick={() => {
                         // Resetuj game state za novi match
@@ -2237,7 +3594,8 @@ function Game({ gameData, onGameEnd }) {
                     >
                       🔄 Revanš
                     </button>
-                  ) : (
+                  )}
+                  {!gameState.isTournamentMatch && mode === "ai" && (
                     <button
                       onClick={() => {
                         const useTreseta = gameState.gameType === "treseta";

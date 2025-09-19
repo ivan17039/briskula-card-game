@@ -81,14 +81,37 @@ function GameModeSelector({ onModeSelect, onBack, gameType }) {
           >
             <div className="mode-icon">🎮</div>
             <h3>Stvori ili Pridruži se igri</h3>
-            <p>Igraj s prijateljima ili pridruži se postojećim igrama</p>
+            <p>Igrajte s prijateljima ili se pridružite postojećim igrama</p>
             <ul>
-              <li>Stvori vlastitu sobu (1v1 ili 2v2)</li>
-              <li>Pridruži se postojećim sobama</li>
+              <li>Stvorite vlastitu sobu (1v1 ili 2v2)</li>
+              <li>Pridružite se postojećim sobama</li>
               <li>Šifra sobe za privatnost</li>
-              <li>Pozovi prijatelje direktno</li>
+              <li>Pozovite prijatelje direktno</li>
             </ul>
             <div className="mode-badge">Sve u jednom</div>
+          </div>
+
+          <div
+            className={`mode-option ${
+              selectedMode === "tournament" ? "selected" : ""
+            }`}
+            onClick={() =>
+              handleModeSelect({
+                gameMode: "tournament",
+                ...(gameType === "treseta" && { akuzeEnabled }),
+              })
+            }
+          >
+            <div className="mode-icon">🏆</div>
+            <h3>Turnirski način</h3>
+            <p>Natječite se u organiziranim turnirima</p>
+            <ul>
+              <li>Mjesečni i sezonski turniri</li>
+              <li>Prigodni turniri (Božićni, Uskršnji)</li>
+              <li>Bracket sustav eliminacije</li>
+              <li>Ljestvica i nagrade</li>
+            </ul>
+            <div className="mode-badge tournament-badge">Novo!</div>
           </div>
 
           {/* AI Mode with akuze option for Treseta */}
@@ -117,7 +140,7 @@ function GameModeSelector({ onModeSelect, onBack, gameType }) {
                 handleModeSelect(aiMode);
               }}
             >
-              🎮 Igraj protiv AI
+              🎮 Igrajte protiv AI
             </button>
 
             {/* Akuze option for Treseta AI games */}
@@ -130,7 +153,7 @@ function GameModeSelector({ onModeSelect, onBack, gameType }) {
                     onChange={(e) => setAkuzeEnabled(e.target.checked)}
                   />
                   <span className="checkmark"></span>
-                  🃏 Omogući akužavanje protiv AI
+                  🃏 Omogućite akužavanje protiv AI
                 </label>
                 <p className="akuze-description">
                   Akuzi: Tri/Četiri asa/dvice/trice (3-4 boda), Napolitana (3

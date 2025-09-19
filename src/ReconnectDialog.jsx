@@ -2,9 +2,16 @@ import React from "react";
 import { useSocket } from "./SocketContext";
 import "./ReconnectDialog.css";
 
-function ReconnectDialog({ onDismiss, onReconnect }) {
-  const { gameState, isConnected, reconnectAttempts, dismissReconnect } =
-    useSocket();
+function ReconnectDialog({ onDismiss, onReconnect, gameState: propGameState }) {
+  const {
+    gameState: contextGameState,
+    isConnected,
+    reconnectAttempts,
+    dismissReconnect,
+  } = useSocket();
+
+  // Use prop gameState if provided, otherwise fall back to context
+  const gameState = propGameState || contextGameState;
 
   if (!gameState) return null;
 

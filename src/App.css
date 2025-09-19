@@ -1,5 +1,9 @@
 /* App.css - Globalni stilovi */
 
+:root {
+  --user-header-height: 72px; /* visina sticky user headera */
+}
+
 /* App.css - Globalni stilovi s podrškom za safe areas */
 
 #root {

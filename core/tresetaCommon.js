@@ -177,6 +177,11 @@ function getPlayableCards(hand, playedCards) {
  * @returns {Array} Lista akuza s opisom i bodovima
  */
 function checkAkuze(hand) {
+  // Defensive check: return empty array if hand is not valid
+  if (!Array.isArray(hand)) {
+    return [];
+  }
+
   const akuze = [];
 
   // Grupiraj karte po vrijednosti

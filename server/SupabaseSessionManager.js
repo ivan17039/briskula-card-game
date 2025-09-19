@@ -51,10 +51,13 @@ class SupabaseSessionManager {
       const now = new Date();
       const expiresAt = new Date(now.getTime() + this.sessionTimeout);
 
+      // Generate stable userId if not provided
+      const userId = userData.userId || uuidv4();
+
       const sessionData = {
         session_token: sessionToken,
         session_id: sessionId,
-        user_id: userData.userId || null,
+        user_id: userId,
         user_name: userData.name,
         email: userData.email || null,
         is_guest: userData.isGuest !== false,
@@ -75,9 +78,9 @@ class SupabaseSessionManager {
       }
 
       console.log(
-        `✅ Supabase session created: ${userData.name} (${sessionId})`
+        `✅ Supabase session created: ${userData.name} (${sessionId}) userId: ${userId}`
       );
-      return { sessionToken, sessionId };
+      return { sessionToken, sessionId, userId };
     } catch (error) {
       console.error("Error creating session:", error);
       throw error;

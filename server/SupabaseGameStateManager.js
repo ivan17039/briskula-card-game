@@ -447,6 +447,29 @@ class SupabaseGameStateManager {
       }
     }, this.autoSaveInterval);
   }
+
+  /**
+   * Delete all game states from Supabase (for cleanup/testing)
+   */
+  async deleteAllGameStates() {
+    try {
+      const { error, count } = await this.supabase
+        .from("game_states")
+        .delete()
+        .neq("room_id", "never_match_this"); // Delete all rows
+
+      if (error) {
+        console.error("Error deleting all game states from Supabase:", error);
+        return { success: false, error: error.message };
+      }
+
+      console.log(`🗑️ Deleted all game states from Supabase. Count: ${count}`);
+      return { success: true, deletedCount: count };
+    } catch (error) {
+      console.error("Error deleting all game states from Supabase:", error);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 export default SupabaseGameStateManager;

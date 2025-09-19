@@ -97,12 +97,18 @@ function Game2v2({ gameData, onGameEnd }) {
     findMatch,
     saveGameState,
     clearGameState,
+    savedGameState,
   } = useSocket();
 
   const { addToast } = useToast();
 
   // Add state to prevent rapid card clicking
   const [isCardPlaying, setIsCardPlaying] = useState(false);
+
+  // State for disconnection handling
+  const [playerDisconnected, setPlayerDisconnected] = useState(false);
+  const [disconnectionInfo, setDisconnectionInfo] = useState(null);
+  const [graceTimeLeft, setGraceTimeLeft] = useState(0);
 
   const initializeGameState = () => {
     if (!gameData) return null;
@@ -111,7 +117,22 @@ function Game2v2({ gameData, onGameEnd }) {
     console.log("🎯 MyTeam from gameData:", gameData.myTeam);
 
     const myPlayerNumber = gameData.playerNumber;
-    const myHand = gameData.gameState[`player${myPlayerNumber}Hand`] || [];
+
+    // Try multiple sources for myHand - server might send it in different places
+    const myHand =
+      gameData.gameState?.myHand || // From server reconnection
+      gameData.gameState?.[`player${myPlayerNumber}Hand`] || // Direct player hand
+      gameData.myHand || // Sometimes at root level
+      [];
+
+    // Try multiple sources for myTeam
+    const myTeam =
+      gameData.myTeam || // Direct from server
+      gameData.gameState?.myTeam || // Nested in gameState
+      gameData.players?.find((p) => p.playerNumber === myPlayerNumber)?.team; // Extract from players
+
+    console.log("🃏 Resolved myHand:", myHand?.length || 0, "cards");
+    console.log("🎯 Resolved myTeam:", myTeam);
 
     // Ensure all hands exist and have proper fallbacks
     const player1Hand = gameData.gameState.player1Hand || [];
@@ -122,7 +143,7 @@ function Game2v2({ gameData, onGameEnd }) {
     return {
       roomId: gameData.roomId,
       playerNumber: myPlayerNumber,
-      myTeam: gameData.myTeam,
+      myTeam: myTeam,
       players: gameData.players,
       gameType: gameData.gameType || "briskula", // Dodaj gameType
 
@@ -131,9 +152,11 @@ function Game2v2({ gameData, onGameEnd }) {
         "🎯 Game2v2 inicijaliziran sa gameType:",
         gameData.gameType,
         "| myTeam:",
-        gameData.myTeam,
+        myTeam,
         "| playerNumber:",
-        myPlayerNumber
+        myPlayerNumber,
+        "| myHand cards:",
+        myHand?.length || 0
       ) || {}),
       myHand: myHand,
       playedCards: [],
@@ -195,6 +218,81 @@ function Game2v2({ gameData, onGameEnd }) {
     waitingFor: 0,
   });
 
+  // Handle game state restoration from SocketContext (similar to Game.jsx)
+  useEffect(() => {
+    if (savedGameState && !gameData) {
+      console.log(
+        "🔄 [Game2v2] Restoring game state from SocketContext:",
+        savedGameState
+      );
+      console.log(
+        "🃏 [Game2v2] Saved myHand:",
+        savedGameState.gameState?.myHand?.length || 0,
+        "cards"
+      );
+
+      // For 2v2 games, reconstruct the state with proper team information
+      const restoredState = {
+        roomId: savedGameState.roomId,
+        playerNumber: savedGameState.playerNumber,
+        myTeam: savedGameState.myTeam,
+        players: savedGameState.players,
+        teammates: savedGameState.teammates,
+        opponents: savedGameState.opponents,
+        gameType: savedGameState.gameType,
+        myHand: savedGameState.gameState?.myHand || [],
+        playedCards: savedGameState.gameState?.playedCards || [],
+        trump: savedGameState.gameState?.trump,
+        currentPlayer: savedGameState.gameState?.currentPlayer,
+        gamePhase: savedGameState.gameState?.gamePhase || "playing",
+        winner: savedGameState.gameState?.winner,
+        message: savedGameState.gameState?.message || "Igra je u tijeku...",
+        remainingCardsCount: savedGameState.gameState?.remainingCardsCount || 0,
+        team1Cards: savedGameState.gameState?.team1Cards || [],
+        team2Cards: savedGameState.gameState?.team2Cards || [],
+        team1Points: savedGameState.gameState?.team1Points || 0,
+        team2Points: savedGameState.gameState?.team2Points || 0,
+        handCounts: savedGameState.gameState?.handCounts || {
+          player1: 0,
+          player2: 0,
+          player3: 0,
+          player4: 0,
+        },
+        playableCards: savedGameState.gameState?.playableCards || [],
+
+        // Treseta specific properties
+        ...(savedGameState.gameType === "treseta" && {
+          totalTeam1Points: savedGameState.gameState?.totalTeam1Points || 0,
+          totalTeam2Points: savedGameState.gameState?.totalTeam2Points || 0,
+          currentPartija: savedGameState.gameState?.currentPartija || 1,
+          targetScore: savedGameState.gameState?.targetScore || 31,
+          partijas: savedGameState.gameState?.partijas || [],
+          akuzeEnabled:
+            savedGameState.akuzeEnabled !== undefined
+              ? savedGameState.akuzeEnabled
+              : true,
+          myAkuze: savedGameState.gameState?.myAkuze || [],
+          team1Akuze: savedGameState.gameState?.team1Akuze || [],
+          team2Akuze: savedGameState.gameState?.team2Akuze || [],
+          canAkuze:
+            savedGameState.akuzeEnabled !== undefined
+              ? savedGameState.akuzeEnabled
+              : true,
+          hasPlayedFirstRound:
+            savedGameState.gameState?.hasPlayedFirstRound || false,
+        }),
+      };
+
+      console.log(
+        "🎯 [Game2v2] About to restore state with myHand:",
+        restoredState.myHand?.length || 0,
+        "cards"
+      );
+      setGameState(restoredState);
+      console.log("✅ [Game2v2] Game state restored from SocketContext");
+    }
+  }, [savedGameState, gameData]);
+
   // Save game state to database when it changes (same as Game.jsx)
   useEffect(() => {
     if (gameState && gameState.roomId && gameState?.gamePhase === "playing") {
@@ -214,7 +312,7 @@ function Game2v2({ gameData, onGameEnd }) {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [gameState, gameData, saveGameState]);
+  }, [gameState, gameData]); // Removed saveGameState from dependencies
 
   // Function to get relative position for cross layout
   const getRelativePosition = (cardPlayerNumber, myPlayerNumber) => {
@@ -495,21 +593,69 @@ function Game2v2({ gameData, onGameEnd }) {
     });
 
     socket.on("playerDisconnected", (data) => {
+      console.log("⚠️ Player disconnected:", data);
       // Reset card playing flag on disconnect
       setIsCardPlaying(false);
 
-      let displayMessage = data.message;
-      if (data.gameMode === "2v2" && data.playerTeam) {
-        displayMessage += `. Igra je prekinuta.`;
-      }
+      if (data.canReconnect) {
+        // Grace period - show banner, don't interrupt game
+        setPlayerDisconnected(true);
+        setDisconnectionInfo({
+          graceEndsAt: data.graceEndsAt,
+          message: data.message,
+          canReconnect: data.canReconnect,
+          graceMs: data.graceMs,
+        });
+        addToast(`${data.message}`, "info");
+      } else {
+        // No reconnect possible - interrupt game
+        let displayMessage = data.message;
+        if (data.gameMode === "2v2" && data.playerTeam) {
+          displayMessage += `. Igra je prekinuta.`;
+        }
 
-      setGameState((prev) => ({
-        ...prev,
-        gamePhase: "finished",
-        gameInterrupted: true, // Dodaj flag da je igra prekinuta
-        message: `${displayMessage} Kliknite 'Glavni meni' za povratak.`,
-      }));
-      // Ne automatski preusmjeravaj - neka igrač sam odluči
+        setGameState((prev) => ({
+          ...prev,
+          gamePhase: "finished",
+          gameInterrupted: true,
+          message: `${displayMessage} Kliknite 'Glavni meni' za povratak.`,
+        }));
+      }
+    });
+
+    socket.on("playerReconnected", (data) => {
+      setPlayerDisconnected(false);
+      setDisconnectionInfo(null);
+      setGraceTimeLeft(0);
+      addToast(`${data.message}`, "success");
+    });
+
+    // Handle permanent player disconnect
+    socket.on("playerLeft", (data) => {
+      console.log("❌ Player permanently left:", data);
+      if (data.permanent) {
+        // Reset card playing flag on permanent leave
+        setIsCardPlaying(false);
+
+        // Show permanent disconnect info
+        setPlayerDisconnected(true);
+        setDisconnectionInfo({
+          message: data.message,
+          canReconnect: false,
+          permanent: true,
+          reason: data.reason,
+        });
+
+        // Also interrupt the game state
+        setGameState((prev) => ({
+          ...prev,
+          gamePhase: "finished",
+          gameInterrupted: true,
+          message: `${data.message} Igra je završena.`,
+        }));
+
+        addToast(data.message, "error");
+      }
     });
 
     socket.on("playerLeft", (data) => {
@@ -706,6 +852,7 @@ function Game2v2({ gameData, onGameEnd }) {
       socket.off("turnChange");
       socket.off("roundFinished");
       socket.off("playerDisconnected");
+      socket.off("playerReconnected");
       socket.off("playerLeft");
       socket.off("roomDeleted");
       socket.off("reconnectFailed");
@@ -942,10 +1089,6 @@ function Game2v2({ gameData, onGameEnd }) {
     const myPlayerNumber = gameState.playerNumber;
     const myTeam =
       myPlayerNumber === 1 || myPlayerNumber === 3 ? "team1" : "team2";
-
-    console.log(
-      `🎨 getTeamColor: player ${playerNumber} is in ${playerTeam}, I am player ${myPlayerNumber} in ${myTeam}`
-    );
 
     // Ja i moj teammate imamo "teammate" klasu (zelenu boju)
     // Suparnicki tim ima "opponent" klasu (crvenu boju)
@@ -1737,6 +1880,65 @@ function Game2v2({ gameData, onGameEnd }) {
           </div>
         </div>
       )}
+
+      {/* Player Disconnected - Grace Period Banner */}
+      {playerDisconnected &&
+        disconnectionInfo &&
+        disconnectionInfo.canReconnect && (
+          <div
+            className="disconnection-banner"
+            style={{
+              position: "fixed",
+              top: "10px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              backgroundColor: "#ff9800",
+              color: "white",
+              padding: "10px 20px",
+              borderRadius: "8px",
+              zIndex: 2000,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
+              textAlign: "center",
+              maxWidth: "90%",
+              width: "auto",
+            }}
+          >
+            <div style={{ fontSize: "0.9em", fontWeight: "bold" }}>
+              ⏳ {disconnectionInfo.message}
+            </div>
+            <div style={{ fontSize: "0.8em", marginTop: "5px" }}>
+              Čeka se reconnect...{" "}
+              {graceTimeLeft > 0 ? `(${Math.ceil(graceTimeLeft / 1000)}s)` : ""}
+            </div>
+          </div>
+        )}
+
+      {/* Player Disconnected - Final Modal (only for permanent disconnect) */}
+      {playerDisconnected &&
+        disconnectionInfo &&
+        !disconnectionInfo.canReconnect && (
+          <div className="modal-overlay" style={{ zIndex: 2000 }}>
+            <div
+              className="modal-content"
+              style={{ maxWidth: "400px", textAlign: "center" }}
+            >
+              <h3>⚠️ Igra završena</h3>
+              <p>{disconnectionInfo.message}</p>
+              <p>Igrač je napustio igru.</p>
+              <div style={{ marginTop: "20px" }}>
+                <button
+                  onClick={() => {
+                    clearGameState();
+                    window.location.href = "/";
+                  }}
+                  className="btn-primary-large"
+                >
+                  Glavni meni
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

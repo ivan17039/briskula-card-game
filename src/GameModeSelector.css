@@ -149,6 +149,23 @@
   font-weight: 600;
 }
 
+.tournament-badge {
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  color: #1a1a1a;
+  font-weight: bold;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
 .mode-option.selected .mode-badge {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }

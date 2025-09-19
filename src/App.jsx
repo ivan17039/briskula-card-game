@@ -7,6 +7,7 @@ import Login from "./Login";
 import GameTypeSelector from "./GameTypeSelector";
 import GameModeSelector from "./GameModeSelector";
 import GameLobby from "./GameLobby";
+import TournamentLobby from "./TournamentLobby";
 import Game from "./Game";
 import Game2v2 from "./Game2v2";
 import ReconnectDialog from "./ReconnectDialog";
@@ -61,17 +62,31 @@ function AppContent() {
         savedAppState,
         savedGameType,
         savedGameMode,
+        hasSavedGameState: !!savedGameState,
       });
 
-      if (savedGameType) {
-        setGameType(savedGameType);
+      // Priority: savedGameState > localStorage for gameMode
+      let finalGameMode = savedGameState?.gameMode || savedGameMode;
+      let finalGameType = savedGameState?.gameType || savedGameType;
+
+      if (finalGameType) {
+        setGameType(finalGameType);
       }
 
-      if (savedGameMode) {
-        setGameMode(savedGameMode);
+      if (finalGameMode) {
+        setGameMode(finalGameMode);
       }
 
-      if (savedAppState && savedAppState !== "login") {
+      // If we have saved game state, restore directly to game
+      if (savedGameState) {
+        console.log(
+          "🔄 Restoring game state from localStorage:",
+          savedGameState
+        );
+        setGameData(savedGameState);
+
+        setAppState("game");
+      } else if (savedAppState && savedAppState !== "login") {
         setAppState(savedAppState);
       } else {
         setAppState("gameSelect");
@@ -87,13 +102,18 @@ function AppContent() {
       localStorage.removeItem("gameType");
       localStorage.removeItem("gameMode");
     }
-  }, [user, appState]);
+  }, [user, appState, savedGameState]);
 
   // Check for saved game state when user connects - only show if not currently in a game
   useEffect(() => {
-    if (isConnected && user && savedGameState && appState !== "game") {
-      // Only show reconnect dialog if we're not currently in a game
-      setShowReconnectDialog(true);
+    if (isConnected && user && savedGameState) {
+      if (appState === "game") {
+        // If we're already in game state (from automatic restore), don't show reconnect dialog
+        setShowReconnectDialog(false);
+      } else if (appState !== "game") {
+        // Only show reconnect dialog if we're not in a game and haven't auto-restored
+        setShowReconnectDialog(true);
+      }
     } else if (appState === "game") {
       // If we're in a game, don't show reconnect dialog
       setShowReconnectDialog(false);
@@ -132,8 +152,21 @@ function AppContent() {
   }, [addToast]);
 
   const handleLogin = async (userData) => {
-    await registerUser(userData);
-    setAppState("gameSelect");
+    const response = await registerUser(userData);
+
+    // Check if server found an existing game to reconnect to
+    if (response.gameData) {
+      console.log(
+        "🎮 Server found existing game during registration:",
+        response.gameData
+      );
+      setGameData(response.gameData);
+      setGameType(response.gameData.gameType);
+      setGameMode(response.gameData.gameMode);
+      setAppState("game");
+    } else {
+      setAppState("gameSelect");
+    }
   };
 
   const handleGameTypeSelect = (type) => {
@@ -149,6 +182,8 @@ function AppContent() {
 
     if (mode === "custom") {
       setAppState("lobby");
+    } else if (mode === "tournament") {
+      setAppState("tournament-lobby");
     } else if (
       typeof modeData === "object" &&
       modeData.akuzeEnabled !== undefined
@@ -177,8 +212,8 @@ function AppContent() {
     } else if (data?.opponent) {
       setGameMode("1v1");
     }
-
-    setGameData(data);
+    // Preserve tournament metadata if present
+    setGameData({ ...data });
     setAppState("game");
   };
 
@@ -195,8 +230,7 @@ function AppContent() {
     } else if (data?.opponent) {
       setGameMode("1v1");
     }
-
-    setGameData(data);
+    setGameData({ ...data });
     setAppState("game");
   };
 
@@ -208,6 +242,16 @@ function AppContent() {
   const handleBackToModeSelect = () => {
     setAppState("modeSelect");
   };
+
+  // Listen for global tournament exit event (emitted from bracket)
+  useEffect(() => {
+    const handler = () => {
+      localStorage.removeItem("tournamentView");
+      setAppState("modeSelect");
+    };
+    window.addEventListener("tournamentExit", handler);
+    return () => window.removeEventListener("tournamentExit", handler);
+  }, []);
 
   const handleBackToGameSelect = () => {
     setAppState("gameSelect");
@@ -362,6 +406,27 @@ function AppContent() {
             onGameStart={handleLobbyGameStart}
             gameType={gameType}
             onBack={handleBackToModeSelect}
+          />
+          {showReconnectDialog && (
+            <ReconnectDialog
+              gameState={savedGameState}
+              onReconnect={handleReconnectToGame}
+              onDismiss={handleDismissReconnect}
+            />
+          )}
+        </>
+      );
+
+    case "tournament-lobby":
+      return (
+        <>
+          <UserHeader user={user} onLogout={handleLogout} />
+          <TournamentLobby
+            gameType={gameType || "treseta"} // Default to treseta if gameType is null
+            onBack={handleBackToModeSelect}
+            onGameStart={handleLobbyGameStart}
+            // signal parent for mode select exit
+            onExitModeSelect={handleBackToModeSelect}
           />
           {showReconnectDialog && (
             <ReconnectDialog

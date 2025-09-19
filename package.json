@@ -11,8 +11,10 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.53.0",
+    "navigate": "^0.3.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-router-dom": "^7.9.1",
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
