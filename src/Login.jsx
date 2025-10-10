@@ -184,7 +184,7 @@ function Login({ onLogin }) {
             className={`mode-btn ${loginMode === "login" ? "active" : ""}`}
             onClick={() => setLoginMode("login")}
           >
-            🔑 Prijaviť se
+            🔑 Prijavi se
           </button>
           <button
             type="button"
@@ -261,7 +261,7 @@ function Login({ onLogin }) {
             ) : loginMode === "guest" ? (
               "🎮 Uđi u igru"
             ) : loginMode === "login" ? (
-              "🔑 Prijaviť se"
+              "🔑 Prijavi se"
             ) : (
               "👤 Registriraj se"
             )}

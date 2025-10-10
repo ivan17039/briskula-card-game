@@ -18,7 +18,7 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
   if (!gameType) {
     return (
       <div className="tournament-lobby">
-        <div className="lobby-header">
+        <div className="lobby-header-tournament">
           <button className="back-btn-tournament" onClick={onBack}>
             ←
           </button>
@@ -162,7 +162,7 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
   if (loading) {
     return (
       <div className="tournament-lobby">
-        <div className="lobby-header">
+        <div className="lobby-header-tournament">
           <button className="back-btn-tournament" onClick={onBack}>
             ←
           </button>
@@ -178,17 +178,17 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
 
   return (
     <div className="tournament-lobby">
-      <div className="lobby-header">
+      <div className="lobby-header-tournament">
         <div className="header-left">
           <button
-            className="back-btn-tournament"
+            className="back-btn"
             onClick={onBack}
             title="Natrag na izbor moda"
           >
-            ← Natrag
+            ←
           </button>
         </div>
-        <div className="header-center">
+        <div className="header-center-tournament">
           <h1>
             🏆{" "}
             {gameType
@@ -197,7 +197,7 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
             Turniri
           </h1>
         </div>
-        <div className="header-right">
+        <div className="header-right-tournament">
           <button
             className="refresh-btn"
             onClick={() => socket?.emit("getTournaments", { gameType })}

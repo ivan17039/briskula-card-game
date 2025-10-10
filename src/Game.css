@@ -5,12 +5,15 @@
   padding: 0;
 }
 
+/* NOTE: Do not globally block scrolling for the entire app.
+   Keep overflow control scoped to the game containers.
+   This ensures Tournament pages and other screens can scroll normally. */
 html,
 body,
 #root {
-  height: 100%;
   width: 100%;
-  overflow: hidden;
+  /* Allow page to scroll outside of game views */
+  overflow: auto;
   /* Ensure safe area support */
   padding: 0;
   margin: 0;
