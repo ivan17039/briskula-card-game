@@ -276,40 +276,44 @@
 /* Modal Actions */
 .modal-actions {
   display: flex;
+  flex-direction: column; /* Stack buttons full-width by default */
   gap: 12px;
   padding-top: 20px;
   border-top: 1px solid #e2e8f0;
   margin-top: 24px;
 }
 
-.cancel-btn,
-.create-btn {
+.create-game-modal .cancel-btn,
+.create-game-modal .create-btn {
   flex: 1;
-  padding: 12px 20px;
+  padding: 12px 20px !important; /* Ensure global mobile icon styles don't shrink */
   border: none;
-  border-radius: 8px;
+  border-radius: 8px !important;
   cursor: pointer;
   font-weight: 600;
   font-size: 1rem;
   transition: all 0.2s ease;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
 }
 
-.cancel-btn {
+.create-game-modal .cancel-btn {
   background: #6c757d;
   color: white;
 }
 
-.cancel-btn:hover {
+.create-game-modal .cancel-btn:hover {
   background: #5c636a;
   transform: translateY(-1px);
 }
 
-.create-btn {
+.create-game-modal .create-btn {
   background: #28a745;
   color: white;
 }
 
-.create-btn:hover {
+.create-game-modal .create-btn:hover {
   background: #34ce57;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
@@ -419,8 +423,8 @@
     gap: 8px;
   }
 
-  .cancel-btn,
-  .create-btn {
+  .create-game-modal .cancel-btn,
+  .create-game-modal .create-btn {
     padding: 10px 16px;
   }
 }
