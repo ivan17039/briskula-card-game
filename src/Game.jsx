@@ -285,10 +285,14 @@ function Game({
 
     // --- PLAYER MODE: If playerNumber is present, treat as player ---
     if (data.playerNumber) {
-      // Find opponent
-      const opponent = data.players?.find(
+      // Find opponent (prefer players list, fallback to provided opponent)
+      const opponentFromPlayers = data.players?.find(
         (p) => p.playerNumber !== data.playerNumber
       );
+      const opponentFallback = data.opponent
+        ? { name: data.opponent.name, userId: data.opponent.userId }
+        : null;
+      const opponent = opponentFromPlayers || opponentFallback;
       const me = data.players?.find(
         (p) => p.playerNumber === data.playerNumber
       );
@@ -320,7 +324,12 @@ function Game({
         gamePhase: data.gameState?.gamePhase || "playing",
         winner: data.gameState?.winner,
         message: data.gameState?.message || "",
-        remainingCardsCount: data.gameState?.remainingCardsCount || 0,
+        // Some payloads don't include remainingCardsCount – derive from remainingDeck
+        remainingCardsCount:
+          (data.gameState?.remainingDeck &&
+            data.gameState.remainingDeck.length) ||
+          data.gameState?.remainingCardsCount ||
+          0,
         playableCards: data.gameState?.playableCards || [],
         myPoints: data.gameState?.myPoints || 0,
         opponentPoints: data.gameState?.opponentPoints || 0,
@@ -1768,6 +1777,35 @@ function Game({
       }
     });
 
+    // Obavijest: protivnik je odustao od revanša
+    socket.on("rematchDeclined", (data) => {
+      console.log("❌ Revanš odbijen:", data);
+      // Ako čekamo revanš, prekini matchmaking i vrati na završni ekran
+      setGameState((prev) => {
+        // Samo ako smo bili u traženju revanša ili na završnom ekranu
+        const wasWaiting = prev.gamePhase === "matchmaking";
+        // Otkaži globalni matchmaking queue na serveru da ne uparimo novog protivnika
+        try {
+          socket.emit("cancelMatch");
+        } catch (_) {}
+        // Prikaži brzi toast da je protivnik izašao
+        try {
+          addToast(
+            "Protivnik je odustao od revanša i izašao u glavni meni.",
+            "warning"
+          );
+        } catch (_) {}
+        return {
+          ...prev,
+          gamePhase: "finished",
+          opponentDeclinedRematch: true,
+          message: wasWaiting
+            ? "Protivnik je odustao od revanša."
+            : prev.message,
+        };
+      });
+    });
+
     // Spectator start handler
     socket.on("spectatorStart", (spectatorData) => {
       console.log("👁️ Spectator start:", spectatorData);
@@ -2309,6 +2347,7 @@ function Game({
 
     return () => {
       socket.off("gameStart");
+      socket.off("rematchDeclined");
       socket.off("cardPlayed");
       socket.off("turnChange");
       socket.off("roundFinished");
@@ -2323,6 +2362,27 @@ function Game({
       socket.off("partidaContinueStatus");
     };
   }, [socket, gameState?.roomId, onGameEnd, mode]);
+
+  // Helper: povratak u glavni meni uz obavijest da ne želimo revanš
+  const handleReturnToMenu = () => {
+    if (mode === "online" && gameState?.roomId) {
+      // Obavijesti protivnika da ne želimo revanš
+      try {
+        socket?.emit("declineRematch", { roomId: gameState.roomId });
+      } catch (_) {}
+      // Također izađi iz matchmaking queue-a ako smo tamo
+      try {
+        socket?.emit("cancelMatch");
+      } catch (_) {}
+      // Trajno napusti sobu da se druga strana odmah izbaci iz igre
+      try {
+        leaveRoomPermanently(gameState.roomId);
+      } catch (_) {}
+    } else if (mode === "ai") {
+      clearGameState();
+    }
+    onGameEnd();
+  };
 
   const handleAkuze = (akuz) => {
     if (!gameState || !gameState.akuzeEnabled || !gameState.canAkuze) {
@@ -2521,13 +2581,32 @@ function Game({
 
     return {
       myPoints: calculatePoints(gameState.myCards || []),
-      opponentPoints: calculatePoints(gameState.opponentCards || []),
+      opponentPoints: calculatePoints(
+        mode === "ai" ? gameState.aiCards || [] : gameState.opponentCards || []
+      ),
     };
   };
 
   const currentPoints = getCurrentPoints();
   const myPoints = currentPoints.myPoints;
   const opponentPoints = currentPoints.opponentPoints;
+
+  // Determine reliable winner for finished view based on visible points
+  const computedWinner = useMemo(() => {
+    // If not finished, keep server/local winner as-is
+    if (gameState?.gamePhase !== "finished") return gameState?.winner;
+
+    if (myPoints > opponentPoints) return gameState.playerNumber;
+    if (opponentPoints > myPoints) return gameState.playerNumber === 1 ? 2 : 1;
+    // Tie – fall back to server decision (last trick)
+    return gameState?.winner;
+  }, [
+    gameState?.gamePhase,
+    gameState?.winner,
+    gameState?.playerNumber,
+    myPoints,
+    opponentPoints,
+  ]);
 
   const sumPoints = (cards) => {
     return cards.reduce((total, card) => total + (card.points || 0), 0);
@@ -2791,7 +2870,11 @@ function Game({
           >
             {gameState.mode === "spectator"
               ? gameState.player2Name || "Igrač 2"
-              : gameState.opponent?.name || "?"}
+              : gameState.opponent?.name ||
+                (gameState.playerNumber === 1
+                  ? gameState.player2Name
+                  : gameState.player1Name) ||
+                "?"}
           </span>
         </div>
 
@@ -2866,13 +2949,7 @@ function Game({
 
             {gameState.gamePhase === "finished" && (
               <button
-                onClick={() => {
-                  // Clear AI game state when returning from finished game
-                  if (mode === "ai") {
-                    clearGameState();
-                  }
-                  onGameEnd();
-                }}
+                onClick={handleReturnToMenu}
                 className="game-btn btn-secondary"
               >
                 Povratak
@@ -2954,13 +3031,7 @@ function Game({
 
             {gameState.gamePhase === "finished" && (
               <button
-                onClick={() => {
-                  // Clear AI game state when returning from finished game
-                  if (mode === "ai") {
-                    clearGameState();
-                  }
-                  onGameEnd();
-                }}
+                onClick={handleReturnToMenu}
                 className="floating-btn exit-btn"
                 title="Povratak"
               >
@@ -2984,7 +3055,11 @@ function Game({
             <div className="opponent-name">
               {gameState.mode === "spectator"
                 ? gameState.player2Name || "Igrač 2"
-                : gameState.opponent?.name}
+                : gameState.opponent?.name ||
+                  (gameState.playerNumber === 1
+                    ? gameState.player2Name
+                    : gameState.player1Name) ||
+                  "?"}
               {gameState.currentPlayer === 2 && (
                 <span className="turn-indicator"> (Na redu)</span>
               )}
@@ -3500,14 +3575,14 @@ function Game({
                       {gameState.totalOpponentPoints || 0}
                     </div>
                   )}
-                  {gameState.winner === gameState.playerNumber && (
+                  {computedWinner === gameState.playerNumber && (
                     <div className="result-emoji">🎉</div>
                   )}
-                  {gameState.winner === null && (
+                  {computedWinner === null && (
                     <div className="result-emoji">🤝</div>
                   )}
-                  {gameState.winner &&
-                    gameState.winner !== gameState.playerNumber && (
+                  {computedWinner &&
+                    computedWinner !== gameState.playerNumber && (
                       <div className="result-emoji">😔</div>
                     )}
                 </div>
@@ -3525,7 +3600,7 @@ function Game({
                         ? `Cilj: ${gameState.targetScore} bodova`
                         : getCardCountText((gameState.myCards || []).length)}
                     </div>
-                    {gameState.winner === gameState.playerNumber && (
+                    {computedWinner === gameState.playerNumber && (
                       <div className="winner-badge">👑 POBJEDNIK</div>
                     )}
                   </div>
@@ -3554,9 +3629,9 @@ function Game({
                             ).length
                           )}
                     </div>
-                    {gameState.winner &&
-                      gameState.winner !== gameState.playerNumber &&
-                      gameState.winner !== null && (
+                    {computedWinner &&
+                      computedWinner !== gameState.playerNumber &&
+                      computedWinner !== null && (
                         <div className="winner-badge">👑 POBJEDNIK</div>
                       )}
                   </div>
@@ -3564,37 +3639,40 @@ function Game({
 
                 <div className="game-result">
                   <p>
-                    {gameState.winner === gameState.playerNumber
+                    {computedWinner === gameState.playerNumber
                       ? "🎉 Pobijedili ste!"
-                      : gameState.winner === 2
-                      ? "😔 Izgubili ste."
-                      : "🤝 Neriješeno!"}
+                      : computedWinner === null
+                      ? "🤝 Neriješeno!"
+                      : "😔 Izgubili ste."}
                   </p>
                 </div>
 
                 <div className="final-score-actions">
                   {/* Don't show Revanš button for tournament games */}
-                  {!gameState.isTournamentMatch && mode === "online" && (
-                    <button
-                      onClick={() => {
-                        // Resetuj game state za novi match
-                        setGameState((prev) => ({
-                          ...prev,
-                          gamePhase: "matchmaking", // Postaviti na matchmaking dok čeka novi match
-                          message: "Tražim revanš s istim protivnikom...",
-                        }));
-                        // Pokreni rematch s istim protivnikom
-                        rematch(
-                          gameData.gameMode || "1v1",
-                          gameState.gameType,
-                          gameState.opponent?.id // proslijedi opponent ID
-                        );
-                      }}
-                      className="btn-primary-large"
-                    >
-                      🔄 Revanš
-                    </button>
-                  )}
+                  {!gameState.isTournamentMatch &&
+                    mode === "online" &&
+                    !gameState.opponentDeclinedRematch && (
+                      <button
+                        onClick={() => {
+                          // Resetuj game state za novi match
+                          setGameState((prev) => ({
+                            ...prev,
+                            gamePhase: "matchmaking", // Postaviti na matchmaking dok čeka novi match
+                            message: "Tražim revanš s istim protivnikom...",
+                            opponentDeclinedRematch: false,
+                          }));
+                          // Pokreni rematch s istim protivnikom
+                          rematch(
+                            gameData.gameMode || "1v1",
+                            gameState.gameType,
+                            gameState.opponent?.id // proslijedi opponent ID
+                          );
+                        }}
+                        className="btn-primary-large"
+                      >
+                        🔄 Revanš
+                      </button>
+                    )}
                   {!gameState.isTournamentMatch && mode === "ai" && (
                     <button
                       onClick={() => {
@@ -3633,7 +3711,10 @@ function Game({
                       🔄 Revanš (AI)
                     </button>
                   )}
-                  <button onClick={onGameEnd} className="btn-secondary-large">
+                  <button
+                    onClick={handleReturnToMenu}
+                    className="btn-secondary-large"
+                  >
                     🏠 Glavni meni
                   </button>
                 </div>

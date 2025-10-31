@@ -2612,26 +2612,30 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Handle rematch decline
-  socket.on("declineRematch", async (data) => {
-    console.log(
-      `❌ Player ${socket.id} declined rematch in room ${data.gameId}`
-    );
+  // Handle rematch decline (1v1 and 2v2) - accepts roomId or gameId
+  socket.on("declineRematch", async (data = {}) => {
+    const roomId = data.roomId || data.gameId; // support both payload shapes
+    console.log(`❌ Player ${socket.id} declined rematch in room ${roomId}`);
 
-    const room = gameRooms.get(data.gameId);
+    if (!roomId) {
+      console.log(`⚠️ declineRematch missing roomId/gameId in payload`);
+      return;
+    }
+
+    const room = gameRooms.get(roomId);
     if (!room) {
-      console.log(`⚠️ Room ${data.gameId} not found for decline`);
+      console.log(`⚠️ Room ${roomId} not found for decline`);
       return;
     }
 
     // Find player in room
     const player = room.players.find((p) => p.id === socket.id);
     if (!player) {
-      console.log(`⚠️ Player ${socket.id} not found in room ${data.gameId}`);
+      console.log(`⚠️ Player ${socket.id} not found in room ${roomId}`);
       return;
     }
 
-    // Clear rematch ready status
+    // Clear rematch ready status if present
     if (room.rematchReady) {
       room.rematchReady.clear();
     }
