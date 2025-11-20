@@ -2363,6 +2363,7 @@ io.on("connection", (socket) => {
         isTournamentMatch: room.isTournamentMatch || false,
         tournamentId: room.tournamentId,
         matchId: room.matchId,
+        isResume: true, // Flag to indicate this is a resume/reconnect, not a new game
       };
 
       console.log(`[resumeGame] Sending gameStart to ${player.name}:`, {

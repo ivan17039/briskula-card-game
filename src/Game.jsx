@@ -1749,6 +1749,7 @@ function Game({
       console.log("🎮 Spectator flag:", newGameData.spectator);
       console.log("🎮 Opponent data received:", newGameData.opponent);
       console.log("🎮 Player number:", newGameData.playerNumber);
+      console.log("🎮 Is resume/reconnect:", newGameData.isResume);
 
       // Save reconnect data if this is a player (not spectator)
       if (
@@ -1770,7 +1771,71 @@ function Game({
         setSpectatorState(newGameData);
       }
 
-      // Create new state directly from newGameData
+      // If this is a resume/reconnect, merge with existing state instead of replacing
+      if (newGameData.isResume) {
+        console.log("🔄 Resuming existing game, merging state...");
+        setPlayerDisconnected(false);
+        setReconnectModalVisible(false);
+
+        // Convert raw server gameState to frontend format (same as gameStateReconnected)
+        const rawGameState = newGameData.gameState;
+        const playerNumber = newGameData.playerNumber;
+
+        const convertedGameState = {
+          ...rawGameState,
+          myHand: rawGameState[`player${playerNumber}Hand`] || [],
+          opponentHandCount:
+            rawGameState[`player${playerNumber === 1 ? 2 : 1}Hand`]?.length ||
+            0,
+          myCards: rawGameState[`player${playerNumber}Cards`] || [],
+          opponentCards:
+            rawGameState[`player${playerNumber === 1 ? 2 : 1}Cards`] || [],
+          myPoints: rawGameState[`player${playerNumber}Points`] || 0,
+          opponentPoints:
+            rawGameState[`player${playerNumber === 1 ? 2 : 1}Points`] || 0,
+          playableCards:
+            newGameData.playableCards || rawGameState.playableCards || [],
+          // For Treseta specific fields
+          myAkuze: rawGameState[`player${playerNumber}Akuze`] || {
+            points: 0,
+            details: [],
+          },
+          opponentAkuze: rawGameState[
+            `player${playerNumber === 1 ? 2 : 1}Akuze`
+          ] || { points: 0, details: [] },
+          totalMyPoints:
+            playerNumber === 1
+              ? rawGameState.totalPlayer1Points
+              : rawGameState.totalPlayer2Points,
+          totalOpponentPoints:
+            playerNumber === 1
+              ? rawGameState.totalPlayer2Points
+              : rawGameState.totalPlayer1Points,
+        };
+
+        // Restore game state from reconnection data
+        const reconnectedState = createGameStateFromData({
+          roomId: newGameData.roomId,
+          gameState: convertedGameState,
+          playerNumber: newGameData.playerNumber,
+          gameType: newGameData.gameType,
+          gameMode: newGameData.gameMode,
+          players: newGameData.players,
+          opponent: newGameData.opponent,
+          playableCards: newGameData.playableCards,
+          isTournamentMatch: newGameData.isTournamentMatch,
+          tournamentId: newGameData.tournamentId,
+          matchId: newGameData.matchId,
+        });
+
+        if (reconnectedState) {
+          setGameState(reconnectedState);
+          addToast("Uspješno reconnectani u igru!", "success");
+        }
+        return; // Don't create new state below
+      }
+
+      // Create new state directly from newGameData (for new games/rematch)
       const newState = createGameStateFromData(newGameData);
       if (newState) {
         setGameState(newState);
@@ -2563,6 +2628,15 @@ function Game({
   // Calculate current points including akuze for live display
   const getCurrentPoints = () => {
     if (gameState.gameType === "treseta") {
+      // If game is finished, use total points across all partijas
+      if (gameState.gamePhase === "finished") {
+        return {
+          myPoints: gameState.totalMyPoints || 0,
+          opponentPoints: gameState.totalOpponentPoints || 0,
+        };
+      }
+
+      // During gameplay, use current partija points + akuze
       const baseMyPoints = gameState.myPoints || 0;
       const baseOpponentPoints = gameState.opponentPoints || 0;
 
