@@ -162,6 +162,26 @@ class InMemorySessionManager {
     return this.sessions.delete(sessionToken);
   }
 
+  // Mark a session as disconnected (do not delete)
+  async setDisconnected(sessionToken) {
+    const session = this.sessions.get(sessionToken);
+    if (!session) return false;
+    session.isActive = false;
+    session.disconnectedAt = new Date();
+    return true;
+  }
+
+  // Mark that a user has left the game and deactivate session
+  async markSessionAsLeft(sessionToken) {
+    const session = this.sessions.get(sessionToken);
+    if (!session) return false;
+    session.isActive = false;
+    session.gameRoomId = null;
+    session.playerNumber = null;
+    session.lastActivity = new Date();
+    return true;
+  }
+
   async getStats() {
     const activeSessions = Array.from(this.sessions.values()).filter(
       (s) => s.isActive

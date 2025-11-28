@@ -156,10 +156,20 @@ function markPlayerSoftDisconnected(room, player) {
         try {
           for (const player of stillRoom.players) {
             const playerSession = await sessionManager.findSessionByUser(
-              player.name
+              player.userId || null,
+              player.name,
+              player.isGuest
             );
             if (playerSession) {
-              await sessionManager.markSessionAsLeft(playerSession.id);
+              const token =
+                playerSession.sessionToken ||
+                playerSession.session?.sessionToken;
+              if (
+                token &&
+                typeof sessionManager.markSessionAsLeft === "function"
+              ) {
+                await sessionManager.markSessionAsLeft(token);
+              }
             }
           }
         } catch (error) {
@@ -1692,11 +1702,17 @@ io.on("connection", (socket) => {
     // Clear any saved session/game state for this player
     try {
       const userSession = await sessionManager.findSessionByUser(
-        leavingPlayer.name
+        leavingPlayer.userId || null,
+        leavingPlayer.name,
+        leavingPlayer.isGuest
       );
       if (userSession) {
-        await sessionManager.markSessionAsLeft(userSession.id);
-        console.log(`🗑️ Cleared session for ${leavingPlayer.name}`);
+        const token =
+          userSession.sessionToken || userSession.session?.sessionToken;
+        if (token && typeof sessionManager.markSessionAsLeft === "function") {
+          await sessionManager.markSessionAsLeft(token);
+          console.log(`🗑️ Cleared session for ${leavingPlayer.name}`);
+        }
       }
     } catch (error) {
       console.log("Session cleanup failed:", error.message);
@@ -1760,11 +1776,17 @@ io.on("connection", (socket) => {
     try {
       for (const player of room.players) {
         const playerSession = await sessionManager.findSessionByUser(
-          player.name
+          player.userId || null,
+          player.name,
+          player.isGuest
         );
         if (playerSession) {
-          await sessionManager.markSessionAsLeft(playerSession.id);
-          console.log(`🗑️ Cleared session for ${player.name}`);
+          const token =
+            playerSession.sessionToken || playerSession.session?.sessionToken;
+          if (token && typeof sessionManager.markSessionAsLeft === "function") {
+            await sessionManager.markSessionAsLeft(token);
+            console.log(`🗑️ Cleared session for ${player.name}`);
+          }
         }
       }
     } catch (error) {
@@ -3539,13 +3561,25 @@ io.on("connection", (socket) => {
 
     // Handle game disconnection with session preservation
     if (user) {
-      // Mark session as disconnected but don't invalidate it
+      // Mark session as disconnected but don't invalidate it (manager-agnostic)
       if (user.sessionToken) {
-        const session = sessionManager.activeSessions.get(user.sessionToken);
-        if (session) {
-          session.isActive = false;
-          session.disconnectedAt = new Date();
-          console.log(`💤 Session marked as disconnected: ${user.name}`);
+        try {
+          if (typeof sessionManager.setDisconnected === "function") {
+            await sessionManager.setDisconnected(user.sessionToken);
+            console.log(`💤 Session marked as disconnected: ${user.name}`);
+          } else {
+            // Fallback: try to validate and set inactive on returned object (in-memory)
+            const validation = await sessionManager.validateSession(
+              user.sessionToken
+            );
+            if (validation?.valid && validation.session) {
+              validation.session.isActive = false;
+              validation.session.disconnectedAt = new Date();
+              console.log(`💤 Session marked as disconnected: ${user.name}`);
+            }
+          }
+        } catch (e) {
+          console.log("Session disconnect mark failed:", e.message);
         }
       }
 

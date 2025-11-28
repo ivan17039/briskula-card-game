@@ -316,6 +316,94 @@ class SupabaseSessionManager {
   }
 
   /**
+   * Mark a session as disconnected (without invalidation)
+   */
+  async setDisconnected(sessionToken) {
+    try {
+      const now = new Date();
+      const { error } = await this.supabase
+        .from("user_sessions")
+        .update({
+          is_active: false,
+          socket_id: null,
+          last_activity: now.toISOString(),
+        })
+        .eq("session_token", sessionToken);
+
+      if (error) {
+        console.error("Error marking session disconnected:", error);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("Error in setDisconnected:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Mark that a user left the game and deactivate session
+   */
+  async markSessionAsLeft(identifier) {
+    try {
+      const now = new Date();
+      // Try by session_id first, then session_token
+      let query = this.supabase
+        .from("user_sessions")
+        .update({
+          is_active: false,
+          game_room_id: null,
+          player_number: null,
+          last_activity: now.toISOString(),
+        })
+        .eq("session_id", identifier);
+
+      let { error, count } = await query.select("session_id");
+
+      if (error) {
+        console.error("Error marking session left (by id):", error);
+        // Try by session_token as fallback
+        const { error: err2 } = await this.supabase
+          .from("user_sessions")
+          .update({
+            is_active: false,
+            game_room_id: null,
+            player_number: null,
+            last_activity: now.toISOString(),
+          })
+          .eq("session_token", identifier);
+        if (err2) {
+          console.error("Error marking session left (by token):", err2);
+          return false;
+        }
+        return true;
+      }
+
+      // If nothing was updated by id, try token as a second attempt
+      if (!count) {
+        const { error: err3 } = await this.supabase
+          .from("user_sessions")
+          .update({
+            is_active: false,
+            game_room_id: null,
+            player_number: null,
+            last_activity: now.toISOString(),
+          })
+          .eq("session_token", identifier);
+        if (err3) {
+          console.error("Error marking session left (by token):", err3);
+          return false;
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error in markSessionAsLeft:", error);
+      return false;
+    }
+  }
+
+  /**
    * Convert Supabase format to internal format
    */
   convertFromSupabaseFormat(data) {
