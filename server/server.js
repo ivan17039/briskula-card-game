@@ -441,12 +441,12 @@ io.on("connection", (socket) => {
 
       // Ako korisnik šalje session token, pokušaj reconnect
       if (userData.sessionToken) {
-        const validation = sessionManager.validateSession(
+        const validation = await sessionManager.validateSession(
           userData.sessionToken
         );
         if (validation.valid) {
           // Reconnect postojeće sesije
-          const reconnectResult = sessionManager.reconnectSession(
+          const reconnectResult = await sessionManager.reconnectSession(
             userData.sessionToken,
             socket.id
           );
@@ -637,7 +637,7 @@ io.on("connection", (socket) => {
       }
 
       // Provjeri da li korisnik već ima aktivnu sesiju (bez session token-a)
-      const existingSession = sessionManager.findSessionByUser(
+      const existingSession = await sessionManager.findSessionByUser(
         userData.userId || userData.id,
         userData.name,
         userData.isGuest
@@ -645,7 +645,7 @@ io.on("connection", (socket) => {
 
       if (existingSession) {
         // Reconnect postojeće sesije
-        const reconnectResult = sessionManager.reconnectSession(
+        const reconnectResult = await sessionManager.reconnectSession(
           existingSession.sessionToken,
           socket.id
         );
@@ -831,7 +831,10 @@ io.on("connection", (socket) => {
       }
 
       // Stvori novu sesiju
-      const sessionData = sessionManager.createSession(userData, socket.id);
+      const sessionData = await sessionManager.createSession(
+        userData,
+        socket.id
+      );
 
       console.log("🔍 Debug sessionData:", sessionData);
 

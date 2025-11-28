@@ -22,6 +22,30 @@ class SupabaseSessionManager {
   }
 
   /**
+   * Find session by token and return user/session in common shape
+   */
+  async findSessionByToken(sessionToken) {
+    try {
+      const result = await this.validateSession(sessionToken);
+      if (!result.valid) return null;
+      const s = result.session;
+      return {
+        user: {
+          name: s.userName,
+          email: s.email,
+          isGuest: s.isGuest,
+          userId: s.userId,
+          sessionToken: s.sessionToken,
+        },
+        session: s,
+      };
+    } catch (error) {
+      console.error("Error finding session by token:", error);
+      return null;
+    }
+  }
+
+  /**
    * Initialize sessions table
    */
   async initializeTables() {

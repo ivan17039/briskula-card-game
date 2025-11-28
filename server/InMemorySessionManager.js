@@ -7,6 +7,31 @@ class InMemorySessionManager {
     console.log("✅ InMemory session manager initialized");
   }
 
+  // Find session by token and return a common shape
+  async findSessionByToken(sessionToken) {
+    const session = this.sessions.get(sessionToken);
+    if (!session) return null;
+    // Validate expiry similar to validateSession
+    const now = new Date();
+    const expiresAt = new Date(
+      session.lastActivity.getTime() + this.sessionTimeout
+    );
+    if (now > expiresAt) {
+      this.sessions.delete(sessionToken);
+      return null;
+    }
+    return {
+      user: {
+        name: session.userName,
+        email: session.email,
+        isGuest: session.isGuest,
+        userId: session.userId,
+        sessionToken: session.sessionToken,
+      },
+      session,
+    };
+  }
+
   // Getter for activeSessions to maintain compatibility
   get activeSessions() {
     return this.sessions;
