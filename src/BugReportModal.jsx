@@ -37,8 +37,12 @@ function BugReportModal({ onClose }) {
         reporterEmail: formData.contact || undefined,
       };
 
-      const apiBase = import.meta.env.VITE_API_URL || window.location.origin;
-      const resp = await fetch(`/api/report-bug`, {
+      const apiBase =
+        import.meta.env.VITE_SERVER_URL ||
+        import.meta.env.VITE_API_URL ||
+        window.location.origin;
+      const reportUrl = new URL("/api/report-bug", apiBase).toString();
+      const resp = await fetch(reportUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -70,7 +74,7 @@ function BugReportModal({ onClose }) {
     } catch (error) {
       addToast(
         `Greška pri slanju: ${error.message || "Nepoznata greška"}`,
-        "error"
+        "error",
       );
     } finally {
       setIsSubmitting(false);
