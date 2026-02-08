@@ -154,7 +154,7 @@ function checkGameEnd(
   remainingDeck,
   player1Hand,
   player2Hand,
-  lastTrickWinner = null
+  lastTrickWinner = null,
 ) {
   const totalCardsLeft =
     remainingDeck.length + player1Hand.length + player2Hand.length;
@@ -165,15 +165,7 @@ function checkGameEnd(
     } else if (player2Points > player1Points) {
       return { isGameOver: true, winner: 2, reason: "Više bodova" };
     } else {
-      if (lastTrickWinner) {
-        return {
-          isGameOver: true,
-          winner: lastTrickWinner,
-          reason: "Zadnja štika",
-        };
-      } else {
-        return { isGameOver: true, winner: null, reason: "Neriješeno (60-60)" };
-      }
+      return { isGameOver: true, winner: null, reason: "Neriješeno (60-60)" };
     }
   }
 

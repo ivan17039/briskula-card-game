@@ -1,6 +1,6 @@
-# Briskula & Trešeta Card Games
+# Briškula & Trešeta Card Games
 
-A real-time multiplayer Croatian card game platform built with React.js and Socket.io, featuring both **Briskula** and **Trešeta** in 1v1 and 2v2 game modes with traditional gameplay mechanics.
+A real-time multiplayer card game platform built with React.js and Socket.io, featuring **Briškula** and **Trešeta** Italian-origin classics beloved across Mediterranean countries in 1v1 and 2v2 modes. These games spread from Italy and have long been part of everyday play in places like Croatia, Montenegro, Slovenia, Spain, and Portugal. Over time, local house rules developed around dealing, drawing, and table talk, yet the core gameplay remains faithful to the original Italian traditions. The app uses the traditional 40‑card Italian deck and lets you enjoy quick matches, longer series, or tournament play online.
 
 ## 🎮 About the Games
 
@@ -29,7 +29,7 @@ Popular Balkan card game with trick-taking mechanics:
 - **Mobile-Optimized**: Responsive design with touch-friendly controls
 - **Traditional Rules**: Authentic Croatian game mechanics
 
-## � Game Rules
+## 🎲 Game Rules
 
 ### Briskula Rules
 
@@ -97,7 +97,7 @@ Popular Balkan card game with trick-taking mechanics:
 
 Experience both Briskula and Trešeta online with players from around the world!
 
-## �‍💻 Development Notes
+## 💻 Development Notes
 
 This project combines traditional Croatian card game mechanics with modern web technologies. The implementation features:
 
@@ -109,4 +109,4 @@ This project combines traditional Croatian card game mechanics with modern web t
 
 ---
 
-**Made with ❤️ for Croatian card game enthusiasts worldwide**
+**Made with ❤️ for All card game enthusiasts worldwide**

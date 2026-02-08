@@ -196,10 +196,10 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
             {roundNumber === 1
               ? "Prva runda"
               : roundNumber === bracket?.length
-              ? "Finale"
-              : roundNumber === bracket?.length - 1
-              ? "Polufinale"
-              : `Runda ${roundNumber}`}{" "}
+                ? "Finale"
+                : roundNumber === bracket?.length - 1
+                  ? "Polufinale"
+                  : `Runda ${roundNumber}`}{" "}
             – Meč {match.matchNumber}
           </span>
           {match.status === "playing" && (
@@ -350,7 +350,7 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
     return (
       <div className="tournament-bracket-container">
         <div className="bracket-header">
-          <button className="back-btn-bracket" onClick={onBack}>
+          <button className="back-btn" onClick={onBack}>
             ←
           </button>
           <h2>Učitavanje...</h2>
@@ -362,7 +362,7 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
     return (
       <div className="tournament-bracket-container">
         <div className="bracket-header">
-          <button className="back-btn-bracket" onClick={onBack}>
+          <button className="back-btn" onClick={onBack}>
             ←
           </button>
           <h2>Greška</h2>
@@ -374,7 +374,7 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
   return (
     <div className="tournament-bracket-container">
       <div className="bracket-header">
-        <button className="back-btn-bracket" onClick={onBack} title="Natrag">
+        <button className="back-btn" onClick={onBack} title="Natrag">
           ←
         </button>
         <div className="tournament-info">

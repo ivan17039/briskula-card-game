@@ -4,7 +4,7 @@ import { useState } from "react";
 import "./GameModeSelector.css";
 
 function GameModeSelector({ onModeSelect, onBack, gameType }) {
-  const [selectedMode, setSelectedMode] = useState("custom");
+  const [selectedMode, setSelectedMode] = useState(null);
   const [akuzeEnabled, setAkuzeEnabled] = useState(true); // Default to enabled
 
   const handleModeSelect = (mode) => {
@@ -80,15 +80,11 @@ function GameModeSelector({ onModeSelect, onBack, gameType }) {
             }
           >
             <div className="mode-icon">🎮</div>
-            <h3>Stvori ili Pridruži se igri</h3>
-            <p>Igrajte s prijateljima ili se pridružite postojećim igrama</p>
-            <ul>
-              <li>Stvorite vlastitu sobu (1v1 ili 2v2)</li>
-              <li>Pridružite se postojećim sobama</li>
-              <li>Šifra sobe za privatnost</li>
-              <li>Pozovite prijatelje direktno</li>
-            </ul>
-            <div className="mode-badge">Sve u jednom</div>
+            <div className="mode-option-content">
+              <h3>Stvori ili Pridruži se igri</h3>
+              <p>Igrajte s prijateljima ili se pridružite postojećim igrama</p>
+            </div>
+            <div className="mode-badge-mode">Sve u jednom</div>
           </div>
 
           <div
@@ -103,15 +99,11 @@ function GameModeSelector({ onModeSelect, onBack, gameType }) {
             }
           >
             <div className="mode-icon">🏆</div>
-            <h3>Turnirski način</h3>
-            <p>Natječite se u organiziranim turnirima</p>
-            <ul>
-              <li>Mjesečni i sezonski turniri</li>
-              <li>Prigodni turniri (Božićni, Uskršnji)</li>
-              <li>Bracket sustav eliminacije</li>
-              <li>Ljestvica i nagrade</li>
-            </ul>
-            <div className="mode-badge tournament-badge">Novo!</div>
+            <div className="mode-option-content">
+              <h3>Turnirski način</h3>
+              <p>Natječite se u organiziranim turnirima</p>
+            </div>
+            <div className="mode-badge-mode tournament-badge">Novo!</div>
           </div>
 
           {/* AI Mode with akuze option for Treseta */}

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSocket } from "./SocketContext";
 import CreateGameModal from "./CreateGameModal";
 import "./GameLobby.css";
+import EloWidget from "./EloWidget";
 
 function GameLobby({ onGameStart, onBack, gameType }) {
   const { socket, user } = useSocket();
@@ -17,22 +18,30 @@ function GameLobby({ onGameStart, onBack, gameType }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const safeGameType = (gameType || "briskula").toString();
+
   const refreshGames = () => {
     setLoading(true);
-    socket.emit("getActiveGames", { gameType });
+    if (socket) {
+      socket.emit("getActiveGames", { gameType: safeGameType });
+    }
   };
 
   useEffect(() => {
     if (!socket) return;
 
     // Request active games when component mounts
-    socket.emit("getActiveGames", { gameType });
+    socket.emit("getActiveGames", { gameType: safeGameType });
 
     // Listen for active games updates
     socket.on("activeGamesUpdate", (games) => {
       // Filter games by gameType to show only relevant games in this lobby
-      const filteredGames = games.filter((game) => game.gameType === gameType);
-      console.log(`🎮 Filtered to ${filteredGames.length} ${gameType} games`);
+      const filteredGames = games.filter(
+        (game) => game.gameType === safeGameType,
+      );
+      console.log(
+        `🎮 Filtered to ${filteredGames.length} ${safeGameType} games`,
+      );
 
       setActiveGames(filteredGames);
       setLoading(false);
@@ -106,7 +115,7 @@ function GameLobby({ onGameStart, onBack, gameType }) {
       socket.off("gameDeleted");
       socket.off("gameDeletionError");
     };
-  }, [socket, gameType, onGameStart]);
+  }, [socket, safeGameType, onGameStart]);
 
   const handleCreateGame = (gameData) => {
     if (!socket || !user) {
@@ -119,12 +128,12 @@ function GameLobby({ onGameStart, onBack, gameType }) {
     console.log("📤 User data:", user);
     socket.emit("createGame", {
       gameName: gameData.name,
-      gameType,
+      gameType: safeGameType,
       gameMode: gameData.maxPlayers === 2 ? "1v1" : "2v2",
       password: gameData.password,
       hasPassword: gameData.hasPassword,
       // Include akuze setting for Treseta
-      ...(gameType === "treseta" &&
+      ...(safeGameType === "treseta" &&
         gameData.akuzeEnabled !== undefined && {
           akuzeEnabled: gameData.akuzeEnabled,
         }),
@@ -254,9 +263,12 @@ function GameLobby({ onGameStart, onBack, gameType }) {
           </button>
         </div>
         <div className="header-center">
-          <h1>{gameType.charAt(0).toUpperCase() + gameType.slice(1)} Lobby</h1>
+          <h1>
+            {safeGameType.charAt(0).toUpperCase() + safeGameType.slice(1)} Lobby
+          </h1>
         </div>
         <div className="header-right">
+          <EloWidget compact />
           <button
             className="refresh-btn"
             onClick={refreshGames}
@@ -285,7 +297,7 @@ function GameLobby({ onGameStart, onBack, gameType }) {
           <div className="no-games">
             <div className="no-games-icon">🎮</div>
             <h3>No active games</h3>
-            <p>Be the first to create a {gameType} game!</p>
+            <p>Be the first to create a {safeGameType} game!</p>
             <button
               className="create-first-btn"
               onClick={() => setShowCreateModal(true)}
@@ -348,7 +360,7 @@ function GameLobby({ onGameStart, onBack, gameType }) {
       {/* Create Game Modal */}
       {showCreateModal && (
         <CreateGameModal
-          gameType={gameType}
+          gameType={safeGameType}
           onClose={() => setShowCreateModal(false)}
           onCreateGame={handleCreateGame}
         />

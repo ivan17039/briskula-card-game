@@ -1,4 +1,4 @@
-/* CreateGameModal.css - Modal for creating custom games */
+/* CreateGameModal.css - Cozy Card Table Modal */
 
 .modal-overlay {
   position: fixed;
@@ -6,7 +6,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(107, 79, 42, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -15,15 +15,15 @@
 }
 
 .create-game-modal {
-  background: white;
+  background: #faf7f2;
   border-radius: 12px;
   max-width: 500px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
-  color: #2d3748;
-  animation: slideUp 0.3s ease;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  color: #3a3126;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  border: 2px solid #d4c5b0;
 }
 
 .modal-header {
@@ -31,13 +31,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 24px 24px 20px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 2px solid #d4c5b0;
 }
 
 .modal-header h2 {
   margin: 0;
   font-size: 1.4rem;
-  color: #2d3748;
+  color: #6b4f2a;
   font-weight: 700;
 }
 
@@ -46,7 +46,7 @@
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
-  color: #6c757d;
+  color: #6b4f2a;
   padding: 4px;
   width: 36px;
   height: 36px;
@@ -54,12 +54,12 @@
   align-items: center;
   justify-content: center;
   border-radius: 6px;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .close-btn:hover {
-  background: #f8f9fa;
-  color: #495057;
+  background: #e8dfd0;
+  color: #5a4023;
 }
 
 /* Form Styles */
@@ -75,35 +75,35 @@
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #4a5568;
+  color: #6b4f2a;
   font-size: 0.95rem;
 }
 
 .form-input {
   width: 100%;
   padding: 12px 16px;
-  border: 2px solid #e2e8f0;
+  border: 2px solid #d4c5b0;
   border-radius: 8px;
   font-size: 1rem;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   background: white;
-  color: #2d3748;
+  color: #3a3126;
 }
 
 .form-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #c9a86a;
+  box-shadow: 0 0 0 3px rgba(201, 168, 106, 0.15);
 }
 
 .form-input.error {
-  border-color: #dc3545;
-  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+  border-color: #c45454;
+  box-shadow: 0 0 0 3px rgba(196, 84, 84, 0.15);
 }
 
 .error-text {
   display: block;
-  color: #dc3545;
+  color: #c45454;
   font-size: 0.85rem;
   margin-top: 6px;
   font-weight: 500;
@@ -115,27 +115,29 @@
   gap: 12px;
 }
 
-.mode-option {
+.mode-option-create {
   flex: 1;
   cursor: pointer;
-  border: 2px solid #e2e8f0;
+  border: 2px solid #d4c5b0;
   border-radius: 8px;
   padding: 16px;
-  transition: all 0.2s ease;
-  background: white;
+  transition: all 0.15s ease;
+  background: #f4efe6;
 }
 
-.mode-option:hover {
-  border-color: #cbd5e0;
-  background: #f8f9fa;
+.mode-option-create:hover {
+  border-color: #c9a86a;
+  background: #f9f5ee;
+  transform: translateY(-1px);
 }
 
-.mode-option.selected {
-  border-color: #667eea;
-  background: rgba(102, 126, 234, 0.05);
+.mode-option-create.selected {
+  border-color: #2f5d3a;
+  background: #2f5d3a;
+  color: #faf7f2;
 }
 
-.mode-option input[type="radio"] {
+.mode-option-create input[type="radio"] {
   display: none;
 }
 
@@ -156,14 +158,22 @@
 
 .mode-title {
   font-weight: 600;
-  color: #2d3748;
+  color: #6b4f2a;
   font-size: 1rem;
 }
 
+.mode-option-create.selected .mode-title {
+  color: #faf7f2;
+}
+
 .mode-desc {
-  color: #6c757d;
+  color: #5a4632;
   font-size: 0.85rem;
   margin-top: 2px;
+}
+
+.mode-option-create.selected .mode-desc {
+  color: rgba(250, 247, 242, 0.85);
 }
 
 /* Checkbox Styles */
@@ -177,7 +187,7 @@
   gap: 12px;
   cursor: pointer;
   font-weight: 500;
-  color: #4a5568;
+  color: #6b4f2a;
 }
 
 .checkbox-label input[type="checkbox"] {
@@ -187,19 +197,19 @@
 .checkbox-custom {
   width: 20px;
   height: 20px;
-  border: 2px solid #cbd5e0;
+  border: 2px solid #d4c5b0;
   border-radius: 4px;
   position: relative;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   background: white;
 }
 
-.checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
-  background: #667eea;
-  border-color: #667eea;
+.checkbox-label input[type="checkbox"]:checked+.checkbox-custom {
+  background: #2f5d3a;
+  border-color: #2f5d3a;
 }
 
-.checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
+.checkbox-label input[type="checkbox"]:checked+.checkbox-custom::after {
   content: "✓";
   position: absolute;
   top: 50%;
@@ -218,9 +228,9 @@
 .password-section {
   margin-top: 12px;
   padding: 16px;
-  background: rgba(102, 126, 234, 0.05);
+  background: rgba(201, 168, 106, 0.1);
   border-radius: 8px;
-  border: 1px solid rgba(102, 126, 234, 0.1);
+  border: 1px solid rgba(201, 168, 106, 0.3);
 }
 
 .password-input {
@@ -228,15 +238,15 @@
 }
 
 .password-hint {
-  color: #6c757d;
+  color: #5a4632;
   font-size: 0.85rem;
   font-style: italic;
 }
 
 /* Game Preview */
 .game-preview {
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  background: #f4efe6;
+  border: 2px solid #d4c5b0;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 24px;
@@ -244,7 +254,7 @@
 
 .game-preview h4 {
   margin: 0 0 12px 0;
-  color: #495057;
+  color: #6b4f2a;
   font-size: 1rem;
   font-weight: 600;
 }
@@ -262,13 +272,13 @@
 }
 
 .preview-label {
-  color: #6c757d;
+  color: #5a4632;
   font-weight: 500;
   font-size: 0.9rem;
 }
 
 .preview-value {
-  color: #495057;
+  color: #6b4f2a;
   font-weight: 600;
   font-size: 0.9rem;
 }
@@ -276,47 +286,48 @@
 /* Modal Actions */
 .modal-actions {
   display: flex;
-  flex-direction: column; /* Stack buttons full-width by default */
+  flex-direction: column;
   gap: 12px;
   padding-top: 20px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 2px solid #d4c5b0;
   margin-top: 24px;
 }
 
 .create-game-modal .cancel-btn,
 .create-game-modal .create-btn {
   flex: 1;
-  padding: 12px 20px !important; /* Ensure global mobile icon styles don't shrink */
+  padding: 12px 20px !important;
   border: none;
   border-radius: 8px !important;
   cursor: pointer;
   font-weight: 600;
   font-size: 1rem;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   width: 100% !important;
   min-width: 0 !important;
   height: auto !important;
 }
 
 .create-game-modal .cancel-btn {
-  background: #6c757d;
-  color: white;
+  background: #8b7355;
+  color: #faf7f2;
 }
 
 .create-game-modal .cancel-btn:hover {
-  background: #5c636a;
+  background: #9d8365;
   transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .create-game-modal .create-btn {
-  background: #28a745;
-  color: white;
+  background: #2f5d3a;
+  color: #faf7f2;
 }
 
 .create-game-modal .create-btn:hover {
-  background: #34ce57;
+  background: #3a7348;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+  box-shadow: 0 3px 8px rgba(47, 93, 58, 0.3);
 }
 
 /* Animations */
@@ -325,6 +336,7 @@
     opacity: 0;
     transform: translateY(30px) scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -356,7 +368,7 @@
     gap: 8px;
   }
 
-  .mode-option {
+  .mode-option-create {
     padding: 12px;
   }
 
@@ -382,11 +394,13 @@
     gap: 2px;
   }
 }
+
 @keyframes slideUp {
   from {
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -414,7 +428,7 @@
     padding: 10px 12px;
   }
 
-  .mode-option {
+  .mode-option-create {
     padding: 10px;
   }
 

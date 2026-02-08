@@ -62,7 +62,7 @@ function Login({ onLogin }) {
         // Supabase login
         const { data, error } = await auth.signIn(
           formData.email,
-          formData.password
+          formData.password,
         );
 
         if (error) {
@@ -91,14 +91,12 @@ function Login({ onLogin }) {
           throw new Error("Ime je obavezno");
         }
 
-        // Poboljšana email validacija
-        const emailRegex =
-          /^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]@[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]\.[a-zA-Z]{2,}$/;
+        // Simple email validation
         if (!formData.email.trim()) {
           throw new Error("Email je obavezan");
         }
-        if (!emailRegex.test(formData.email.trim())) {
-          throw new Error("Unesite važeću email adresu (npr. ime@domena.com)");
+        if (!formData.email.includes("@") || !formData.email.includes(".")) {
+          throw new Error("Unesite važeću email adresu");
         }
 
         if (formData.password.length < 6) {
@@ -106,9 +104,9 @@ function Login({ onLogin }) {
         }
 
         const { data, error } = await auth.signUp(
-          formData.email,
+          formData.email.trim(),
           formData.password,
-          formData.name
+          formData.name.trim(),
         );
 
         if (error) {
@@ -275,9 +273,8 @@ function Login({ onLogin }) {
               <strong>Guest pristup:</strong>
               <br />
               • Možete odmah početi igrati
-              <br />
-              • Nema trajnog rangiranja
               <br />• Ime će biti nasumično ako ne unesete svoje
+              <br />• Registracijom otključavate ELO i leaderboard
             </p>
           </div>
         )}
@@ -292,6 +289,7 @@ function Login({ onLogin }) {
               <br />
               • Sudjelovanje u turnirima
               <br />• Personalizirani profil
+              <br />• ELO rangiranje i leaderboard
             </p>
           </div>
         )}

@@ -1,0 +1,96 @@
+.about-container {
+  min-height: 100vh;
+  background: linear-gradient(to bottom, #8b6f47 0%, #6b4f2a 100%);
+  color: #3a3126;
+  padding: 20px;
+}
+
+.about-card {
+  max-width: 900px;
+  margin: 0 auto;
+  background: #faf7f2;
+  border-radius: 12px;
+  border: 2px solid #d4c5b0;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.about-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 2px solid #e8dfd0;
+  background: #f4efe6;
+}
+
+.about-header h1 {
+  flex: 1;
+  text-align: center;
+  margin: 0;
+  color: #6b4f2a;
+}
+
+.about-back-btn {
+  padding: 8px 12px;
+  background: #8b7355;
+  border: none;
+  color: #faf7f2;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.about-back-btn:hover {
+  background: #6b5a45;
+  transform: translateY(-1px);
+}
+
+.about-content {
+  padding: 20px;
+}
+
+.about-content h2 {
+  margin-top: 20px;
+  margin-bottom: 8px;
+  color: #6b4f2a;
+}
+
+.about-content p,
+.about-content ul {
+  color: #5a4632;
+  line-height: 1.6;
+}
+
+.about-content ul {
+  padding-left: 20px;
+}
+
+@media (max-width: 640px) {
+  .about-container {
+    padding: 14px;
+  }
+
+  .about-header {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .about-header h1 {
+    font-size: 1.4rem;
+  }
+
+  .about-back-btn {
+    padding: 6px 10px;
+    border-radius: 6px;
+  }
+
+  .about-content {
+    padding: 16px;
+  }
+
+  .about-content h2 {
+    margin-top: 16px;
+  }
+}

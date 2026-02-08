@@ -1,0 +1,312 @@
+.elo-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(107, 79, 42, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+}
+
+.elo-modal-content {
+  background: #faf7f2;
+  border-radius: 12px;
+  padding: 32px 40px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  border: 3px solid #d4c5b0;
+  max-width: 450px;
+  width: 90%;
+  text-align: center;
+  transform: scale(0.8) translateY(30px);
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  color: #3a3126;
+}
+
+.elo-modal-content.show {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.elo-modal-content.winner {
+  border-color: #2f5d3a;
+  box-shadow: 0 10px 40px rgba(47, 93, 58, 0.3),
+    0 0 0 1px rgba(47, 93, 58, 0.2);
+}
+
+.elo-modal-content.loser {
+  border-color: #c45454;
+  box-shadow: 0 10px 40px rgba(196, 84, 84, 0.2),
+    0 0 0 1px rgba(196, 84, 84, 0.2);
+}
+
+.elo-modal-header {
+  margin-bottom: 24px;
+}
+
+.result-emoji {
+  font-size: 72px;
+  margin-bottom: 12px;
+  animation: bounceIn 0.6s ease;
+}
+
+.elo-modal-header h2 {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0;
+  color: #6b4f2a;
+}
+
+.elo-change-display {
+  background: #f4efe6;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+  border: 2px solid #e8dfd0;
+}
+
+.elo-delta {
+  font-size: 48px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  animation: countUp 0.6s ease;
+}
+
+.elo-delta.positive {
+  color: #2f5d3a;
+  text-shadow: 0 2px 4px rgba(47, 93, 58, 0.3);
+}
+
+.elo-delta.negative {
+  color: #c45454;
+  text-shadow: 0 2px 4px rgba(196, 84, 84, 0.3);
+}
+
+.elo-progression {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #5a4632;
+}
+
+.old-elo {
+  opacity: 0.6;
+}
+
+.arrow {
+  font-size: 24px;
+  color: #8b7355;
+}
+
+.new-elo {
+  color: #2f5d3a;
+  text-shadow: 0 1px 2px rgba(47, 93, 58, 0.2);
+}
+
+.level-change {
+  margin: 20px 0;
+  padding: 16px;
+  border-radius: 12px;
+  animation: slideInUp 0.5s ease 0.3s backwards;
+}
+
+.level-change.level-up {
+  background: rgba(47, 93, 58, 0.15);
+  border: 2px solid rgba(47, 93, 58, 0.3);
+}
+
+.level-change.level-down {
+  background: rgba(196, 84, 84, 0.15);
+  border: 2px solid rgba(196, 84, 84, 0.3);
+}
+
+.level-icon {
+  font-size: 40px;
+  margin-bottom: 8px;
+}
+
+.level-change p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #6b4f2a;
+}
+
+.current-rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 24px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #5a4632;
+}
+
+.rank-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 28px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  animation: pulse 2s ease infinite;
+}
+
+/* Level badge colors (match Leaderboard) */
+.rank-badge.level-1 {
+  background: #6b5a45;
+  color: #faf7f2;
+}
+.rank-badge.level-2 {
+  background: #7d6851;
+  color: #faf7f2;
+}
+.rank-badge.level-3 {
+  background: #8b7355;
+  color: #faf7f2;
+}
+.rank-badge.level-4 {
+  background: #9a8466;
+  color: #faf7f2;
+}
+.rank-badge.level-5 {
+  background: #a89374;
+  color: #3a3126;
+}
+.rank-badge.level-6 {
+  background: #b5a17f;
+  color: #3a3126;
+}
+.rank-badge.level-7 {
+  background: #c2ae8a;
+  color: #3a3126;
+}
+.rank-badge.level-8 {
+  background: #c9a86a;
+  color: #3a3126;
+}
+.rank-badge.level-9 {
+  background: #d1b577;
+  color: #3a3126;
+}
+.rank-badge.level-10 {
+  background: linear-gradient(135deg, #f5b342 0%, #d98c00 100%);
+  color: #3a3126;
+}
+
+.elo-modal-close {
+  width: 100%;
+  padding: 14px 24px;
+  background: #2f5d3a;
+  color: #faf7f2;
+  border: none;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  margin-top: 8px;
+}
+
+.elo-modal-close:hover {
+  background: #3a7348;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(47, 93, 58, 0.3);
+}
+
+.elo-modal-close:active {
+  transform: translateY(0);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes countUp {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@media (max-width: 480px) {
+  .elo-modal-content {
+    padding: 24px 20px;
+  }
+
+  .result-emoji {
+    font-size: 56px;
+  }
+
+  .elo-modal-header h2 {
+    font-size: 26px;
+  }
+
+  .elo-delta {
+    font-size: 36px;
+  }
+
+  .elo-progression {
+    font-size: 16px;
+  }
+
+  .rank-badge {
+    width: 48px;
+    height: 48px;
+    font-size: 24px;
+  }
+}

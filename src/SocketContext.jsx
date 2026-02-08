@@ -348,10 +348,11 @@ export const SocketProvider = ({ children }) => {
         );
 
         // Include sessionToken in user object
+        // Use userId from server response, only fall back to guestId if none
         const userWithSession = {
           ...data.user,
           sessionToken: data.session?.sessionToken,
-          userId: getStableUserId(data.user.userId || data.user.id),
+          userId: data.user.userId || data.user.id || getStableGuestId(),
         };
 
         setUser(userWithSession);
@@ -372,7 +373,7 @@ export const SocketProvider = ({ children }) => {
         const userWithSession = {
           ...data.user,
           sessionToken: data.session?.sessionToken,
-          userId: getStableUserId(data.user.userId || data.user.id),
+          userId: data.user.userId || data.user.id || getStableGuestId(),
         };
 
         setUser(userWithSession);
@@ -455,6 +456,23 @@ export const SocketProvider = ({ children }) => {
       setConnectionError(data.message);
     });
 
+    // Listen for ELO updates after games (backup handler, Game.jsx also handles this)
+    newSocket.on("eloUpdate", (data) => {
+      setUser((prev) => {
+        if (!prev || !prev.userId) return prev;
+        const myUpdate = data[prev.userId];
+        if (myUpdate && myUpdate.newElo !== undefined) {
+          const gameType = localStorage.getItem("gameType") || "briskula";
+          const newElo = { ...(prev.elo || { briskula: 1000, treseta: 1000 }) };
+          newElo[gameType] = myUpdate.newElo;
+          const updatedUser = { ...prev, elo: newElo };
+          localStorage.setItem("user", JSON.stringify(updatedUser));
+          return updatedUser;
+        }
+        return prev;
+      });
+    });
+
     setSocket(newSocket);
 
     return () => {
@@ -493,11 +511,11 @@ export const SocketProvider = ({ children }) => {
         }
       });
 
-      // Ensure we always include stable userId for persistence
-      const stableUserId = getStableGuestId();
+      // Use real userId from userData if available (registered user),
+      // otherwise use stable guest ID
       const registrationData = {
         ...userData,
-        userId: stableUserId, // Always include stable userId
+        userId: userData.userId || getStableGuestId(),
       };
 
       const existingUser = localStorage.getItem("user");
@@ -508,8 +526,8 @@ export const SocketProvider = ({ children }) => {
             registrationData.sessionToken = parsedUser.sessionToken;
             console.log("🔄 Including existing session token for continuity");
           }
-          // Also preserve the existing userId if it exists
-          if (parsedUser.userId) {
+          // Preserve existing userId only if registrationData doesn't have real one
+          if (parsedUser.userId && !userData.userId) {
             registrationData.userId = parsedUser.userId;
             console.log(
               "🔄 Using existing userId for continuity:",
@@ -522,8 +540,10 @@ export const SocketProvider = ({ children }) => {
       }
 
       console.log(
-        "📤 Registering with stable userId:",
-        registrationData.userId
+        "📤 Registering with userId:",
+        registrationData.userId,
+        "isGuest:",
+        userData.isGuest
       );
       socket.emit("register", registrationData);
     });
@@ -836,6 +856,7 @@ export const SocketProvider = ({ children }) => {
     connectionError,
     reconnectAttempts,
     user,
+    setUser,
     gameState,
     savedGameState: gameState,
     isAIMode: isAIMode(), // Added isAIMode to context value

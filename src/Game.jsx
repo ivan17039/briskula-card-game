@@ -115,13 +115,17 @@ function Game({
     saveGameState,
     clearGameState,
     gameState: savedGameStateFromContext,
+    setUser,
   } = useSocket();
 
   const { addToast } = useToast();
 
   // Spectator mode states
   const [isSpectator, setIsSpectator] = useState(
-    isSpectatorMode || gameData?.spectator || gameData?.isSpectatorMode || false
+    isSpectatorMode ||
+      gameData?.spectator ||
+      gameData?.isSpectatorMode ||
+      false,
   );
   const [spectatorState, setSpectatorState] = useState(null);
   const [reconnectModalVisible, setReconnectModalVisible] = useState(false);
@@ -191,7 +195,7 @@ function Game({
     } catch (error) {
       console.warn(
         "🔄 [Game] Could not parse saved game state for mode detection:",
-        error
+        error,
       );
     }
 
@@ -206,7 +210,7 @@ function Game({
     // Ako je opponent isti kao user, probaj naći drugog
     if (opponent && opponent.name === userName) {
       opponent = players.find(
-        (p) => p.playerNumber !== playerNumber && p.name !== userName
+        (p) => p.playerNumber !== playerNumber && p.name !== userName,
       );
     }
     return opponent
@@ -224,15 +228,6 @@ function Game({
       console.warn("⚠️ No data provided to createGameStateFromData");
       return null;
     }
-
-    // DEBUG: Log everything bitno
-    console.log("🔍 [createGameStateFromData] Data:", data);
-    console.log("🔍 [createGameStateFromData] Spectator flags:", {
-      spectator: data.spectator,
-      isSpectatorMode: data.isSpectatorMode,
-      playerNumber: data.playerNumber,
-    });
-    console.log("🔍 [createGameStateFromData] Players:", data.players);
 
     // --- SPECTATOR MODE: Only if explicitly flagged ---
     if (data.spectator === true || data.isSpectatorMode === true) {
@@ -287,14 +282,14 @@ function Game({
     if (data.playerNumber) {
       // Find opponent (prefer players list, fallback to provided opponent)
       const opponentFromPlayers = data.players?.find(
-        (p) => p.playerNumber !== data.playerNumber
+        (p) => p.playerNumber !== data.playerNumber,
       );
       const opponentFallback = data.opponent
         ? { name: data.opponent.name, userId: data.opponent.userId }
         : null;
       const opponent = opponentFromPlayers || opponentFallback;
       const me = data.players?.find(
-        (p) => p.playerNumber === data.playerNumber
+        (p) => p.playerNumber === data.playerNumber,
       );
 
       // Extract my hand based on playerNumber
@@ -364,10 +359,6 @@ function Game({
       if (me) playerNumber = me.playerNumber;
     }
 
-    console.log("🔍 [createGameStateFromData] Opponent:", data.opponent);
-    console.log("🔍 [createGameStateFromData] playerNumber:", playerNumber);
-    console.log("🔍 [createGameStateFromData] user:", user?.name);
-
     // Online state – kompatibilno s postojećim backendom
     let myHand =
       playerNumber === 1
@@ -382,7 +373,7 @@ function Game({
     if (myHand && myHand.length > 0 && myHand.every((c) => c.hidden)) {
       console.error(
         "❌ [createGameStateFromData] SVE KARTE SU HIDDEN! Ovo je bug u mappingu ili payloadu.",
-        myHand
+        myHand,
       );
       // Pokušaj fallback: uzmi karte iz gameState prema playerNumber
       if (
@@ -406,13 +397,13 @@ function Game({
       const found = findOpponentFromPlayers(
         data.players,
         playerNumber,
-        user.name
+        user.name,
       );
       if (found) {
         opponentObj = found;
         console.warn(
           "⚠️ [createGameStateFromData] Opponent bio isti kao user, fallback na:",
-          found
+          found,
         );
       }
     }
@@ -420,7 +411,7 @@ function Game({
       opponentObj = findOpponentFromPlayers(
         data.players,
         playerNumber,
-        user?.name
+        user?.name,
       );
     }
 
@@ -477,13 +468,6 @@ function Game({
   const initializeGameState = () => {
     if (!gameData) return null;
 
-    console.log("🔍 [Game] Initializing with gameData:", gameData);
-    console.log("🔍 [Game] Spectator flags:", {
-      spectator: gameData?.spectator,
-      isSpectatorMode: gameData?.isSpectatorMode,
-      mode: mode,
-    });
-
     // Check for spectator mode early
     if (
       gameData?.spectator === true ||
@@ -491,30 +475,11 @@ function Game({
       mode === "spectator"
     ) {
       console.log(
-        "👁️ [Game] Detected spectator mode - clearing any saved state and using createGameStateFromData"
+        "👁️ [Game] Detected spectator mode - clearing any saved state and using createGameStateFromData",
       );
       clearGameState(); // Clear any saved game state for spectators
       return createGameStateFromData(gameData);
     }
-
-    console.log("🔍 [Game] Opponent data:", gameData?.opponent);
-    console.log("🔍 [Game] Players data:", gameData?.players);
-    console.log("🔍 [Game] Tournament data:", {
-      isTournamentMatch: gameData?.isTournamentMatch,
-      tournamentId: gameData?.tournamentId,
-      matchId: gameData?.matchId,
-    });
-
-    // DEBUG: Check if gameData has required fields for online games
-    console.log("🔍 [Game] gameData structure check:", {
-      hasGameState: !!gameData?.gameState,
-      hasPlayers: !!gameData?.players,
-      hasOpponent: !!gameData?.opponent,
-      hasRoomId: !!gameData?.roomId,
-      gameMode: gameData?.gameMode,
-      player1Hand: gameData?.gameState?.player1Hand?.length || 0,
-      player2Hand: gameData?.gameState?.player2Hand?.length || 0,
-    });
 
     // Tournament branch removed: server now emits standard 'gameStart' for tournaments too
 
@@ -524,14 +489,30 @@ function Game({
       if (savedState) {
         try {
           const parsedState = JSON.parse(savedState);
-          if (parsedState.mode === "ai" && parsedState.roomId === "local-ai") {
+
+          // Don't restore if it's a finished game
+          if (
+            parsedState.gamePhase === "finished" ||
+            parsedState.gamePhase === "partidaFinished" ||
+            parsedState.gameInterrupted
+          ) {
+            console.log(
+              "⚠️ [Game] Saved AI game is finished, clearing and starting new game",
+            );
+            localStorage.removeItem("gameState");
+            localStorage.removeItem("aiGameState");
+            // Continue to create new game below
+          } else if (
+            parsedState.mode === "ai" &&
+            parsedState.roomId === "local-ai"
+          ) {
             console.log("🤖 [Game] Found saved AI game state, restoring it");
             return parsedState; // Return the exact saved state
           }
         } catch (error) {
           console.warn(
             "🔄 [Game] Error parsing saved AI state, creating new game:",
-            error
+            error,
           );
         }
       }
@@ -549,7 +530,7 @@ function Game({
         deck.length,
         "cards",
         "useTreseta:",
-        useTreseta
+        useTreseta,
       );
 
       // For Trešeta AI mode we must use 1v1 dealing (do NOT pass is2v2=true)
@@ -558,7 +539,7 @@ function Game({
         "[v0] 🃏 Dealt cards - Player:",
         dealt.player1Hand.length,
         "AI:",
-        dealt.player2Hand.length
+        dealt.player2Hand.length,
       );
 
       const initialState = {
@@ -616,7 +597,7 @@ function Game({
     // --- FIX: Check if gameState exists before proceeding ---
     if (!gameData.gameState) {
       console.log(
-        "⚠️ [Game] gameState is missing from gameData, attempting fallback"
+        "⚠️ [Game] gameState is missing from gameData, attempting fallback",
       );
       // Try to use saved game state as fallback
       const savedState = localStorage.getItem("gameState");
@@ -767,14 +748,14 @@ function Game({
         const savedAppState = localStorage.getItem("appState");
         if (savedAppState === "game" && savedAppGameType && !savedState) {
           console.log(
-            "🤖 [Game] Detected AI game from app state pattern in fallback"
+            "🤖 [Game] Detected AI game from app state pattern in fallback",
           );
           savedMode = "ai";
         }
       } catch (error) {
         console.warn(
           "🔄 [Game] Could not parse saved game state for fallback:",
-          error
+          error,
         );
       }
 
@@ -784,7 +765,7 @@ function Game({
         "gameMode:",
         savedGameMode,
         "mode:",
-        savedMode
+        savedMode,
       );
     }
 
@@ -838,6 +819,10 @@ function Game({
     readyPlayers: [],
     waitingFor: 0,
   });
+  // ELO changes after game ends
+  const [eloChanges, setEloChanges] = useState(null);
+  // Auto-exit timestamp for finished games (ms since epoch)
+  const [sessionExpiryAt, setSessionExpiryAt] = useState(null);
   const roundFirstPlayerRef = useRef(null);
   const aiThinking = useRef(false);
   const roundResolving = useRef(false);
@@ -927,13 +912,13 @@ function Game({
               ? determineRoundWinnerTreseta(
                   firstCard,
                   secondCard,
-                  roundFirstPlayerRef.current
+                  roundFirstPlayerRef.current,
                 )
               : determineRoundWinner(
                   firstCard,
                   secondCard,
                   prevState.trumpSuit,
-                  roundFirstPlayerRef.current
+                  roundFirstPlayerRef.current,
                 );
 
             const winnerIsP1 = winner === 1;
@@ -1023,13 +1008,13 @@ function Game({
                   p1Points +
                   (prevState.myAkuze?.reduce(
                     (sum, akuz) => sum + akuz.points,
-                    0
+                    0,
                   ) || 0);
                 const opponentPartidaPoints =
                   p2Points +
                   (prevState.opponentAkuze?.reduce(
                     (sum, akuz) => sum + akuz.points,
-                    0
+                    0,
                   ) || 0);
 
                 // Add current partija points to total
@@ -1070,7 +1055,7 @@ function Game({
                       p2Akuze,
                       remaining,
                       myHandAfterDraw,
-                      aiHandAfterDraw
+                      aiHandAfterDraw,
                     );
                   })()
                 : checkGameEnd(
@@ -1079,7 +1064,7 @@ function Game({
                     remaining,
                     myHandAfterDraw,
                     aiHandAfterDraw,
-                    winner
+                    winner,
                   );
             }
 
@@ -1130,20 +1115,20 @@ function Game({
               gamePhase: end.isGameOver
                 ? "finished"
                 : end.isPartidaOver
-                ? "partidaFinished"
-                : "playing",
+                  ? "partidaFinished"
+                  : "playing",
               winner: end.isGameOver ? end.winner : null,
               myPoints:
                 p1Points +
                 (prevState.myAkuze?.reduce(
                   (sum, akuz) => sum + akuz.points,
-                  0
+                  0,
                 ) || 0),
               opponentPoints:
                 p2Points +
                 (prevState.opponentAkuze?.reduce(
                   (sum, akuz) => sum + akuz.points,
-                  0
+                  0,
                 ) || 0),
               playableCards:
                 prevState.gameType === "treseta" && !end.isGameOver
@@ -1164,38 +1149,38 @@ function Game({
                         p1Points +
                         (prevState.myAkuze?.reduce(
                           (sum, akuz) => sum + akuz.points,
-                          0
+                          0,
                         ) || 0),
                       opponentPoints:
                         p2Points +
                         (prevState.opponentAkuze?.reduce(
                           (sum, akuz) => sum + akuz.points,
-                          0
+                          0,
                         ) || 0),
                       winner:
                         p1Points +
                           (prevState.myAkuze?.reduce(
                             (sum, akuz) => sum + akuz.points,
-                            0
+                            0,
                           ) || 0) >
                         p2Points +
                           (prevState.opponentAkuze?.reduce(
                             (sum, akuz) => sum + akuz.points,
-                            0
+                            0,
                           ) || 0)
                           ? 1
                           : p2Points +
-                              (prevState.opponentAkuze?.reduce(
-                                (sum, akuz) => sum + akuz.points,
-                                0
-                              ) || 0) >
-                            p1Points +
-                              (prevState.myAkuze?.reduce(
-                                (sum, akuz) => sum + akuz.points,
-                                0
-                              ) || 0)
-                          ? 2
-                          : 0,
+                                (prevState.opponentAkuze?.reduce(
+                                  (sum, akuz) => sum + akuz.points,
+                                  0,
+                                ) || 0) >
+                              p1Points +
+                                (prevState.myAkuze?.reduce(
+                                  (sum, akuz) => sum + akuz.points,
+                                  0,
+                                ) || 0)
+                            ? 2
+                            : 0,
                     },
                   ],
                   currentPartija: prevState.currentPartija + 1,
@@ -1254,9 +1239,26 @@ function Game({
   // Handle game state restoration from SocketContext
   useEffect(() => {
     if (savedGameStateFromContext && !gameData) {
+      // Don't restore if the saved state is from a finished game
+      if (
+        savedGameStateFromContext.gamePhase === "finished" ||
+        savedGameStateFromContext.gamePhase === "partidaFinished" ||
+        savedGameStateFromContext.gameInterrupted
+      ) {
+        console.log(
+          "⚠️ [Game] Saved game state is finished, clearing and redirecting...",
+        );
+        clearGameState?.();
+        localStorage.removeItem("gameState");
+        localStorage.removeItem("aiGameState");
+        addToast("Igra je već završena. Vraćam na glavni meni.", "info");
+        setTimeout(() => onGameEnd?.(), 1000);
+        return;
+      }
+
       console.log(
         "🔄 [Game] Restoring game state from SocketContext:",
-        savedGameStateFromContext
+        savedGameStateFromContext,
       );
 
       // For AI games, restore the exact saved state directly
@@ -1267,12 +1269,12 @@ function Game({
       } else {
         // For online games, use the server data processing function
         const restoredState = createGameStateFromData(
-          savedGameStateFromContext
+          savedGameStateFromContext,
         );
         if (restoredState) {
           setGameState(restoredState);
           console.log(
-            "✅ [Game] Online game state restored from SocketContext"
+            "✅ [Game] Online game state restored from SocketContext",
           );
         }
       }
@@ -1281,9 +1283,54 @@ function Game({
 
   // Auto-reconnect handled by SocketContext now
   useEffect(() => {
-    console.log(
-      "🔄 Game component mounted - auto-reconnect handled by SocketContext"
-    );
+    console.log("🔄 Game component mounted - checking for finished games");
+
+    const storedExpiry = localStorage.getItem("sessionExpiresAt");
+    const expiryMs = storedExpiry ? Number(storedExpiry) : null;
+
+    // If we already have a pending auto-exit, honor it across refresh
+    if (expiryMs && !Number.isNaN(expiryMs)) {
+      setSessionExpiryAt(expiryMs);
+      addToast("Sesija završava za 10 sekundi.", "info");
+      return;
+    }
+
+    // Check if we're trying to restore a finished game on page refresh
+    const savedState = localStorage.getItem("gameState");
+    if (savedState) {
+      try {
+        const parsedState = JSON.parse(savedState);
+
+        if (
+          parsedState.gamePhase === "finished" ||
+          parsedState.gamePhase === "partidaFinished" ||
+          parsedState.gameInterrupted
+        ) {
+          console.log(
+            "⚠️ Detected finished game on mount, starting auto-exit...",
+          );
+
+          // Leave the room on server if it exists
+          if (parsedState.roomId && socket && parsedState.mode === "online") {
+            console.log(
+              "🚪 Leaving finished room on server:",
+              parsedState.roomId,
+            );
+            socket.emit("leaveRoom", {
+              roomId: parsedState.roomId,
+              permanent: true,
+            });
+          }
+
+          const newExpiry = Date.now() + 10000;
+          localStorage.setItem("sessionExpiresAt", String(newExpiry));
+          setSessionExpiryAt(newExpiry);
+          addToast("Sesija završava za 10 sekundi.", "info");
+        }
+      } catch (error) {
+        console.warn("⚠️ Error checking saved game state on mount:", error);
+      }
+    }
   }, []);
 
   // AI Akuze notification effect - show AI akuze at start of partija
@@ -1302,7 +1349,7 @@ function Game({
       const timer = setTimeout(() => {
         const totalAkuzePoints = gameState.opponentAkuze.reduce(
           (sum, akuz) => sum + akuz.points,
-          0
+          0,
         );
         const akuzeDescriptions = gameState.opponentAkuze
           .map((akuz) => akuz.description)
@@ -1313,7 +1360,7 @@ function Game({
             totalAkuzePoints === 1 ? "" : totalAkuzePoints <= 4 ? "a" : "ova"
           })`,
           "info",
-          5000 // Show for 5 seconds
+          5000, // Show for 5 seconds
         );
 
         // Mark AI akuze as announced
@@ -1357,7 +1404,7 @@ function Game({
         let aiHandForChoice = gameState.aiHand || [];
         if (gameState.gameType === "treseta" && firstPlayedCard && !aiIsFirst) {
           const sameSuit = (gameState.aiHand || []).filter(
-            (c) => c.suit === firstPlayedCard.suit
+            (c) => c.suit === firstPlayedCard.suit,
           );
           if (sameSuit.length > 0) aiHandForChoice = sameSuit;
         }
@@ -1415,8 +1462,48 @@ function Game({
     return () => clearInterval(interval);
   }, [disconnectionInfo]);
 
+  // Auto-exit for finished games (kept across refresh)
+  useEffect(() => {
+    if (!sessionExpiryAt) return;
+
+    const remainingMs = sessionExpiryAt - Date.now();
+    if (remainingMs <= 0) {
+      console.log("⏰ Auto-exiting finished game");
+      handleReturnToMenu();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      handleReturnToMenu();
+    }, remainingMs);
+
+    return () => clearTimeout(timer);
+  }, [sessionExpiryAt]);
+
   // Separate useEffect for saving game state to avoid infinite loops
   useEffect(() => {
+    // Clear saved state when game ends
+    if (
+      gameState?.gamePhase === "finished" ||
+      gameState?.gamePhase === "partidaFinished" ||
+      gameState?.gameInterrupted
+    ) {
+      console.log("🧹 [Game] Clearing saved game state - game ended");
+      localStorage.removeItem("aiGameState");
+      localStorage.removeItem("gameState");
+      clearGameState?.();
+
+      // Schedule session deletion after 10 seconds
+      if (gameState?.gamePhase === "finished" && !sessionExpiryAt) {
+        const newExpiry = Date.now() + 10000;
+        localStorage.setItem("sessionExpiresAt", String(newExpiry));
+        setSessionExpiryAt(newExpiry);
+        addToast("Sesija završava za 10 sekundi.", "info");
+      }
+
+      return;
+    }
+
     if (
       gameState?.gamePhase === "playing" &&
       gameState?.roomId &&
@@ -1488,7 +1575,7 @@ function Game({
 
         console.log(
           "💾 [Game] Saving complete AI game state:",
-          completeAIState
+          completeAIState,
         );
         saveGameState(completeAIState);
       }, 1000);
@@ -1517,7 +1604,7 @@ function Game({
       const rawGameState = data.gameState;
       const playerNumber = data.playerNumber;
       const opponent = data.players?.find(
-        (p) => p.playerNumber !== playerNumber
+        (p) => p.playerNumber !== playerNumber,
       );
 
       // Create properly formatted gameState for frontend
@@ -1573,14 +1660,17 @@ function Game({
       addToast(`Reconnect greška: ${data.message}`, "error");
       setReconnectModalVisible(false);
 
-      // Clear reconnect data if permanently left or room deleted
-      if (
-        data.message?.includes("napustili") ||
-        data.message?.includes("ne postoji")
-      ) {
-        localStorage.removeItem("playerId");
-        localStorage.removeItem("roomId");
-      }
+      // Clear reconnect data and saved game state
+      localStorage.removeItem("playerId");
+      localStorage.removeItem("roomId");
+      localStorage.removeItem("gameState");
+      localStorage.removeItem("aiGameState");
+      clearGameState?.();
+
+      // Redirect to main menu after short delay
+      setTimeout(() => {
+        if (onGameEnd) onGameEnd();
+      }, 2000);
     });
 
     socket.on("playerDisconnected", (data) => {
@@ -1857,7 +1947,7 @@ function Game({
         try {
           addToast(
             "Protivnik je odustao od revanša i izašao u glavni meni.",
-            "warning"
+            "warning",
           );
         } catch (_) {}
         return {
@@ -2040,12 +2130,12 @@ function Game({
           const myCardPoints = calculatePointsTreseta(
             newState.myCards,
             ultimaWinner,
-            prev.playerNumber
+            prev.playerNumber,
           ).points;
           const opponentCardPoints = calculatePointsTreseta(
             newState.opponentCards,
             ultimaWinner,
-            prev.playerNumber === 1 ? 2 : 1
+            prev.playerNumber === 1 ? 2 : 1,
           ).points;
 
           // Don't add akuze points here - they will be added only at the end of partija
@@ -2121,8 +2211,8 @@ function Game({
               newTotalMyPoints >= prev.targetScore
                 ? prev.playerNumber
                 : prev.playerNumber === 1
-                ? 2
-                : 1;
+                  ? 2
+                  : 1;
           } else {
             // Just partija finished, not the whole match
             newState.gamePhase = "partidaFinished";
@@ -2142,10 +2232,10 @@ function Game({
                 myPartidaPoints > opponentPartidaPoints
                   ? prev.playerNumber
                   : opponentPartidaPoints > myPartidaPoints
-                  ? prev.playerNumber === 1
-                    ? 2
-                    : 1
-                  : 0,
+                    ? prev.playerNumber === 1
+                      ? 2
+                      : 1
+                    : 0,
             },
           ];
           newState.currentPartija = prev.currentPartija + 1;
@@ -2270,7 +2360,7 @@ function Game({
         clearGameState();
         addToast(
           "Protivnik je trajno napustio igru. Vraćam vas na glavni meni.",
-          "warning"
+          "warning",
         );
         setTimeout(() => {
           onGameEnd();
@@ -2402,12 +2492,37 @@ function Game({
 
     // Handle partija continuation status from server
     socket.on("partidaContinueStatus", (data) => {
-      console.log("📊 Received partidaContinueStatus:", data);
       setNextPartidaStatus({
-        playerReady: data.isPlayerReady || false, // Use server's isPlayerReady flag
+        playerReady: data.isPlayerReady || false,
         readyPlayers: data.readyPlayers || [],
         waitingFor: data.waitingFor || 0,
       });
+    });
+
+    // Handle ELO updates after game ends
+    socket.on("eloUpdate", (data) => {
+      setEloChanges(data);
+
+      // Update user ELO in context and localStorage
+      if (user?.userId && data[user.userId]) {
+        const myUpdate = data[user.userId];
+        if (myUpdate.newElo !== undefined) {
+          const currentGameType =
+            gameState?.gameType ||
+            localStorage.getItem("gameType") ||
+            "briskula";
+          setUser((prev) => {
+            if (!prev) return prev;
+            const newElo = {
+              ...(prev.elo || { briskula: 1000, treseta: 1000 }),
+            };
+            newElo[currentGameType] = myUpdate.newElo;
+            const updatedUser = { ...prev, elo: newElo };
+            localStorage.setItem("user", JSON.stringify(updatedUser));
+            return updatedUser;
+          });
+        }
+      }
     });
 
     return () => {
@@ -2425,11 +2540,30 @@ function Game({
       socket.off("akuzeAnnounced");
       socket.off("partidaRestarted");
       socket.off("partidaContinueStatus");
+      socket.off("eloUpdate");
     };
-  }, [socket, gameState?.roomId, onGameEnd, mode]);
+  }, [
+    socket,
+    gameState?.roomId,
+    gameState?.gameType,
+    user?.userId,
+    setUser,
+    onGameEnd,
+    mode,
+  ]);
 
   // Helper: povratak u glavni meni uz obavijest da ne želimo revanš
   const handleReturnToMenu = () => {
+    // Stop pending auto-exit if running
+    setSessionExpiryAt(null);
+
+    // Clear all saved game states
+    localStorage.removeItem("aiGameState");
+    localStorage.removeItem("gameState");
+    localStorage.removeItem("playerId");
+    localStorage.removeItem("roomId");
+    localStorage.removeItem("sessionExpiresAt");
+
     if (mode === "online" && gameState?.roomId) {
       // Obavijesti protivnika da ne želimo revanš
       try {
@@ -2443,9 +2577,9 @@ function Game({
       try {
         leaveRoomPermanently(gameState.roomId);
       } catch (_) {}
-    } else if (mode === "ai") {
-      clearGameState();
     }
+
+    clearGameState();
     onGameEnd();
   };
 
@@ -2477,7 +2611,7 @@ function Game({
 
     addToast(
       `Akužavali ste ${akuz.description} (+${akuz.points} bodova)`,
-      "success"
+      "success",
     );
   };
 
@@ -2576,7 +2710,7 @@ function Game({
         const firstCard = (gameState.playedCards || []).find((c) => c);
         if (firstCard) {
           const sameSuitCards = (gameState.myHand || []).filter(
-            (c) => c.suit === firstCard.suit
+            (c) => c.suit === firstCard.suit,
           );
           if (sameSuitCards.length > 0 && card.suit !== firstCard.suit) {
             addToast("Morate baciti kartu iste boje ako je imate!", "error");
@@ -2596,7 +2730,7 @@ function Game({
     ) {
       addToast(
         "Ne možete odigrati ovu kartu. Molimo odaberite drugu kartu.",
-        "error"
+        "error",
       );
       return;
     }
@@ -2656,7 +2790,7 @@ function Game({
     return {
       myPoints: calculatePoints(gameState.myCards || []),
       opponentPoints: calculatePoints(
-        mode === "ai" ? gameState.aiCards || [] : gameState.opponentCards || []
+        mode === "ai" ? gameState.aiCards || [] : gameState.opponentCards || [],
       ),
     };
   };
@@ -2672,8 +2806,8 @@ function Game({
 
     if (myPoints > opponentPoints) return gameState.playerNumber;
     if (opponentPoints > myPoints) return gameState.playerNumber === 1 ? 2 : 1;
-    // Tie – fall back to server decision (last trick)
-    return gameState?.winner;
+    // Tie – always render as draw
+    return null;
   }, [
     gameState?.gamePhase,
     gameState?.winner,
@@ -2712,7 +2846,7 @@ function Game({
     }
 
     console.log(
-      `🔄 Attempting reconnect to room ${gameState.roomId} as ${user.name}`
+      `🔄 Attempting reconnect to room ${gameState.roomId} as ${user.name}`,
     );
     socket?.emit("reconnectToGame", {
       roomId: gameState.roomId,
@@ -3218,11 +3352,11 @@ function Game({
                   if (mode === "ai") {
                     // For local AI mode, enforce follow-suit rule locally
                     const firstCard = (gameState.playedCards || []).find(
-                      (c) => c
+                      (c) => c,
                     );
                     if (firstCard) {
                       const hasSameSuit = (gameState.myHand || []).some(
-                        (c) => c.suit === firstCard.suit
+                        (c) => c.suit === firstCard.suit,
                       );
                       isPlayable =
                         isPlayable &&
@@ -3352,7 +3486,7 @@ function Game({
                           (mode === "ai"
                             ? gameState.aiCards
                             : gameState.opponentCards || []
-                          ).length
+                          ).length,
                         )}
                       </span>
                     </div>
@@ -3398,8 +3532,8 @@ function Game({
                                 {partija.myPoints > partija.opponentPoints
                                   ? "🏆 Vi"
                                   : partija.opponentPoints > partija.myPoints
-                                  ? "😔 Protivnik"
-                                  : "🤝 Neriješeno"}
+                                    ? "😔 Protivnik"
+                                    : "🤝 Neriješeno"}
                               </span>
                             </div>
                           ))}
@@ -3423,8 +3557,8 @@ function Game({
                                   {akuz.points === 1
                                     ? ""
                                     : akuz.points <= 4
-                                    ? "a"
-                                    : "ova"}
+                                      ? "a"
+                                      : "ova"}
                                   )
                                 </li>
                               ))}
@@ -3442,8 +3576,8 @@ function Game({
                                   {akuz.points === 1
                                     ? ""
                                     : akuz.points <= 4
-                                    ? "a"
-                                    : "ova"}
+                                      ? "a"
+                                      : "ova"}
                                   )
                                 </li>
                               ))}
@@ -3504,8 +3638,8 @@ function Game({
                         {akuz.points === 1
                           ? ""
                           : akuz.points <= 4
-                          ? "a"
-                          : "ova"}
+                            ? "a"
+                            : "ova"}
                       </div>
                       <div className="akuz-cards">
                         {akuz.cards.map((card, cardIndex) => (
@@ -3700,7 +3834,7 @@ function Game({
                             (mode === "ai"
                               ? gameState.aiCards
                               : gameState.opponentCards || []
-                            ).length
+                            ).length,
                           )}
                     </div>
                     {computedWinner &&
@@ -3716,10 +3850,34 @@ function Game({
                     {computedWinner === gameState.playerNumber
                       ? "🎉 Pobijedili ste!"
                       : computedWinner === null
-                      ? "🤝 Neriješeno!"
-                      : "😔 Izgubili ste."}
+                        ? "🤝 Neriješeno!"
+                        : "😔 Izgubili ste."}
                   </p>
                 </div>
+
+                {/* ELO Changes Display */}
+                {mode === "online" && eloChanges && user?.userId && (
+                  <div className="elo-changes">
+                    {eloChanges[user.userId] && (
+                      <div
+                        className={`elo-change ${
+                          eloChanges[user.userId].change >= 0
+                            ? "elo-positive"
+                            : "elo-negative"
+                        }`}
+                      >
+                        <span className="elo-label">ELO:</span>
+                        <span className="elo-value">
+                          {eloChanges[user.userId].change >= 0 ? "+" : ""}
+                          {eloChanges[user.userId].change}
+                        </span>
+                        <span className="elo-new">
+                          → {eloChanges[user.userId].newElo}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="final-score-actions">
                   {/* Don't show Revanš button for tournament games */}
@@ -3728,6 +3886,9 @@ function Game({
                     !gameState.opponentDeclinedRematch && (
                       <button
                         onClick={() => {
+                          // Stop pending auto-exit
+                          setSessionExpiryAt(null);
+                          localStorage.removeItem("sessionExpiresAt");
                           // Resetuj game state za novi match
                           setGameState((prev) => ({
                             ...prev,
@@ -3739,7 +3900,7 @@ function Game({
                           rematch(
                             gameData.gameMode || "1v1",
                             gameState.gameType,
-                            gameState.opponent?.id // proslijedi opponent ID
+                            gameState.opponent?.id, // proslijedi opponent ID
                           );
                         }}
                         className="btn-primary-large"
@@ -3750,6 +3911,9 @@ function Game({
                   {!gameState.isTournamentMatch && mode === "ai" && (
                     <button
                       onClick={() => {
+                        // Stop pending auto-exit
+                        setSessionExpiryAt(null);
+                        localStorage.removeItem("sessionExpiresAt");
                         const useTreseta = gameState.gameType === "treseta";
                         const deck = useTreseta
                           ? shuffleDeckTreseta(createDeckTreseta())
@@ -3811,8 +3975,8 @@ function Game({
                 {gameState.myPoints > gameState.opponentPoints
                   ? "🎉 Dobili ste ovu partiju!"
                   : gameState.opponentPoints > gameState.myPoints
-                  ? "😔 Izgubili ste ovu partiju."
-                  : "🤝 Partija neriješena!"}
+                    ? "😔 Izgubili ste ovu partiju."
+                    : "🤝 Partija neriješena!"}
               </p>
               <div className="partija-scores">
                 Rezultat partije: {gameState.myPoints} -{" "}
@@ -3886,8 +4050,8 @@ function Game({
                       prev.winner === prev.playerNumber
                         ? "🎉 Pobijedili ste! (Dosegnuli ste 61 bod)"
                         : prev.winner === null
-                        ? "🤝 Neriješeno!"
-                        : "😔 Izgubili ste.",
+                          ? "🤝 Neriješeno!"
+                          : "😔 Izgubili ste.",
                   }));
                   // Otkaži matchmaking
                   socket?.emit("cancelMatch");

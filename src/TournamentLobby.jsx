@@ -10,7 +10,7 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [viewingBracket, setViewingBracket] = useState(
-    () => localStorage.getItem("tournamentView") || null
+    () => localStorage.getItem("tournamentView") || null,
   );
   const [selectedTournament, setSelectedTournament] = useState(null);
 
@@ -85,16 +85,16 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
       // Optimistically mark as registered
       setTournaments((prev) =>
         prev.map((t) =>
-          t.id === data.tournamentId ? { ...t, isRegistered: true } : t
-        )
+          t.id === data.tournamentId ? { ...t, isRegistered: true } : t,
+        ),
       );
     }); // Listen for tournament updates (when someone else registers)
     socket.on("tournamentUpdated", (updatedTournament) => {
       console.log("🔄 Tournament updated:", updatedTournament);
       setTournaments((prev) =>
         prev.map((t) =>
-          t.id === updatedTournament.id ? { ...t, ...updatedTournament } : t
-        )
+          t.id === updatedTournament.id ? { ...t, ...updatedTournament } : t,
+        ),
       );
     });
 
@@ -102,7 +102,7 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
     socket.on("tournamentStarted", (data) => {
       console.log("🚀 Tournament started:", data);
       setSuccessMessage(
-        `Turnir "${data.name}" je počeo! Prelazim na bracket...`
+        `Turnir "${data.name}" je počeo! Prelazim na bracket...`,
       );
 
       // Auto-redirect to bracket view after 2 seconds
@@ -151,7 +151,7 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
           setError((prev) =>
             prev === "Oba igrača moraju biti online da se pokrene meč"
               ? ""
-              : prev
+              : prev,
           );
         }}
         onGameStart={onGameStart}
@@ -181,7 +181,7 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
       <div className="lobby-header-tournament">
         <div className="header-left">
           <button
-            className="back-btn"
+            className="back-btn-tournament"
             onClick={onBack}
             title="Natrag na izbor moda"
           >
@@ -248,8 +248,8 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
                       {tournament.status === "registration"
                         ? "📝 Prijave"
                         : tournament.status === "ongoing"
-                        ? "▶️ U tijeku"
-                        : tournament.status}
+                          ? "▶️ U tijeku"
+                          : tournament.status}
                     </span>
                   </div>
                 </div>
@@ -284,7 +284,7 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
                     <strong>📅 Rok prijava:</strong>{" "}
                     {tournament.registrationDeadline
                       ? new Date(
-                          tournament.registrationDeadline
+                          tournament.registrationDeadline,
                         ).toLocaleDateString("hr-HR", {
                           day: "numeric",
                           month: "long",
@@ -297,7 +297,7 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
                     Kreiran:{" "}
                     {tournament.createdAt
                       ? new Date(tournament.createdAt).toLocaleDateString(
-                          "hr-HR"
+                          "hr-HR",
                         )
                       : "-"}
                   </p>
@@ -316,9 +316,9 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
                       {tournament.isRegistered
                         ? "✅ Prijavljen"
                         : tournament.currentParticipants >=
-                          tournament.maxParticipants
-                        ? "🔒 Popunjen"
-                        : "✍️ Prijavi se"}
+                            tournament.maxParticipants
+                          ? "🔒 Popunjen"
+                          : "✍️ Prijavi se"}
                     </button>
                   ) : tournament.status === "ongoing" ? (
                     <button

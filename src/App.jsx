@@ -11,7 +11,12 @@ import TournamentLobby from "./TournamentLobby";
 import Game from "./Game";
 import Game2v2 from "./Game2v2";
 import ReconnectDialog from "./ReconnectDialog";
-import UserHeader from "./UserHeader";
+import Header from "./Header";
+import Leaderboard from "./Leaderboard";
+import Footer from "./Footer";
+import BugReportModal from "./BugReportModal";
+import About from "./About";
+import Privacy from "./Privacy";
 import "./App.css";
 
 function AppContent() {
@@ -32,6 +37,7 @@ function AppContent() {
   const [gameMode, setGameMode] = useState("1v1");
   const [gameData, setGameData] = useState(null);
   const [showReconnectDialog, setShowReconnectDialog] = useState(false);
+  const [showBugReportModal, setShowBugReportModal] = useState(false);
 
   // Save state to localStorage when it changes
   useEffect(() => {
@@ -81,7 +87,7 @@ function AppContent() {
       if (savedGameState) {
         console.log(
           "🔄 Restoring game state from localStorage:",
-          savedGameState
+          savedGameState,
         );
         setGameData(savedGameState);
 
@@ -92,6 +98,9 @@ function AppContent() {
         setAppState("gameSelect");
       }
     } else if (!user && appState !== "login") {
+      if (appState === "about" || appState === "privacy") {
+        return;
+      }
       // If user is logged out, go back to login and clear saved states
       console.log("🔄 User logged out, clearing state");
       setAppState("login");
@@ -131,7 +140,7 @@ function AppContent() {
 
     // Check for reconnection failure reason
     const reconnectFailureReason = localStorage.getItem(
-      "reconnectFailureReason"
+      "reconnectFailureReason",
     );
     if (reconnectFailureReason) {
       let message = "Reconnection failed";
@@ -158,7 +167,7 @@ function AppContent() {
     if (response.gameData) {
       console.log(
         "🎮 Server found existing game during registration:",
-        response.gameData
+        response.gameData,
       );
       setGameData(response.gameData);
       setGameType(response.gameData.gameType);
@@ -257,6 +266,14 @@ function AppContent() {
     setAppState("gameSelect");
   };
 
+  const handleBackFromPublicPage = () => {
+    setAppState(user ? "gameSelect" : "login");
+  };
+
+  const handleOpenLeaderboard = () => {
+    setAppState("leaderboard");
+  };
+
   const handleBackToLogin = () => {
     // Only allow going back to login if user logs out
     logout();
@@ -329,13 +346,26 @@ function AppContent() {
     case "login":
       return (
         <>
+          <Header
+            onAbout={() => setAppState("about")}
+            onPrivacy={() => setAppState("privacy")}
+            onBugReport={() => setShowBugReportModal(true)}
+          />
           <Login onLogin={handleLogin} />
+          <Footer
+            onBugReport={() => setShowBugReportModal(true)}
+            onAbout={() => setAppState("about")}
+            onPrivacy={() => setAppState("privacy")}
+          />
           {showReconnectDialog && (
             <ReconnectDialog
               gameState={savedGameState}
               onReconnect={handleReconnectToGame}
               onDismiss={handleDismissReconnect}
             />
+          )}
+          {showBugReportModal && (
+            <BugReportModal onClose={() => setShowBugReportModal(false)} />
           )}
         </>
       );
@@ -343,8 +373,20 @@ function AppContent() {
     case "gameSelect":
       return (
         <>
-          <UserHeader user={user} onLogout={handleLogout} />
+          <Header
+            user={user}
+            onLogout={handleLogout}
+            onLeaderboard={handleOpenLeaderboard}
+            onAbout={() => setAppState("about")}
+            onPrivacy={() => setAppState("privacy")}
+            onBugReport={() => setShowBugReportModal(true)}
+          />
           <GameTypeSelector onGameTypeSelect={handleGameTypeSelect} />
+          <Footer
+            onBugReport={() => setShowBugReportModal(true)}
+            onAbout={() => setAppState("about")}
+            onPrivacy={() => setAppState("privacy")}
+          />
           {showReconnectDialog && (
             <ReconnectDialog
               gameState={savedGameState}
@@ -352,13 +394,23 @@ function AppContent() {
               onDismiss={handleDismissReconnect}
             />
           )}
+          {showBugReportModal && (
+            <BugReportModal onClose={() => setShowBugReportModal(false)} />
+          )}
         </>
       );
 
     case "modeSelect":
       return (
         <>
-          <UserHeader user={user} onLogout={handleLogout} />
+          <Header
+            user={user}
+            onLogout={handleLogout}
+            onLeaderboard={handleOpenLeaderboard}
+            onAbout={() => setAppState("about")}
+            onPrivacy={() => setAppState("privacy")}
+            onBugReport={() => setShowBugReportModal(true)}
+          />
           <GameModeSelector
             onModeSelect={(modeData) => {
               console.log("[App.jsx] Mode selected:", modeData);
@@ -388,12 +440,21 @@ function AppContent() {
             gameType={gameType}
           />
 
+          <Footer
+            onBugReport={() => setShowBugReportModal(true)}
+            onAbout={() => setAppState("about")}
+            onPrivacy={() => setAppState("privacy")}
+          />
+
           {showReconnectDialog && (
             <ReconnectDialog
               gameState={savedGameState}
               onReconnect={handleReconnectToGame}
               onDismiss={handleDismissReconnect}
             />
+          )}
+          {showBugReportModal && (
+            <BugReportModal onClose={() => setShowBugReportModal(false)} />
           )}
         </>
       );
@@ -401,11 +462,59 @@ function AppContent() {
     case "lobby":
       return (
         <>
-          <UserHeader user={user} onLogout={handleLogout} />
+          <Header
+            user={user}
+            onLogout={handleLogout}
+            onLeaderboard={handleOpenLeaderboard}
+            onAbout={() => setAppState("about")}
+            onPrivacy={() => setAppState("privacy")}
+            onBugReport={() => setShowBugReportModal(true)}
+          />
           <GameLobby
             onGameStart={handleLobbyGameStart}
             gameType={gameType}
             onBack={handleBackToModeSelect}
+          />
+          <Footer
+            onBugReport={() => setShowBugReportModal(true)}
+            onAbout={() => setAppState("about")}
+            onPrivacy={() => setAppState("privacy")}
+          />
+          {showReconnectDialog && (
+            <ReconnectDialog
+              gameState={savedGameState}
+              onReconnect={handleReconnectToGame}
+              onDismiss={handleDismissReconnect}
+            />
+          )}
+          {showBugReportModal && (
+            <BugReportModal onClose={() => setShowBugReportModal(false)} />
+          )}
+        </>
+      );
+
+    case "tournament-lobby":
+      return (
+        <>
+          <Header
+            user={user}
+            onLogout={handleLogout}
+            onLeaderboard={handleOpenLeaderboard}
+            onAbout={() => setAppState("about")}
+            onPrivacy={() => setAppState("privacy")}
+            onBugReport={() => setShowBugReportModal(true)}
+          />
+          <TournamentLobby
+            gameType={gameType || "treseta"} // Default to treseta if gameType is null
+            onBack={handleBackToModeSelect}
+            onGameStart={handleLobbyGameStart}
+            // signal parent for mode select exit
+            onExitModeSelect={handleBackToModeSelect}
+          />
+          <Footer
+            onBugReport={() => setShowBugReportModal(true)}
+            onAbout={() => setAppState("about")}
+            onPrivacy={() => setAppState("privacy")}
           />
           {showReconnectDialog && (
             <ReconnectDialog
@@ -417,23 +526,47 @@ function AppContent() {
         </>
       );
 
-    case "tournament-lobby":
+    case "leaderboard":
       return (
         <>
-          <UserHeader user={user} onLogout={handleLogout} />
-          <TournamentLobby
-            gameType={gameType || "treseta"} // Default to treseta if gameType is null
-            onBack={handleBackToModeSelect}
-            onGameStart={handleLobbyGameStart}
-            // signal parent for mode select exit
-            onExitModeSelect={handleBackToModeSelect}
+          <Leaderboard onBack={handleBackToGameSelect} />
+          <Footer
+            onBugReport={() => setShowBugReportModal(true)}
+            onAbout={() => setAppState("about")}
+            onPrivacy={() => setAppState("privacy")}
           />
-          {showReconnectDialog && (
-            <ReconnectDialog
-              gameState={savedGameState}
-              onReconnect={handleReconnectToGame}
-              onDismiss={handleDismissReconnect}
-            />
+          {showBugReportModal && (
+            <BugReportModal onClose={() => setShowBugReportModal(false)} />
+          )}
+        </>
+      );
+
+    case "about":
+      return (
+        <>
+          <About onBack={handleBackFromPublicPage} />
+          <Footer
+            onBugReport={() => setShowBugReportModal(true)}
+            onAbout={() => setAppState("about")}
+            onPrivacy={() => setAppState("privacy")}
+          />
+          {showBugReportModal && (
+            <BugReportModal onClose={() => setShowBugReportModal(false)} />
+          )}
+        </>
+      );
+
+    case "privacy":
+      return (
+        <>
+          <Privacy onBack={handleBackFromPublicPage} />
+          <Footer
+            onBugReport={() => setShowBugReportModal(true)}
+            onAbout={() => setAppState("about")}
+            onPrivacy={() => setAppState("privacy")}
+          />
+          {showBugReportModal && (
+            <BugReportModal onClose={() => setShowBugReportModal(false)} />
           )}
         </>
       );

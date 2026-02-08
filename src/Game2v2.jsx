@@ -156,7 +156,7 @@ function Game2v2({ gameData, onGameEnd }) {
         "| playerNumber:",
         myPlayerNumber,
         "| myHand cards:",
-        myHand?.length || 0
+        myHand?.length || 0,
       ) || {}),
       myHand: myHand,
       playedCards: [],
@@ -218,17 +218,20 @@ function Game2v2({ gameData, onGameEnd }) {
     waitingFor: 0,
   });
 
+  // ELO changes after game ends
+  const [eloChanges, setEloChanges] = useState(null);
+
   // Handle game state restoration from SocketContext (similar to Game.jsx)
   useEffect(() => {
     if (savedGameState && !gameData) {
       console.log(
         "🔄 [Game2v2] Restoring game state from SocketContext:",
-        savedGameState
+        savedGameState,
       );
       console.log(
         "🃏 [Game2v2] Saved myHand:",
         savedGameState.gameState?.myHand?.length || 0,
-        "cards"
+        "cards",
       );
 
       // For 2v2 games, reconstruct the state with proper team information
@@ -286,7 +289,7 @@ function Game2v2({ gameData, onGameEnd }) {
       console.log(
         "🎯 [Game2v2] About to restore state with myHand:",
         restoredState.myHand?.length || 0,
-        "cards"
+        "cards",
       );
       setGameState(restoredState);
       console.log("✅ [Game2v2] Game state restored from SocketContext");
@@ -356,7 +359,7 @@ function Game2v2({ gameData, onGameEnd }) {
             ...prev.handCounts,
             [`player${data.playerNumber}`]: Math.max(
               0,
-              prev.handCounts[`player${data.playerNumber}`] - 1
+              prev.handCounts[`player${data.playerNumber}`] - 1,
             ),
           },
           message:
@@ -432,11 +435,11 @@ function Game2v2({ gameData, onGameEnd }) {
           // Calculate akuže points for each team
           const team1AkuzePoints = (prev.team1Akuze || []).reduce(
             (sum, akuz) => sum + akuz.points,
-            0
+            0,
           );
           const team2AkuzePoints = (prev.team2Akuze || []).reduce(
             (sum, akuz) => sum + akuz.points,
-            0
+            0,
           );
 
           // Add akuže points to the final partija score
@@ -456,8 +459,8 @@ function Game2v2({ gameData, onGameEnd }) {
                 team1PartidaPoints > team2PartidaPoints
                   ? 1
                   : team2PartidaPoints > team1PartidaPoints
-                  ? 2
-                  : 0, // 0 for tie
+                    ? 2
+                    : 0, // 0 for tie
             },
           ];
 
@@ -490,7 +493,7 @@ function Game2v2({ gameData, onGameEnd }) {
             clearGameState();
 
             console.log(
-              `🏆 Game finished! Winning team: ${winningTeam}, My team: ${myTeam}`
+              `🏆 Game finished! Winning team: ${winningTeam}, My team: ${myTeam}`,
             );
 
             // Determine message based on winning team
@@ -518,7 +521,7 @@ function Game2v2({ gameData, onGameEnd }) {
               (newState.team2Points || 0) + team2AkuzePoints;
 
             console.log(
-              `🏆 Partija finished! Team scores: ${team1PartidaPoints} - ${team2PartidaPoints}, My team: ${myTeam}`
+              `🏆 Partija finished! Team scores: ${team1PartidaPoints} - ${team2PartidaPoints}, My team: ${myTeam}`,
             );
 
             // Determine winner based on points
@@ -545,7 +548,7 @@ function Game2v2({ gameData, onGameEnd }) {
           newState.winner = data.gameEnd.winner;
 
           console.log(
-            `🏆 Non-Treseta game finished! Server winner: ${data.gameEnd.winner}, My team: ${myTeam}`
+            `🏆 Non-Treseta game finished! Server winner: ${data.gameEnd.winner}, My team: ${myTeam}`,
           );
 
           // Clear saved game state when game ends
@@ -748,7 +751,7 @@ function Game2v2({ gameData, onGameEnd }) {
         if (data.playerNumber !== gameState?.playerNumber) {
           addToast(
             `${data.playerName} je akužao ${data.akuz.description} (+${data.akuz.points} bodova)`,
-            "info"
+            "info",
           );
         }
 
@@ -830,6 +833,12 @@ function Game2v2({ gameData, onGameEnd }) {
       });
     });
 
+    // Handle ELO updates after game ends
+    socket.on("eloUpdate", (data) => {
+      console.log("📊 [2v2] ELO update received:", data);
+      setEloChanges(data);
+    });
+
     // Handle rematch events
     socket.on("rematchAccepted", (data) => {
       console.log("🔄 [2v2] Rematch accepted - starting new game:", data);
@@ -861,6 +870,7 @@ function Game2v2({ gameData, onGameEnd }) {
       socket.off("akuzeAnnounced");
       socket.off("partidaRestarted");
       socket.off("partidaContinueStatus");
+      socket.off("eloUpdate");
       socket.off("rematchAccepted");
       socket.off("rematchDeclined");
     };
@@ -894,7 +904,7 @@ function Game2v2({ gameData, onGameEnd }) {
 
     addToast(
       `Akužavali ste ${akuz.description} (+${akuz.points} bodova)`,
-      "success"
+      "success",
     );
 
     setShowAkuzeModal(false);
@@ -956,7 +966,7 @@ function Game2v2({ gameData, onGameEnd }) {
     // Additional check: if all 4 cards are already played in 2v2, don't allow more clicks
     const playedCardCount = gameState.playedCards
       ? gameState.playedCards.filter(
-          (card) => card !== null && card !== undefined
+          (card) => card !== null && card !== undefined,
         ).length
       : 0;
     if (playedCardCount >= 4) {
@@ -968,7 +978,7 @@ function Game2v2({ gameData, onGameEnd }) {
     const cardAlreadyPlayed =
       gameState.playedCards &&
       gameState.playedCards.some(
-        (playedCard) => playedCard && playedCard.id === card.id
+        (playedCard) => playedCard && playedCard.id === card.id,
       );
     if (cardAlreadyPlayed) {
       return;
@@ -979,7 +989,7 @@ function Game2v2({ gameData, onGameEnd }) {
       gameState.playedCards &&
       gameState.playedCards.some(
         (playedCard) =>
-          playedCard && playedCard.playerNumber === gameState.playerNumber
+          playedCard && playedCard.playerNumber === gameState.playerNumber,
       );
     if (currentPlayerAlreadyPlayed) {
       // This player already played this round, don't allow more plays
@@ -992,7 +1002,7 @@ function Game2v2({ gameData, onGameEnd }) {
       !gameState.playableCards.includes(card.id)
     ) {
       alert(
-        "Ne možete igrati tu kartu! Morate pratiti boju ili igrati jaču kartu."
+        "Ne možete igrati tu kartu! Morate pratiti boju ili igrati jaču kartu.",
       );
       return;
     }
@@ -1044,26 +1054,26 @@ function Game2v2({ gameData, onGameEnd }) {
         gameState.playerNumber === 1
           ? 3
           : gameState.playerNumber === 2
-          ? 4
-          : gameState.playerNumber === 3
-          ? 1
-          : 2,
+            ? 4
+            : gameState.playerNumber === 3
+              ? 1
+              : 2,
       left:
         gameState.playerNumber === 1
           ? 4
           : gameState.playerNumber === 2
-          ? 1
-          : gameState.playerNumber === 3
-          ? 2
-          : 3,
+            ? 1
+            : gameState.playerNumber === 3
+              ? 2
+              : 3,
       right:
         gameState.playerNumber === 1
           ? 2
           : gameState.playerNumber === 2
-          ? 3
-          : gameState.playerNumber === 3
-          ? 4
-          : 1,
+            ? 3
+            : gameState.playerNumber === 3
+              ? 4
+              : 1,
     };
     return positions[position];
   };
@@ -1191,7 +1201,7 @@ function Game2v2({ gameData, onGameEnd }) {
         <div className="player-position top-player">
           <div
             className={`player-icon-display ${getTeamColor(
-              getPlayerByPosition("top")
+              getPlayerByPosition("top"),
             )} ${
               gameState.currentPlayer === getPlayerByPosition("top")
                 ? "current-turn"
@@ -1200,7 +1210,7 @@ function Game2v2({ gameData, onGameEnd }) {
           >
             <div
               className={`player-avatar ${getTeamColor(
-                getPlayerByPosition("top")
+                getPlayerByPosition("top"),
               )}`}
             >
               {getPlayerName(getPlayerByPosition("top"))
@@ -1213,7 +1223,7 @@ function Game2v2({ gameData, onGameEnd }) {
             <div className="player-cards-indicator">
               <span>
                 {getCardCountText(
-                  gameState.handCounts[`player${getPlayerByPosition("top")}`]
+                  gameState.handCounts[`player${getPlayerByPosition("top")}`],
                 )}
               </span>
             </div>
@@ -1233,7 +1243,7 @@ function Game2v2({ gameData, onGameEnd }) {
           <div className="player-position left-player">
             <div
               className={`player-icon-display ${getTeamColor(
-                getPlayerByPosition("left")
+                getPlayerByPosition("left"),
               )} ${
                 gameState.currentPlayer === getPlayerByPosition("left")
                   ? "current-turn"
@@ -1242,7 +1252,7 @@ function Game2v2({ gameData, onGameEnd }) {
             >
               <div
                 className={`player-avatar ${getTeamColor(
-                  getPlayerByPosition("left")
+                  getPlayerByPosition("left"),
                 )}`}
               >
                 {getPlayerName(getPlayerByPosition("left"))
@@ -1255,7 +1265,9 @@ function Game2v2({ gameData, onGameEnd }) {
               <div className="player-cards-indicator">
                 <span>
                   {getCardCountText(
-                    gameState.handCounts[`player${getPlayerByPosition("left")}`]
+                    gameState.handCounts[
+                      `player${getPlayerByPosition("left")}`
+                    ],
                   )}
                 </span>
               </div>
@@ -1270,11 +1282,11 @@ function Game2v2({ gameData, onGameEnd }) {
                 {gameState.playedCards.map((card, index) => {
                   const position = getRelativePosition(
                     card.playerNumber,
-                    gameState.playerNumber
+                    gameState.playerNumber,
                   );
                   const playerName =
                     gameState.players?.find(
-                      (p) => p.playerNumber === card.playerNumber
+                      (p) => p.playerNumber === card.playerNumber,
                     )?.name || `Igrač ${card.playerNumber}`;
 
                   return (
@@ -1315,7 +1327,7 @@ function Game2v2({ gameData, onGameEnd }) {
           <div className="player-position right-player">
             <div
               className={`player-icon-display ${getTeamColor(
-                getPlayerByPosition("right")
+                getPlayerByPosition("right"),
               )} ${
                 gameState.currentPlayer === getPlayerByPosition("right")
                   ? "current-turn"
@@ -1324,7 +1336,7 @@ function Game2v2({ gameData, onGameEnd }) {
             >
               <div
                 className={`player-avatar ${getTeamColor(
-                  getPlayerByPosition("right")
+                  getPlayerByPosition("right"),
                 )}`}
               >
                 {getPlayerName(getPlayerByPosition("right"))
@@ -1339,7 +1351,7 @@ function Game2v2({ gameData, onGameEnd }) {
                   {getCardCountText(
                     gameState.handCounts[
                       `player${getPlayerByPosition("right")}`
-                    ]
+                    ],
                   )}
                 </span>
               </div>
@@ -1396,7 +1408,9 @@ function Game2v2({ gameData, onGameEnd }) {
                         <span>{player.name}:</span>
                         <span>
                           {getCardCountText(
-                            gameState.handCounts[`player${player.playerNumber}`]
+                            gameState.handCounts[
+                              `player${player.playerNumber}`
+                            ],
                           )}
                         </span>
                       </div>
@@ -1438,7 +1452,9 @@ function Game2v2({ gameData, onGameEnd }) {
                         <span>{player.name}:</span>
                         <span>
                           {getCardCountText(
-                            gameState.handCounts[`player${player.playerNumber}`]
+                            gameState.handCounts[
+                              `player${player.playerNumber}`
+                            ],
                           )}
                         </span>
                       </div>
@@ -1486,10 +1502,10 @@ function Game2v2({ gameData, onGameEnd }) {
                                   ? "🏆 Vi"
                                   : "😔 Protivnik"
                                 : partija.team2Points > partija.team1Points
-                                ? gameState.myTeam === 2
-                                  ? "🏆 Vi"
-                                  : "😔 Protivnik"
-                                : "🤝 Neriješeno"}
+                                  ? gameState.myTeam === 2
+                                    ? "🏆 Vi"
+                                    : "😔 Protivnik"
+                                  : "🤝 Neriješeno"}
                             </span>
                           </div>
                         ))}
@@ -1515,8 +1531,8 @@ function Game2v2({ gameData, onGameEnd }) {
                                     {akuz.points === 1
                                       ? ""
                                       : akuz.points <= 4
-                                      ? "a"
-                                      : "ova"}
+                                        ? "a"
+                                        : "ova"}
                                     )
                                   </li>
                                 ))}
@@ -1538,8 +1554,8 @@ function Game2v2({ gameData, onGameEnd }) {
                                     {akuz.points === 1
                                       ? ""
                                       : akuz.points <= 4
-                                      ? "a"
-                                      : "ova"}
+                                        ? "a"
+                                        : "ova"}
                                     )
                                   </li>
                                 ))}
@@ -1581,10 +1597,10 @@ function Game2v2({ gameData, onGameEnd }) {
                     ? "🎉 Vaš tim je dobio ovu partiju!"
                     : "😔 Vaš tim je izgubio ovu partiju."
                   : (gameState.team2Points || 0) > (gameState.team1Points || 0)
-                  ? gameState.myTeam === 2 || gameState.myTeam === "B"
-                    ? "🎉 Vaš tim je dobio ovu partiju!"
-                    : "😔 Vaš tim je izgubio ovu partiju."
-                  : "🤝 Partija neriješena!"}
+                    ? gameState.myTeam === 2 || gameState.myTeam === "B"
+                      ? "🎉 Vaš tim je dobio ovu partiju!"
+                      : "😔 Vaš tim je izgubio ovu partiju."
+                    : "🤝 Partija neriješena!"}
               </p>
               <div className="partija-scores">
                 Rezultat partije: {gameState.team1Points || 0} -{" "}
@@ -1691,7 +1707,7 @@ function Game2v2({ gameData, onGameEnd }) {
                       {gameState.gameType === "treseta"
                         ? `${gameState.totalTeam1Points || 0} bodova`
                         : `${calculatePoints(
-                            gameState.team1Cards || []
+                            gameState.team1Cards || [],
                           )} bodova`}
                     </div>
                     <div className="team-cards">
@@ -1732,7 +1748,7 @@ function Game2v2({ gameData, onGameEnd }) {
                       {gameState.gameType === "treseta"
                         ? `${gameState.totalTeam2Points || 0} bodova`
                         : `${calculatePoints(
-                            gameState.team2Cards || []
+                            gameState.team2Cards || [],
                           )} bodova`}
                     </div>
                     <div className="team-cards">
@@ -1767,6 +1783,28 @@ function Game2v2({ gameData, onGameEnd }) {
                 <div className="game-result">
                   <p>{gameState.message}</p>
                 </div>
+
+                {/* ELO Changes Display for 2v2 */}
+                {eloChanges && user?.userId && eloChanges[user.userId] && (
+                  <div className="elo-changes">
+                    <div
+                      className={`elo-change ${
+                        eloChanges[user.userId].change >= 0
+                          ? "elo-positive"
+                          : "elo-negative"
+                      }`}
+                    >
+                      <span className="elo-label">ELO:</span>
+                      <span className="elo-value">
+                        {eloChanges[user.userId].change >= 0 ? "+" : ""}
+                        {eloChanges[user.userId].change}
+                      </span>
+                      <span className="elo-new">
+                        → {eloChanges[user.userId].newElo}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="final-score-actions">
                   <button onClick={handleRematch} className="btn-primary-large">
@@ -1818,8 +1856,8 @@ function Game2v2({ gameData, onGameEnd }) {
                         {akuz.points === 1
                           ? ""
                           : akuz.points <= 4
-                          ? "a"
-                          : "ova"}
+                            ? "a"
+                            : "ova"}
                       </div>
                       <div className="akuz-cards">
                         {akuz.cards.map((card, cardIndex) => (
@@ -1866,8 +1904,8 @@ function Game2v2({ gameData, onGameEnd }) {
                       prev.winner === prev.myTeam
                         ? "🎉 Vaš tim je pobijedio!"
                         : prev.winner === null
-                        ? "🤝 Neriješeno!"
-                        : "😔 Vaš tim je izgubio.",
+                          ? "🤝 Neriješeno!"
+                          : "😔 Vaš tim je izgubio.",
                   }));
                   // Otkaži matchmaking
                   socket?.emit("cancelMatch");

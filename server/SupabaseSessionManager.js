@@ -75,8 +75,13 @@ class SupabaseSessionManager {
       const now = new Date();
       const expiresAt = new Date(now.getTime() + this.sessionTimeout);
 
-      // Generate stable userId if not provided
-      const userId = userData.userId || uuidv4();
+      // Use provided userId for registered users, generate stable one for guests
+      // Real Supabase Auth IDs are UUIDs, guest IDs start with "guest_"
+      const userId = userData.userId || `guest_${uuidv4().slice(0, 8)}`;
+
+      // Determine if user is guest
+      const isGuest =
+        userData.isGuest === true || userData.isGuest === undefined;
 
       const sessionData = {
         session_token: sessionToken,
@@ -84,7 +89,7 @@ class SupabaseSessionManager {
         user_id: userId,
         user_name: userData.name,
         email: userData.email || null,
-        is_guest: userData.isGuest !== false,
+        is_guest: isGuest,
         socket_id: socketId,
         is_active: true,
         created_at: now.toISOString(),
