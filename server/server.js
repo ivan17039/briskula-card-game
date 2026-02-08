@@ -66,7 +66,10 @@ const isAllowedOrigin = (origin) => {
   if (origin.endsWith(".briskula-treseta.games")) return true;
 
   // Allow Vercel preview deployments if explicitly configured
-  if (origin.endsWith(".vercel.app") && allowedOrigins.some((o) => o.includes("vercel.app"))) {
+  if (
+    origin.endsWith(".vercel.app") &&
+    allowedOrigins.some((o) => o.includes("vercel.app"))
+  ) {
     return true;
   }
 
