@@ -44,17 +44,40 @@ const initManagers = async () => {
 await initManagers();
 
 // CORS konfiguracija
-const allowedOrigins = [
-  "http://localhost:5173", // Local development
-  "https://briskula-card-game.vercel.app", // Production Vercel
-  "https://briskula-card-game-*.vercel.app", // Vercel preview deployments
-  "https://briskula-treseta.games", // Production domain
-  "https://*.briskula-treseta.games", // Production subdomains
+const envOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const defaultOrigins = [
+  "http://localhost:5173",
+  "https://briskula-card-game.vercel.app",
+  "https://briskula-treseta.games",
+  "https://www.briskula-treseta.games",
 ];
+
+const allowedOrigins = envOrigins.length > 0 ? envOrigins : defaultOrigins;
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true; // allow same-origin or non-browser requests
+  if (allowedOrigins.includes(origin)) return true;
+
+  // Allow subdomains like https://www.briskula-treseta.games
+  if (origin.endsWith(".briskula-treseta.games")) return true;
+
+  // Allow Vercel preview deployments if explicitly configured
+  if (origin.endsWith(".vercel.app") && allowedOrigins.some((o) => o.includes("vercel.app"))) {
+    return true;
+  }
+
+  return false;
+};
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      callback(null, isAllowedOrigin(origin));
+    },
     credentials: true,
   }),
 );
@@ -64,7 +87,9 @@ app.use(express.json());
 
 const io = new SocketIOServer(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      callback(null, isAllowedOrigin(origin));
+    },
     methods: ["GET", "POST"],
     credentials: true,
   },
