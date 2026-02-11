@@ -15,8 +15,8 @@ import Header from "./Header";
 import Leaderboard from "./Leaderboard";
 import Footer from "./Footer";
 import BugReportModal from "./BugReportModal";
-import About from "./About";
-import Privacy from "./Privacy";
+import AboutModal from "./AboutModal";
+import PrivacyModal from "./PrivacyModal";
 import "./App.css";
 
 function AppContent() {
@@ -38,6 +38,8 @@ function AppContent() {
   const [gameData, setGameData] = useState(null);
   const [showReconnectDialog, setShowReconnectDialog] = useState(false);
   const [showBugReportModal, setShowBugReportModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   // Save state to localStorage when it changes
   useEffect(() => {
@@ -98,9 +100,6 @@ function AppContent() {
         setAppState("gameSelect");
       }
     } else if (!user && appState !== "login") {
-      if (appState === "about" || appState === "privacy") {
-        return;
-      }
       // If user is logged out, go back to login and clear saved states
       console.log("🔄 User logged out, clearing state");
       setAppState("login");
@@ -266,10 +265,6 @@ function AppContent() {
     setAppState("gameSelect");
   };
 
-  const handleBackFromPublicPage = () => {
-    setAppState(user ? "gameSelect" : "login");
-  };
-
   const handleOpenLeaderboard = () => {
     setAppState("leaderboard");
   };
@@ -346,16 +341,12 @@ function AppContent() {
     case "login":
       return (
         <>
-          <Header
-            onAbout={() => setAppState("about")}
-            onPrivacy={() => setAppState("privacy")}
-            onBugReport={() => setShowBugReportModal(true)}
-          />
+          <Header onBugReport={() => setShowBugReportModal(true)} />
           <Login onLogin={handleLogin} />
           <Footer
             onBugReport={() => setShowBugReportModal(true)}
-            onAbout={() => setAppState("about")}
-            onPrivacy={() => setAppState("privacy")}
+            onAbout={() => setShowAboutModal(true)}
+            onPrivacy={() => setShowPrivacyModal(true)}
           />
           {showReconnectDialog && (
             <ReconnectDialog
@@ -366,6 +357,12 @@ function AppContent() {
           )}
           {showBugReportModal && (
             <BugReportModal onClose={() => setShowBugReportModal(false)} />
+          )}
+          {showAboutModal && (
+            <AboutModal onClose={() => setShowAboutModal(false)} />
+          )}
+          {showPrivacyModal && (
+            <PrivacyModal onClose={() => setShowPrivacyModal(false)} />
           )}
         </>
       );
@@ -377,15 +374,13 @@ function AppContent() {
             user={user}
             onLogout={handleLogout}
             onLeaderboard={handleOpenLeaderboard}
-            onAbout={() => setAppState("about")}
-            onPrivacy={() => setAppState("privacy")}
             onBugReport={() => setShowBugReportModal(true)}
           />
           <GameTypeSelector onGameTypeSelect={handleGameTypeSelect} />
           <Footer
             onBugReport={() => setShowBugReportModal(true)}
-            onAbout={() => setAppState("about")}
-            onPrivacy={() => setAppState("privacy")}
+            onAbout={() => setShowAboutModal(true)}
+            onPrivacy={() => setShowPrivacyModal(true)}
           />
           {showReconnectDialog && (
             <ReconnectDialog
@@ -397,6 +392,12 @@ function AppContent() {
           {showBugReportModal && (
             <BugReportModal onClose={() => setShowBugReportModal(false)} />
           )}
+          {showAboutModal && (
+            <AboutModal onClose={() => setShowAboutModal(false)} />
+          )}
+          {showPrivacyModal && (
+            <PrivacyModal onClose={() => setShowPrivacyModal(false)} />
+          )}
         </>
       );
 
@@ -407,8 +408,6 @@ function AppContent() {
             user={user}
             onLogout={handleLogout}
             onLeaderboard={handleOpenLeaderboard}
-            onAbout={() => setAppState("about")}
-            onPrivacy={() => setAppState("privacy")}
             onBugReport={() => setShowBugReportModal(true)}
           />
           <GameModeSelector
@@ -442,8 +441,8 @@ function AppContent() {
 
           <Footer
             onBugReport={() => setShowBugReportModal(true)}
-            onAbout={() => setAppState("about")}
-            onPrivacy={() => setAppState("privacy")}
+            onAbout={() => setShowAboutModal(true)}
+            onPrivacy={() => setShowPrivacyModal(true)}
           />
 
           {showReconnectDialog && (
@@ -455,6 +454,12 @@ function AppContent() {
           )}
           {showBugReportModal && (
             <BugReportModal onClose={() => setShowBugReportModal(false)} />
+          )}
+          {showAboutModal && (
+            <AboutModal onClose={() => setShowAboutModal(false)} />
+          )}
+          {showPrivacyModal && (
+            <PrivacyModal onClose={() => setShowPrivacyModal(false)} />
           )}
         </>
       );
@@ -466,8 +471,6 @@ function AppContent() {
             user={user}
             onLogout={handleLogout}
             onLeaderboard={handleOpenLeaderboard}
-            onAbout={() => setAppState("about")}
-            onPrivacy={() => setAppState("privacy")}
             onBugReport={() => setShowBugReportModal(true)}
           />
           <GameLobby
@@ -477,8 +480,8 @@ function AppContent() {
           />
           <Footer
             onBugReport={() => setShowBugReportModal(true)}
-            onAbout={() => setAppState("about")}
-            onPrivacy={() => setAppState("privacy")}
+            onAbout={() => setShowAboutModal(true)}
+            onPrivacy={() => setShowPrivacyModal(true)}
           />
           {showReconnectDialog && (
             <ReconnectDialog
@@ -489,6 +492,12 @@ function AppContent() {
           )}
           {showBugReportModal && (
             <BugReportModal onClose={() => setShowBugReportModal(false)} />
+          )}
+          {showAboutModal && (
+            <AboutModal onClose={() => setShowAboutModal(false)} />
+          )}
+          {showPrivacyModal && (
+            <PrivacyModal onClose={() => setShowPrivacyModal(false)} />
           )}
         </>
       );
@@ -500,8 +509,6 @@ function AppContent() {
             user={user}
             onLogout={handleLogout}
             onLeaderboard={handleOpenLeaderboard}
-            onAbout={() => setAppState("about")}
-            onPrivacy={() => setAppState("privacy")}
             onBugReport={() => setShowBugReportModal(true)}
           />
           <TournamentLobby
@@ -513,8 +520,8 @@ function AppContent() {
           />
           <Footer
             onBugReport={() => setShowBugReportModal(true)}
-            onAbout={() => setAppState("about")}
-            onPrivacy={() => setAppState("privacy")}
+            onAbout={() => setShowAboutModal(true)}
+            onPrivacy={() => setShowPrivacyModal(true)}
           />
           {showReconnectDialog && (
             <ReconnectDialog
@@ -523,50 +530,36 @@ function AppContent() {
               onDismiss={handleDismissReconnect}
             />
           )}
+          {showAboutModal && (
+            <AboutModal onClose={() => setShowAboutModal(false)} />
+          )}
+          {showPrivacyModal && (
+            <PrivacyModal onClose={() => setShowPrivacyModal(false)} />
+          )}
         </>
       );
 
     case "leaderboard":
       return (
         <>
-          <Leaderboard onBack={handleBackToGameSelect} />
+          <Leaderboard
+            onBack={handleBackToGameSelect}
+            onLogout={handleLogout}
+            onBugReport={() => setShowBugReportModal(true)}
+          />
           <Footer
             onBugReport={() => setShowBugReportModal(true)}
-            onAbout={() => setAppState("about")}
-            onPrivacy={() => setAppState("privacy")}
+            onAbout={() => setShowAboutModal(true)}
+            onPrivacy={() => setShowPrivacyModal(true)}
           />
           {showBugReportModal && (
             <BugReportModal onClose={() => setShowBugReportModal(false)} />
           )}
-        </>
-      );
-
-    case "about":
-      return (
-        <>
-          <About onBack={handleBackFromPublicPage} />
-          <Footer
-            onBugReport={() => setShowBugReportModal(true)}
-            onAbout={() => setAppState("about")}
-            onPrivacy={() => setAppState("privacy")}
-          />
-          {showBugReportModal && (
-            <BugReportModal onClose={() => setShowBugReportModal(false)} />
+          {showAboutModal && (
+            <AboutModal onClose={() => setShowAboutModal(false)} />
           )}
-        </>
-      );
-
-    case "privacy":
-      return (
-        <>
-          <Privacy onBack={handleBackFromPublicPage} />
-          <Footer
-            onBugReport={() => setShowBugReportModal(true)}
-            onAbout={() => setAppState("about")}
-            onPrivacy={() => setAppState("privacy")}
-          />
-          {showBugReportModal && (
-            <BugReportModal onClose={() => setShowBugReportModal(false)} />
+          {showPrivacyModal && (
+            <PrivacyModal onClose={() => setShowPrivacyModal(false)} />
           )}
         </>
       );

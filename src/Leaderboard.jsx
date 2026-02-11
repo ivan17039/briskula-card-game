@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSocket } from "./SocketContext";
+import Header from "./Header";
 import "./Leaderboard.css";
 
 // Level thresholds (same as EloWidget)
@@ -20,7 +21,7 @@ function getLevel(elo) {
   return LEVELS.find((l) => elo >= l.min && elo <= l.max) || LEVELS[0];
 }
 
-function Leaderboard({ onBack }) {
+function Leaderboard({ onBack, onLogout, onBugReport }) {
   const { user } = useSocket();
   const [leaderboardData, setLeaderboardData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,9 +37,12 @@ function Leaderboard({ onBack }) {
     setError("");
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || "";
+      const apiBase =
+        import.meta.env.VITE_SERVER_URL ||
+        import.meta.env.VITE_API_URL ||
+        window.location.origin;
       const response = await fetch(
-        `${apiUrl}/api/leaderboard?gameType=${filter}&limit=50`,
+        `${apiBase}/api/leaderboard?gameType=${filter}&limit=50`,
       );
 
       if (!response.ok) {
@@ -72,148 +76,156 @@ function Leaderboard({ onBack }) {
 
   if (loading) {
     return (
+      <>
+        <Header user={user} onLogout={onLogout} onBugReport={onBugReport} />
+        <div className="leaderboard-container">
+          <div className="leaderboard-header">
+            <button className="back-btn back-btn-leaderboard" onClick={onBack}>
+              ←
+            </button>
+            <h1>Ljestvica</h1>
+          </div>
+          <div className="lb-loading-state">
+            <div className="lb-loading-spinner"></div>
+            <p>Učitavanje ljestvice...</p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Header user={user} onLogout={onLogout} onBugReport={onBugReport} />
       <div className="leaderboard-container">
         <div className="leaderboard-header">
           <button className="back-btn back-btn-leaderboard" onClick={onBack}>
             ←
           </button>
-          <h1>Ljestvica</h1>
+          <h1>🏆 Ljestvica</h1>
+          <div className="lb-header-actions">
+            <button
+              className="lb-refresh-btn"
+              onClick={fetchLeaderboard}
+              title="Osvježi"
+            >
+              🔄
+            </button>
+          </div>
         </div>
-        <div className="lb-loading-state">
-          <div className="lb-loading-spinner"></div>
-          <p>Učitavanje ljestvice...</p>
-        </div>
-      </div>
-    );
-  }
 
-  return (
-    <div className="leaderboard-container">
-      <div className="leaderboard-header">
-        <button className="back-btn back-btn-leaderboard" onClick={onBack}>
-          ←
-        </button>
-        <h1>🏆 Ljestvica</h1>
-        <div className="lb-header-actions">
+        <div className="leaderboard-filters">
           <button
-            className="lb-refresh-btn"
-            onClick={fetchLeaderboard}
-            title="Osvježi"
+            className={`filter-btn ${filter === "all" ? "active" : ""}`}
+            onClick={() => setFilter("all")}
           >
-            🔄
+            Sve igre
+          </button>
+          <button
+            className={`filter-btn ${filter === "briskula" ? "active" : ""}`}
+            onClick={() => setFilter("briskula")}
+          >
+            🃏 Briskula
+          </button>
+          <button
+            className={`filter-btn ${filter === "treseta" ? "active" : ""}`}
+            onClick={() => setFilter("treseta")}
+          >
+            🎯 Trešeta
           </button>
         </div>
-      </div>
 
-      <div className="leaderboard-filters">
-        <button
-          className={`filter-btn ${filter === "all" ? "active" : ""}`}
-          onClick={() => setFilter("all")}
-        >
-          Sve igre
-        </button>
-        <button
-          className={`filter-btn ${filter === "briskula" ? "active" : ""}`}
-          onClick={() => setFilter("briskula")}
-        >
-          🃏 Briskula
-        </button>
-        <button
-          className={`filter-btn ${filter === "treseta" ? "active" : ""}`}
-          onClick={() => setFilter("treseta")}
-        >
-          🎯 Trešeta
-        </button>
-      </div>
-
-      {error && (
-        <div className="lb-error-banner">
-          <span>{error}</span>
-          <button onClick={() => setError("")}>✕</button>
-        </div>
-      )}
-
-      <div className="leaderboard-content">
-        <div className="leaderboard-table">
-          <div className="table-header">
-            <div className="col-rank">#</div>
-            <div className="col-player">Igrač</div>
-            <div className="col-level">Level</div>
-            <div className="col-elo">ELO</div>
-            <div className="col-stats">Pobjede/Porazi</div>
-            <div className="col-winrate">Win %</div>
+        {error && (
+          <div className="lb-error-banner">
+            <span>{error}</span>
+            <button onClick={() => setError("")}>✕</button>
           </div>
+        )}
 
-          <div className="table-body">
-            {leaderboardData.map((player) => (
-              <div
-                key={player.userId}
-                className={`table-row ${
-                  isCurrentUser(player.userId) ? "current-user" : ""
-                } ${player.rank <= 3 ? `top-${player.rank}` : ""}`}
-              >
-                <div className="col-rank">
-                  {player.rank <= 3 ? (
-                    <span className="rank-medal">
-                      {player.rank === 1 && "🥇"}
-                      {player.rank === 2 && "🥈"}
-                      {player.rank === 3 && "🥉"}
+        <div className="leaderboard-content">
+          <div className="leaderboard-table">
+            <div className="table-header">
+              <div className="col-rank">#</div>
+              <div className="col-player">Igrač</div>
+              <div className="col-level">Level</div>
+              <div className="col-elo">ELO</div>
+              <div className="col-stats">Pobjede/Porazi</div>
+              <div className="col-winrate">Win %</div>
+            </div>
+
+            <div className="table-body">
+              {leaderboardData.map((player) => (
+                <div
+                  key={player.userId}
+                  className={`table-row ${
+                    isCurrentUser(player.userId) ? "current-user" : ""
+                  } ${player.rank <= 3 ? `top-${player.rank}` : ""}`}
+                >
+                  <div className="col-rank">
+                    {player.rank <= 3 ? (
+                      <span className="rank-medal">
+                        {player.rank === 1 && "🥇"}
+                        {player.rank === 2 && "🥈"}
+                        {player.rank === 3 && "🥉"}
+                      </span>
+                    ) : (
+                      <span>{player.rank}</span>
+                    )}
+                  </div>
+                  <div className="col-player">
+                    <span className="player-name">{player.name}</span>
+                    {isCurrentUser(player.userId) && (
+                      <span className="you-badge">Vi</span>
+                    )}
+                  </div>
+                  <div className="col-level">
+                    <div className={`level-badge level-${player.level}`}>
+                      {player.level}
+                    </div>
+                  </div>
+                  <div className="col-elo">
+                    <span className="elo-value">{player.elo}</span>
+                  </div>
+                  <div className="col-stats">
+                    <span className="stat-wins">{player.wins}</span>
+                    <span className="stat-separator">/</span>
+                    <span className="stat-losses">{player.losses}</span>
+                  </div>
+                  <div className="col-winrate">
+                    <span
+                      className={`winrate ${
+                        parseFloat(player.winRate) >= 50
+                          ? "positive"
+                          : "negative"
+                      }`}
+                    >
+                      {player.winRate}%
                     </span>
-                  ) : (
-                    <span>{player.rank}</span>
-                  )}
-                </div>
-                <div className="col-player">
-                  <span className="player-name">{player.name}</span>
-                  {isCurrentUser(player.userId) && (
-                    <span className="you-badge">Vi</span>
-                  )}
-                </div>
-                <div className="col-level">
-                  <div className={`level-badge level-${player.level}`}>
-                    {player.level}
                   </div>
                 </div>
-                <div className="col-elo">
-                  <span className="elo-value">{player.elo}</span>
-                </div>
-                <div className="col-stats">
-                  <span className="stat-wins">{player.wins}</span>
-                  <span className="stat-separator">/</span>
-                  <span className="stat-losses">{player.losses}</span>
-                </div>
-                <div className="col-winrate">
-                  <span
-                    className={`winrate ${
-                      parseFloat(player.winRate) >= 50 ? "positive" : "negative"
-                    }`}
-                  >
-                    {player.winRate}%
-                  </span>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
+
+          {leaderboardData.length === 0 && (
+            <div className="lb-empty-state">
+              <div className="lb-empty-icon">📊</div>
+              <h3>Nema podataka</h3>
+              <p>Ljestvica je trenutno prazna. Budite prvi!</p>
+            </div>
+          )}
         </div>
 
-        {leaderboardData.length === 0 && (
-          <div className="lb-empty-state">
-            <div className="lb-empty-icon">📊</div>
-            <h3>Nema podataka</h3>
-            <p>Ljestvica je trenutno prazna. Budite prvi!</p>
+        {user && user.isGuest && (
+          <div className="lb-guest-notice">
+            <p>
+              <strong>💡 Registrirajte se</strong> da se kvalificirate za
+              ljestvicu i trajno čuvanje statistike.
+            </p>
           </div>
         )}
       </div>
-
-      {user && user.isGuest && (
-        <div className="lb-guest-notice">
-          <p>
-            <strong>💡 Registrirajte se</strong> da se kvalificirate za
-            ljestvicu i trajno čuvanje statistike.
-          </p>
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 
