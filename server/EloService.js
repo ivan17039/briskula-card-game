@@ -109,7 +109,7 @@ class EloService {
         .select("*")
         .eq("user_id", userId)
         .eq("game_type", gameType)
-        .single();
+        .maybeSingle();
 
       if (error || !data) {
         return {
@@ -368,7 +368,7 @@ class EloService {
         .select("*")
         .eq("user_id", userId)
         .eq("game_type", gameType)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         // Update existing record
@@ -549,7 +549,7 @@ class EloService {
         .select("elo")
         .eq("user_id", userId)
         .eq("game_type", gameType)
-        .single();
+        .maybeSingle();
 
       if (!playerStats) return null;
 
