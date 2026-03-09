@@ -1,39 +1,39 @@
 .elo-widget {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: #f4efe6;
-  padding: 10px 14px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  border: 2px solid #d4c5b0;
+  gap: var(--space-md);
+  background: var(--color-bg-secondary);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  border: 2px solid var(--color-border);
   font-family: system-ui, sans-serif;
   min-width: 280px;
 }
 
 .elo-widget.compact {
-  padding: 6px 10px;
+  padding: var(--space-xs) var(--space-sm);
   min-width: 200px;
 }
 
 .elo-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-sm);
 }
 
 .elo-badge {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: #8b7355;
-  color: #faf7f2;
+  background: var(--color-accent-wood);
+  color: var(--color-text-light);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  font-size: 18px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  font-weight: var(--font-semibold);
+  font-size: var(--text-lg);
+  box-shadow: var(--shadow-sm);
   position: relative;
 }
 
@@ -85,28 +85,28 @@
   flex-direction: column;
 }
 .elo-value {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
   letter-spacing: 0.5px;
-  color: #6b4f2a;
+  color: var(--color-primary);
 }
 .elo-level-label {
-  font-size: 12px;
+  font-size: var(--text-xs);
   opacity: 0.75;
-  color: #5a4632;
+  color: var(--color-text-muted);
 }
 
 .elo-progress-wrapper {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-xs);
 }
 .elo-progress-bar {
   position: relative;
-  background: #e8dfd0;
+  background: var(--color-bg-tertiary);
   height: 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 .elo-progress-fill {
@@ -114,36 +114,36 @@
   top: 0;
   left: 0;
   bottom: 0;
-  background: #2f5d3a;
+  background: var(--color-accent-green);
   transition: width 0.4s ease;
 }
 .elo-progress-text {
   font-size: 11px;
   letter-spacing: 0.5px;
   opacity: 0.8;
-  color: #5a4632;
+  color: var(--color-text-muted);
 }
 
 /* Unranked (guest) variant */
 .elo-widget.unranked {
   justify-content: center;
   min-width: unset;
-  padding: 8px 14px;
-  background: #f4efe6;
-  border: 2px solid #d4c5b0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .elo-unranked-pill {
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: #2f5d3a;
-  color: #faf7f2;
-  font-weight: 600;
-  font-size: 13px;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-green);
+  color: var(--color-text-light);
+  font-weight: var(--font-semibold);
+  font-size: var(--text-sm);
   letter-spacing: 0.4px;
   white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-sm);
   position: relative;
 }
 
@@ -168,22 +168,22 @@
 .elo-unranked-pill:hover {
   filter: brightness(1.08);
   transform: translateY(-1px);
-  transition: all 0.15s ease;
+  transition: var(--transition-base);
 }
 
 @media (max-width: 640px) {
   .elo-widget {
-    padding: 8px 10px;
-    gap: 8px;
+    padding: var(--space-sm) var(--space-sm);
+    gap: var(--space-sm);
     min-width: unset;
   }
   .elo-badge {
     width: 36px;
     height: 36px;
-    font-size: 16px;
+    font-size: var(--text-md);
   }
   .elo-value {
-    font-size: 14px;
+    font-size: var(--text-sm);
   }
   .elo-progress-text {
     display: none;

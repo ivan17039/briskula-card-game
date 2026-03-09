@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(107, 79, 42, 0.85);
+  background: var(--overlay-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -13,18 +13,18 @@
 }
 
 .elo-modal-content {
-  background: #faf7f2;
-  border-radius: 12px;
-  padding: 32px 40px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  border: 3px solid #d4c5b0;
+  background: var(--color-bg-main);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4xl) var(--space-5xl);
+  box-shadow: var(--shadow-2xl);
+  border: 3px solid var(--color-border);
   max-width: 450px;
   width: 90%;
   text-align: center;
   transform: scale(0.8) translateY(30px);
   opacity: 0;
   transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  color: #3a3126;
+  color: var(--color-text-dark);
 }
 
 .elo-modal-content.show {
@@ -33,56 +33,56 @@
 }
 
 .elo-modal-content.winner {
-  border-color: #2f5d3a;
+  border-color: var(--color-accent-green);
   box-shadow: 0 10px 40px rgba(47, 93, 58, 0.3),
     0 0 0 1px rgba(47, 93, 58, 0.2);
 }
 
 .elo-modal-content.loser {
-  border-color: #c45454;
+  border-color: var(--color-danger);
   box-shadow: 0 10px 40px rgba(196, 84, 84, 0.2),
     0 0 0 1px rgba(196, 84, 84, 0.2);
 }
 
 .elo-modal-header {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-2xl);
 }
 
 .result-emoji {
   font-size: 72px;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-md);
   animation: bounceIn 0.6s ease;
 }
 
 .elo-modal-header h2 {
-  font-size: 32px;
-  font-weight: 700;
+  font-size: var(--text-4xl);
+  font-weight: var(--font-bold);
   margin: 0;
-  color: #6b4f2a;
+  color: var(--color-primary);
 }
 
 .elo-change-display {
-  background: #f4efe6;
-  border-radius: 12px;
-  padding: 20px;
-  margin: 20px 0;
-  border: 2px solid #e8dfd0;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  margin: var(--space-xl) 0;
+  border: 2px solid var(--color-bg-tertiary);
 }
 
 .elo-delta {
   font-size: 48px;
   font-weight: 800;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-md);
   animation: countUp 0.6s ease;
 }
 
 .elo-delta.positive {
-  color: #2f5d3a;
+  color: var(--color-accent-green);
   text-shadow: 0 2px 4px rgba(47, 93, 58, 0.3);
 }
 
 .elo-delta.negative {
-  color: #c45454;
+  color: var(--color-danger);
   text-shadow: 0 2px 4px rgba(196, 84, 84, 0.3);
 }
 
@@ -90,10 +90,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  font-size: 20px;
-  font-weight: 600;
-  color: #5a4632;
+  gap: var(--space-md);
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-muted);
 }
 
 .old-elo {
@@ -101,19 +101,19 @@
 }
 
 .arrow {
-  font-size: 24px;
-  color: #8b7355;
+  font-size: var(--text-2xl);
+  color: var(--color-accent-wood);
 }
 
 .new-elo {
-  color: #2f5d3a;
+  color: var(--color-accent-green);
   text-shadow: 0 1px 2px rgba(47, 93, 58, 0.2);
 }
 
 .level-change {
-  margin: 20px 0;
-  padding: 16px;
-  border-radius: 12px;
+  margin: var(--space-xl) 0;
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
   animation: slideInUp 0.5s ease 0.3s backwards;
 }
 
@@ -129,25 +129,25 @@
 
 .level-icon {
   font-size: 40px;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-sm);
 }
 
 .level-change p {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #6b4f2a;
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--color-primary);
 }
 
 .current-rank {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin: 24px 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #5a4632;
+  gap: var(--space-md);
+  margin: var(--space-2xl) 0;
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-muted);
 }
 
 .rank-badge {
@@ -157,9 +157,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   font-size: 28px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-lg);
   animation: pulse 2s ease infinite;
 }
 
@@ -207,17 +207,17 @@
 
 .elo-modal-close {
   width: 100%;
-  padding: 14px 24px;
-  background: #2f5d3a;
-  color: #faf7f2;
+  padding: var(--space-md) var(--space-2xl);
+  background: var(--color-accent-green);
+  color: var(--color-text-light);
   border: none;
-  border-radius: 8px;
-  font-size: 18px;
-  font-weight: 600;
+  border-radius: var(--radius-md);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
   cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  margin-top: 8px;
+  transition: var(--transition-base);
+  box-shadow: var(--shadow-sm);
+  margin-top: var(--space-sm);
 }
 
 .elo-modal-close:hover {
@@ -285,7 +285,7 @@
 
 @media (max-width: 480px) {
   .elo-modal-content {
-    padding: 24px 20px;
+    padding: var(--space-2xl) var(--space-xl);
   }
 
   .result-emoji {
@@ -301,12 +301,12 @@
   }
 
   .elo-progression {
-    font-size: 16px;
+    font-size: var(--text-md);
   }
 
   .rank-badge {
     width: 48px;
     height: 48px;
-    font-size: 24px;
+    font-size: var(--text-2xl);
   }
 }

@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(107, 79, 42, 0.75);
+  background: var(--overlay-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -13,48 +13,48 @@
 }
 
 .bug-modal-content {
-  background: #faf7f2;
-  border-radius: 12px;
-  padding: 28px 32px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
-  border: 2px solid #d4c5b0;
+  background: var(--color-bg-main);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3xl) var(--space-4xl);
+  box-shadow: var(--shadow-2xl);
+  border: 2px solid var(--color-border);
   max-width: 550px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
-  color: #3a3126;
+  color: var(--color-text-dark);
 }
 
 .bug-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 2px solid #e8dfd0;
+  margin-bottom: var(--space-2xl);
+  padding-bottom: var(--space-lg);
+  border-bottom: 2px solid var(--color-border-light);
 }
 
 .bug-modal-header h2 {
   margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  color: #6b4f2a;
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--color-primary);
 }
 
 .bug-close-btn {
-  background: #8b7355;
+  background: var(--color-text-muted);
   border: none;
-  color: #faf7f2;
+  color: var(--color-text-light);
   width: 32px;
   height: 32px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 20px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: var(--transition-base);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
 }
 
 .bug-close-btn:hover {
@@ -65,40 +65,40 @@
 .bug-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-xl);
 }
 
 .form-group-bug {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .form-group-bug label {
-  font-size: 14px;
-  font-weight: 600;
-  color: #6b4f2a;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-primary);
   letter-spacing: 0.3px;
 }
 
 .form-group-bug input,
 .form-group-bug textarea,
 .form-group-bug select {
-  padding: 12px 16px;
+  padding: var(--space-md) var(--space-lg);
   background: white;
-  border: 2px solid #d4c5b0;
-  border-radius: 8px;
-  color: #3a3126;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-dark);
   font-size: 15px;
   font-family: inherit;
-  transition: all 0.15s ease;
+  transition: var(--transition-base);
 }
 
 .form-group-bug input:focus,
 .form-group-bug textarea:focus,
 .form-group-bug select:focus {
   outline: none;
-  border-color: #c9a86a;
+  border-color: var(--color-accent-gold);
   box-shadow: 0 0 0 3px rgba(201, 168, 106, 0.15);
 }
 
@@ -112,44 +112,44 @@
 }
 
 .form-hint {
-  font-size: 12px;
-  color: #8b7355;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
   margin: 0;
 }
 
 .bug-form-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 8px;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
 }
 
 .bug-cancel-btn,
 .bug-submit-btn {
   flex: 1;
-  padding: 12px 20px;
+  padding: var(--space-md) var(--space-xl);
   border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
   cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: var(--transition-base);
+  box-shadow: var(--shadow-md);
 }
 
 .bug-cancel-btn {
-  background: #8b7355;
-  color: #faf7f2;
+  background: var(--color-text-muted);
+  color: var(--color-text-light);
 }
 
 .bug-cancel-btn:hover:not(:disabled) {
   background: #6b5a45;
   transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-lg);
 }
 
 .bug-submit-btn {
-  background: #2f5d3a;
-  color: #faf7f2;
+  background: var(--color-accent-green);
+  color: var(--color-text-light);
 }
 
 .bug-submit-btn:hover:not(:disabled) {
@@ -176,12 +176,12 @@
 
 @media (max-width: 600px) {
   .bug-modal-content {
-    padding: 20px 24px;
+    padding: var(--space-xl) var(--space-2xl);
     width: 95%;
   }
 
   .bug-modal-header h2 {
-    font-size: 20px;
+    font-size: var(--text-xl);
   }
 
   .bug-form-actions {

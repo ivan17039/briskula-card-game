@@ -4,13 +4,13 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(107, 79, 42, 0.75);
+  background: var(--overlay-bg);
   backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
-  padding: 20px;
+  padding: var(--space-xl);
   animation: fadeIn 0.2s ease;
 }
 
@@ -24,15 +24,15 @@
 }
 
 .modal-content {
-  background: #faf7f2;
-  border-radius: 16px;
+  background: var(--color-bg-main);
+  border-radius: var(--radius-lg);
   max-width: 600px;
   width: 100%;
   max-height: 85vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-2xl);
   animation: slideUp 0.3s ease;
-  border: 2px solid #d4c5b0;
+  border: 2px solid var(--color-border);
 }
 
 @keyframes slideUp {
@@ -50,32 +50,32 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px 28px;
-  border-bottom: 2px solid #e8dfd0;
+  padding: var(--space-2xl) var(--space-3xl);
+  border-bottom: 2px solid var(--color-border-light);
   position: sticky;
   top: 0;
-  background: #faf7f2;
+  background: var(--color-bg-main);
   z-index: 1;
 }
 
 .modal-header h2 {
   margin: 0;
-  color: #6b4f2a;
-  font-size: 1.75rem;
-  font-weight: 700;
+  color: var(--color-primary);
+  font-size: var(--text-3xl);
+  font-weight: var(--font-bold);
 }
 
 .modal-close-btn {
-  background: #8b7355;
+  background: var(--color-text-muted);
   border: none;
-  color: #faf7f2;
+  color: var(--color-text-light);
   font-size: 24px;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 8px;
-  transition: all 0.2s;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  transition: var(--transition-base);
   line-height: 1;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
 }
 
 .modal-close-btn:hover {
@@ -84,34 +84,34 @@
 }
 
 .modal-body {
-  padding: 28px;
-  color: #3a3126;
+  padding: var(--space-3xl);
+  color: var(--color-text-dark);
   line-height: 1.7;
 }
 
 .modal-body h3 {
-  color: #6b4f2a;
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-top: 24px;
-  margin-bottom: 12px;
+  color: var(--color-primary);
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  margin-top: var(--space-2xl);
+  margin-bottom: var(--space-md);
 }
 
 .modal-body p {
-  margin: 12px 0;
-  font-size: 0.95rem;
-  color: #3a3126;
+  margin: var(--space-md) 0;
+  font-size: var(--text-base);
+  color: var(--color-text-dark);
 }
 
 .modal-body ul {
-  margin: 12px 0;
-  padding-left: 24px;
+  margin: var(--space-md) 0;
+  padding-left: var(--space-2xl);
 }
 
 .modal-body li {
-  margin: 8px 0;
-  font-size: 0.95rem;
-  color: #3a3126;
+  margin: var(--space-sm) 0;
+  font-size: var(--text-base);
+  color: var(--color-text-dark);
 }
 
 /* Scrollbar styling */
@@ -120,13 +120,13 @@
 }
 
 .modal-content::-webkit-scrollbar-track {
-  background: #e8dfd0;
-  border-radius: 0 16px 16px 0;
+  background: var(--color-border-light);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
 }
 
 .modal-content::-webkit-scrollbar-thumb {
-  background: #d4c5b0;
-  border-radius: 4px;
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
 }
 
 .modal-content::-webkit-scrollbar-thumb:hover {
@@ -141,14 +141,14 @@
   }
 
   .modal-header {
-    padding: 20px;
+    padding: var(--space-xl);
   }
 
   .modal-header h2 {
-    font-size: 1.5rem;
+    font-size: var(--text-xl);
   }
 
   .modal-body {
-    padding: 20px;
+    padding: var(--space-xl);
   }
 }

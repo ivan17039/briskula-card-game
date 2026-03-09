@@ -34,7 +34,7 @@
   animation: gradientShift 15s ease infinite;
   color: white;
   text-align: center;
-  padding: 20px;
+  padding: var(--space-xl);
   position: relative;
   overflow: hidden;
 }
@@ -74,7 +74,7 @@
 
 .connection-error h2 {
   font-size: 2.5em;
-  margin: 0 0 20px 0;
+  margin: 0 0 var(--space-xl) 0;
   font-weight: 800;
   text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   position: relative;
@@ -87,29 +87,29 @@
 
 .connection-error p {
   font-size: 1.2em;
-  margin: 10px 0;
+  margin: var(--space-sm) 0;
   opacity: 0.95;
   position: relative;
   z-index: 1;
-  font-weight: 500;
+  font-weight: var(--font-medium);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .connection-error button {
   margin-top: 30px;
-  padding: 16px 32px;
+  padding: var(--space-lg) var(--space-4xl);
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   color: white;
   border: 2px solid rgba(255, 255, 255, 0.4);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   font-size: 1.1em;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
   z-index: 1;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-xl);
 }
 
 .connection-error button:hover {
@@ -135,7 +135,7 @@
   animation: gradientShift 15s ease infinite;
   color: white;
   text-align: center;
-  padding: 20px;
+  padding: var(--space-xl);
   position: relative;
   overflow: hidden;
 }
@@ -153,7 +153,7 @@
 
 .loading-screen h2 {
   font-size: 2em;
-  margin: 20px 0 10px 0;
+  margin: var(--space-xl) 0 var(--space-sm) 0;
   font-weight: 800;
   text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   position: relative;
@@ -169,7 +169,7 @@
   opacity: 0.9;
   position: relative;
   z-index: 1;
-  font-weight: 500;
+  font-weight: var(--font-medium);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
@@ -180,10 +180,10 @@
   border-top: 5px solid white;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-bottom: 20px;
+  margin-bottom: var(--space-xl);
   position: relative;
   z-index: 1;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-xl);
 }
 
 @keyframes spin {
@@ -212,11 +212,11 @@ body {
 }
 
 .mt-20 {
-  margin-top: 20px;
+  margin-top: var(--space-xl);
 }
 
 .mb-20 {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-xl);
 }
 
 /* Responsive typography */
@@ -233,7 +233,7 @@ body {
   }
 
   .connection-error button {
-    padding: 14px 28px;
+    padding: var(--space-md) 28px;
     font-size: 1em;
   }
 
@@ -256,7 +256,7 @@ body {
   }
 
   .connection-error button {
-    padding: 12px 24px;
+    padding: var(--space-md) var(--space-2xl);
     font-size: 0.95em;
   }
 

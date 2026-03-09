@@ -1,11 +1,11 @@
 /* Footer.css - Cozy Card Table Footer */
 
 .app-footer {
-  background: #2f5d3a;
-  color: #faf7f2;
-  padding: 32px 20px 20px;
+  background: var(--color-accent-green);
+  color: var(--color-text-light);
+  padding: var(--space-4xl) var(--space-xl) var(--space-xl);
   border-top: 2px solid #264a2e;
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-family: system-ui, -apple-system, sans-serif;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
 }
@@ -15,14 +15,14 @@
   margin: 0 auto;
   display: flex;
   justify-content: space-between;
-  gap: 32px;
-  margin-bottom: 24px;
+  gap: var(--space-4xl);
+  margin-bottom: var(--space-2xl);
   align-items: center;
 }
 
 .footer-icons {
   display: flex;
-  gap: 20px;
+  gap: var(--space-xl);
   align-items: center;
 }
 
@@ -30,7 +30,7 @@
   width: 48px;
   height: 48px;
   object-fit: contain;
-  transition: transform 0.15s ease;
+  transition: var(--transition-base);
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
@@ -49,9 +49,9 @@
 
 .footer-section h4 {
   color: #fff;
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0 0 12px 0;
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  margin: 0 0 var(--space-md) 0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   text-align: right;
@@ -71,7 +71,7 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-sm);
   align-items: flex-end;
 }
 
@@ -79,32 +79,32 @@
 .footer-link-btn {
   color: rgba(250, 247, 242, 0.85);
   text-decoration: none;
-  transition: all 0.15s ease;
+  transition: var(--transition-base);
   background: none;
   border: none;
   padding: 0;
-  font-size: 14px;
+  font-size: var(--text-sm);
   cursor: pointer;
   text-align: right;
   font-family: inherit;
-  font-weight: 500;
+  font-weight: var(--font-medium);
 }
 
 .footer-links li a:hover,
 .footer-link-btn:hover {
-  color: #c9a86a;
+  color: var(--color-accent-gold);
   transform: translateX(-2px);
 }
 
 .footer-socials {
   display: flex;
-  gap: 12px;
-  margin-top: 12px;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
 }
 
 .footer-socials a {
   font-size: 24px;
-  transition: all 0.15s ease;
+  transition: var(--transition-base);
   opacity: 0.85;
   text-decoration: none;
 }
@@ -117,7 +117,7 @@
 .footer-bottom {
   max-width: 1200px;
   margin: 0 auto;
-  padding-top: 20px;
+  padding-top: var(--space-xl);
   border-top: 1px solid rgba(250, 247, 242, 0.2);
   text-align: center;
   color: rgba(250, 247, 242, 0.7);
@@ -125,32 +125,32 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--space-md);
 }
 
 .footer-bottom p {
   margin: 0;
   font-size: 13px;
-  font-weight: 400;
+  font-weight: var(--font-regular);
 }
 
 .footer-version {
   font-family: 'Courier New', monospace;
   color: rgba(250, 247, 242, 0.6);
   background: rgba(0, 0, 0, 0.2);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
 }
 
 @media (max-width: 768px) {
   .app-footer {
-    padding: 24px 16px 16px;
+    padding: var(--space-2xl) var(--space-lg) var(--space-lg);
   }
 
   .footer-content {
     flex-direction: column;
-    gap: 24px;
+    gap: var(--space-2xl);
     align-items: center;
     text-align: center;
   }
@@ -169,7 +169,7 @@
   }
 
   .footer-icons {
-    gap: 16px;
+    gap: var(--space-lg);
   }
 
   .footer-icon {
@@ -191,7 +191,7 @@
 
   .footer-bottom {
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-sm);
   }
 }
 
@@ -202,7 +202,7 @@
   }
 
   .footer-section h4 {
-    font-size: 14px;
+    font-size: var(--text-sm);
   }
 
   .footer-links li a,
