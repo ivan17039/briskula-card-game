@@ -6,10 +6,11 @@ import CreateGameModal from "./CreateGameModal";
 import "./GameLobby.css";
 import EloWidget from "./EloWidget";
 
-function GameLobby({ onGameStart, onBack, gameType }) {
+function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
   const { socket, user } = useSocket();
   const [activeGames, setActiveGames] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createdGameData, setCreatedGameData] = useState(null);
   const [joinPassword, setJoinPassword] = useState("");
   const [selectedGameId, setSelectedGameId] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -17,6 +18,8 @@ function GameLobby({ onGameStart, onBack, gameType }) {
   const [gameToDelete, setGameToDelete] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [roomCode, setRoomCode] = useState("");
+  const [joiningByCode, setJoiningByCode] = useState(false);
 
   const safeGameType = (gameType || "briskula").toString();
 
@@ -26,6 +29,46 @@ function GameLobby({ onGameStart, onBack, gameType }) {
       socket.emit("getActiveGames", { gameType: safeGameType });
     }
   };
+
+  // Check for join code in URL or localStorage on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinCode = urlParams.get("join");
+
+    if (joinCode && joinCode.length === 6) {
+      console.log("🔗 Detected join code in URL:", joinCode);
+      setRoomCode(joinCode.toUpperCase());
+      // Clean up URL without page reload
+      window.history.replaceState({}, "", window.location.pathname);
+      // Remove from localStorage since we're using it now
+      localStorage.removeItem("pendingJoinCode");
+      // Optionally auto-focus the input or show a toast
+      setTimeout(() => {
+        const input = document.querySelector(".room-code-input");
+        if (input) {
+          input.scrollIntoView({ behavior: "smooth", block: "center" });
+          input.focus();
+        }
+      }, 100);
+    } else {
+      // Check for pending join code from localStorage (set when user clicked link before login)
+      const pendingCode = localStorage.getItem("pendingJoinCode");
+      if (pendingCode && pendingCode.length === 6) {
+        console.log("🔑 Found pending join code after login:", pendingCode);
+        setRoomCode(pendingCode);
+        // Clear it from storage
+        localStorage.removeItem("pendingJoinCode");
+        // Auto-focus and scroll to input
+        setTimeout(() => {
+          const input = document.querySelector(".room-code-input");
+          if (input) {
+            input.scrollIntoView({ behavior: "smooth", block: "center" });
+            input.focus();
+          }
+        }, 100);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
@@ -48,9 +91,10 @@ function GameLobby({ onGameStart, onBack, gameType }) {
     });
 
     // Listen for successful game creation
-    socket.on("gameCreated", (gameData) => {
-      console.log("✅ Game created successfully:", gameData);
-      setShowCreateModal(false);
+    socket.on("gameCreated", (response) => {
+      console.log("✅ Game created successfully:", response);
+      // Extract the actual game data from the response (includes roomCode)
+      setCreatedGameData(response.gameData);
       // Refresh games list to show the new game
       refreshGames();
     });
@@ -61,6 +105,14 @@ function GameLobby({ onGameStart, onBack, gameType }) {
       setShowPasswordModal(false);
       setJoinPassword("");
       setSelectedGameId(null);
+      setJoiningByCode(false);
+      setRoomCode("");
+
+      // Clear pending join code from localStorage and parent state
+      localStorage.removeItem("pendingJoinCode");
+      if (clearPendingJoinCode) {
+        clearPendingJoinCode();
+      }
 
       // Don't navigate yet, wait for gameStart
       setError(""); // Clear any errors
@@ -79,6 +131,21 @@ function GameLobby({ onGameStart, onBack, gameType }) {
       setError(errorData.message);
       setShowPasswordModal(false);
       setJoinPassword("");
+      setJoiningByCode(false);
+
+      // If room doesn't exist or expired, clear pending join code
+      if (errorData.message.includes("ne postoji ili je istekla")) {
+        console.log("🧹 Room doesn't exist, clearing pending join code");
+        setRoomCode("");
+        localStorage.removeItem("pendingJoinCode");
+        if (clearPendingJoinCode) {
+          clearPendingJoinCode();
+        }
+      }
+      // If error says password required, show password modal for code join
+      else if (errorData.message.includes("šifra") && roomCode.trim()) {
+        setShowPasswordModal(true);
+      }
     });
 
     // Listen for creation errors
@@ -93,6 +160,8 @@ function GameLobby({ onGameStart, onBack, gameType }) {
       if (data.message) {
         // If we receive a message, it means we were notified that someone else deleted the game
         setError(data.message);
+        // Auto-clear success message after 2 seconds
+        setTimeout(() => setError(""), 2000);
       } else {
         setError(""); // Clear any errors
       }
@@ -171,7 +240,13 @@ function GameLobby({ onGameStart, onBack, gameType }) {
       setError("Password is required");
       return;
     }
-    handleJoinGame(selectedGameId, joinPassword);
+
+    // Check if we're joining by code or by game ID
+    if (roomCode.trim()) {
+      handleJoinByCodeWithPassword();
+    } else if (selectedGameId) {
+      handleJoinGame(selectedGameId, joinPassword);
+    }
   };
 
   const handleDeleteGame = (gameId) => {
@@ -195,6 +270,51 @@ function GameLobby({ onGameStart, onBack, gameType }) {
     // Show custom confirmation modal
     setGameToDelete(game);
     setShowConfirmDeleteModal(true);
+  };
+
+  const handleJoinByCode = () => {
+    const trimmedCode = roomCode.trim().toUpperCase();
+
+    if (!trimmedCode) {
+      setError("Please enter a room code");
+      return;
+    }
+
+    if (trimmedCode.length !== 6) {
+      setError("Room code must be 6 characters");
+      return;
+    }
+
+    console.log("🔑 Attempting to join game with code:", trimmedCode);
+    setJoiningByCode(true);
+    setError("");
+
+    // Check if room needs password - we'll handle this in the error response
+    socket.emit("joinGameByCode", {
+      roomCode: trimmedCode,
+      password: null, // Will prompt for password if needed
+    });
+  };
+
+  const handleJoinByCodeWithPassword = () => {
+    const trimmedCode = roomCode.trim().toUpperCase();
+
+    if (!trimmedCode || !joinPassword) {
+      setError("Please enter both code and password");
+      return;
+    }
+
+    console.log(
+      "🔑 Attempting to join password-protected game with code:",
+      trimmedCode,
+    );
+    setJoiningByCode(true);
+    setError("");
+
+    socket.emit("joinGameByCode", {
+      roomCode: trimmedCode,
+      password: joinPassword,
+    });
   };
 
   const confirmDeleteGame = () => {
@@ -292,6 +412,43 @@ function GameLobby({ onGameStart, onBack, gameType }) {
         </div>
       )}
 
+      {/* Join with Code Section */}
+      <div className="join-code-section">
+        <div className="join-code-header">
+          <h2>🔑 Join with Code</h2>
+          <p>Enter a room code shared by your friend</p>
+        </div>
+        <div className="join-code-form">
+          <input
+            type="text"
+            className="room-code-input"
+            placeholder="Enter 6-character code (e.g., AB3X9Z)"
+            value={roomCode}
+            onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+            onKeyPress={(e) => {
+              if (e.key === "Enter" && !joiningByCode) {
+                handleJoinByCode();
+              }
+            }}
+            maxLength={6}
+            disabled={joiningByCode}
+          />
+          <button
+            className="join-code-btn"
+            onClick={handleJoinByCode}
+            disabled={joiningByCode || !roomCode.trim()}
+          >
+            {joiningByCode ? (
+              <>
+                <span className="spinner-small"></span> Joining...
+              </>
+            ) : (
+              <>🚀 Join Game</>
+            )}
+          </button>
+        </div>
+      </div>
+
       <div className="games-section">
         {activeGames.length === 0 ? (
           <div className="no-games">
@@ -361,8 +518,12 @@ function GameLobby({ onGameStart, onBack, gameType }) {
       {showCreateModal && (
         <CreateGameModal
           gameType={safeGameType}
-          onClose={() => setShowCreateModal(false)}
+          onClose={() => {
+            setShowCreateModal(false);
+            setCreatedGameData(null);
+          }}
           onCreateGame={handleCreateGame}
+          createdGameData={createdGameData}
         />
       )}
 
@@ -378,6 +539,8 @@ function GameLobby({ onGameStart, onBack, gameType }) {
                   setShowPasswordModal(false);
                   setJoinPassword("");
                   setSelectedGameId(null);
+                  setRoomCode("");
+                  setJoiningByCode(false);
                 }}
               >
                 ✕
@@ -402,6 +565,8 @@ function GameLobby({ onGameStart, onBack, gameType }) {
                   setShowPasswordModal(false);
                   setJoinPassword("");
                   setSelectedGameId(null);
+                  setRoomCode("");
+                  setJoiningByCode(false);
                 }}
               >
                 Cancel

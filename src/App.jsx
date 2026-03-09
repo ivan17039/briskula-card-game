@@ -40,6 +40,28 @@ function AppContent() {
   const [showBugReportModal, setShowBugReportModal] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [pendingJoinCode, setPendingJoinCode] = useState(null);
+
+  // Check for join code in URL on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinCode = urlParams.get("join");
+
+    if (joinCode && joinCode.length === 6) {
+      console.log("🔗 Detected join code in URL:", joinCode);
+      // Store the join code
+      setPendingJoinCode(joinCode.toUpperCase());
+      localStorage.setItem("pendingJoinCode", joinCode.toUpperCase());
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    } else {
+      // Check if there's a stored pending join code
+      const storedCode = localStorage.getItem("pendingJoinCode");
+      if (storedCode) {
+        setPendingJoinCode(storedCode);
+      }
+    }
+  }, []);
 
   // Save state to localStorage when it changes
   useEffect(() => {
@@ -87,13 +109,26 @@ function AppContent() {
 
       // If we have saved game state, restore directly to game
       if (savedGameState) {
-        console.log(
-          "🔄 Restoring game state from localStorage:",
-          savedGameState,
-        );
-        setGameData(savedGameState);
-
-        setAppState("game");
+        // Don't restore if the saved state is from a finished game
+        if (
+          savedGameState.gamePhase === "finished" ||
+          savedGameState.gamePhase === "partidaFinished" ||
+          savedGameState.gameInterrupted
+        ) {
+          console.log(
+            "⚠️ [App] Saved game state is finished, clearing and going to gameSelect",
+          );
+          clearGameState();
+          localStorage.removeItem("reconnectFailureReason");
+          setAppState("gameSelect");
+        } else {
+          console.log(
+            "🔄 Restoring game state from localStorage:",
+            savedGameState,
+          );
+          setGameData(savedGameState);
+          setAppState("game");
+        }
       } else if (savedAppState && savedAppState !== "login") {
         setAppState(savedAppState);
       } else {
@@ -115,6 +150,21 @@ function AppContent() {
   // Check for saved game state when user connects - only show if not currently in a game
   useEffect(() => {
     if (isConnected && user && savedGameState) {
+      // Don't show reconnect dialog for finished games
+      if (
+        savedGameState.gamePhase === "finished" ||
+        savedGameState.gamePhase === "partidaFinished" ||
+        savedGameState.gameInterrupted
+      ) {
+        console.log(
+          "⚠️ [App] Saved game is finished, clearing and not showing reconnect dialog",
+        );
+        clearGameState();
+        localStorage.removeItem("reconnectFailureReason");
+        setShowReconnectDialog(false);
+        return;
+      }
+
       if (appState === "game") {
         // If we're already in game state (from automatic restore), don't show reconnect dialog
         setShowReconnectDialog(false);
@@ -126,7 +176,7 @@ function AppContent() {
       // If we're in a game, don't show reconnect dialog
       setShowReconnectDialog(false);
     }
-  }, [isConnected, user, savedGameState, appState]);
+  }, [isConnected, user, savedGameState, appState, clearGameState]);
 
   // Check for stored Toast messages from reconnection failures or room deletions
   useEffect(() => {
@@ -172,9 +222,28 @@ function AppContent() {
       setGameType(response.gameData.gameType);
       setGameMode(response.gameData.gameMode);
       setAppState("game");
+      return; // Skip join code handling if reconnecting to existing game
+    }
+
+    // Check if there's a pending join code after login
+    if (pendingJoinCode) {
+      console.log(
+        "🔑 Processing pending join code after login:",
+        pendingJoinCode,
+      );
+      // We don't know the game type yet, so go to game selection first
+      // The GameLobby will handle the auto-join
+      setAppState("gameSelect");
+      // Don't clear the pending code yet - GameLobby will need it
     } else {
       setAppState("gameSelect");
     }
+  };
+
+  const handleClearPendingJoinCode = () => {
+    console.log("🧹 Clearing pending join code");
+    setPendingJoinCode(null);
+    localStorage.removeItem("pendingJoinCode");
   };
 
   const handleGameTypeSelect = (type) => {
@@ -285,6 +354,8 @@ function AppContent() {
     localStorage.removeItem("appState");
     localStorage.removeItem("gameType");
     localStorage.removeItem("gameMode");
+    localStorage.removeItem("pendingJoinCode");
+    setPendingJoinCode(null);
     // useEffect će automatski prebaciti na login state
   };
 
@@ -342,7 +413,7 @@ function AppContent() {
       return (
         <>
           <Header onBugReport={() => setShowBugReportModal(true)} />
-          <Login onLogin={handleLogin} />
+          <Login onLogin={handleLogin} pendingJoinCode={pendingJoinCode} />
           <Footer
             onBugReport={() => setShowBugReportModal(true)}
             onAbout={() => setShowAboutModal(true)}
@@ -376,7 +447,10 @@ function AppContent() {
             onLeaderboard={handleOpenLeaderboard}
             onBugReport={() => setShowBugReportModal(true)}
           />
-          <GameTypeSelector onGameTypeSelect={handleGameTypeSelect} />
+          <GameTypeSelector
+            onGameTypeSelect={handleGameTypeSelect}
+            pendingJoinCode={pendingJoinCode}
+          />
           <Footer
             onBugReport={() => setShowBugReportModal(true)}
             onAbout={() => setShowAboutModal(true)}
@@ -477,6 +551,7 @@ function AppContent() {
             onGameStart={handleLobbyGameStart}
             gameType={gameType}
             onBack={handleBackToModeSelect}
+            clearPendingJoinCode={handleClearPendingJoinCode}
           />
           <Footer
             onBugReport={() => setShowBugReportModal(true)}
@@ -578,7 +653,7 @@ function AppContent() {
     default:
       return (
         <>
-          <Login onLogin={handleLogin} />
+          <Login onLogin={handleLogin} pendingJoinCode={pendingJoinCode} />
           {showReconnectDialog && (
             <ReconnectDialog
               gameState={savedGameState}

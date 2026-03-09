@@ -1390,6 +1390,15 @@ function Game({
       ? gameState.playedCards
       : [];
 
+    console.log("🤖 [AI Turn Check]", {
+      currentPlayer: gameState.currentPlayer,
+      aiThinking: aiThinking.current,
+      roundResolving: roundResolving.current,
+      gamePhase: gameState.gamePhase,
+      playedCardsCount: played.filter((c) => c).length,
+      playedCards: played,
+    });
+
     if (
       gameState.currentPlayer === 2 &&
       !aiThinking.current &&
@@ -1397,6 +1406,7 @@ function Game({
       gameState.gamePhase === "playing" &&
       played.filter((c) => c).length < 2
     ) {
+      console.log("🤖 [AI] Taking turn...");
       aiThinking.current = true;
       setTimeout(() => {
         const aiIsFirst = !played[0];
@@ -1422,11 +1432,301 @@ function Game({
                 aiIsFirst: aiIsFirst,
               });
         if (aiCard) {
+          console.log("🤖 [AI] Playing card:", aiCard);
           playLocalCard(aiCard, 2);
         } else {
+          console.warn("🤖 [AI] No valid card found!");
           aiThinking.current = false;
         }
       }, 1200);
+    }
+  }, [gameState, mode]);
+
+  // Handle restored state with both cards played (after refresh during round resolution)
+  useEffect(() => {
+    if (!gameState || mode !== "ai" || gameState.gamePhase !== "playing")
+      return;
+
+    const played = Array.isArray(gameState.playedCards)
+      ? gameState.playedCards
+      : [];
+    const bothCardsPlayed =
+      played[0] && played[1] && played.filter((c) => c).length === 2;
+
+    // If both cards are played but resolution flags aren't set, we likely restored from refresh mid-resolution
+    if (bothCardsPlayed && !aiThinking.current && !roundResolving.current) {
+      console.log(
+        "🔄 [Game] Detected incomplete round after refresh, resolving...",
+        {
+          playedCards: played,
+          currentPlayer: gameState.currentPlayer,
+        },
+      );
+
+      // Mark as resolving to prevent AI from playing
+      aiThinking.current = true;
+      roundResolving.current = true;
+
+      // Trigger immediate round resolution
+      setTimeout(() => {
+        setGameState((prevState) => {
+          // Determine first and second card based on roundFirstPlayerRef or assume player played first
+          const firstCard = prevState.playedCards[0];
+          const secondCard = prevState.playedCards[1];
+          const firstPlayer = roundFirstPlayerRef.current || 1;
+
+          const useTreseta = prevState.gameType === "treseta";
+          const winner = useTreseta
+            ? determineRoundWinnerTreseta(firstCard, secondCard, firstPlayer)
+            : determineRoundWinner(
+                firstCard,
+                secondCard,
+                prevState.trumpSuit,
+                firstPlayer,
+              );
+
+          const winnerIsP1 = winner === 1;
+          const wonCards = [...prevState.playedCards];
+          const myCards = winnerIsP1
+            ? [...(prevState.myCards || []), ...wonCards]
+            : prevState.myCards;
+          const aiCards = winnerIsP1
+            ? prevState.aiCards
+            : [...(prevState.aiCards || []), ...wonCards];
+
+          let remaining = [...prevState.remainingDeck];
+          let myHandAfterDraw = [...prevState.myHand];
+          let aiHandAfterDraw = [...prevState.aiHand];
+
+          // Draw cards logic
+          if (remaining.length > 0) {
+            if (remaining.length === 1) {
+              if (useTreseta) {
+                if (winnerIsP1) {
+                  myHandAfterDraw = [...myHandAfterDraw, remaining[0]];
+                } else {
+                  aiHandAfterDraw = [...aiHandAfterDraw, remaining[0]];
+                }
+              } else {
+                if (winnerIsP1) {
+                  myHandAfterDraw = [...myHandAfterDraw, remaining[0]];
+                  aiHandAfterDraw = [...aiHandAfterDraw, prevState.trump];
+                } else {
+                  aiHandAfterDraw = [...aiHandAfterDraw, remaining[0]];
+                  myHandAfterDraw = [...myHandAfterDraw, prevState.trump];
+                }
+              }
+              remaining = [];
+            } else {
+              if (winnerIsP1) {
+                myHandAfterDraw = [...myHandAfterDraw, remaining[0]];
+                if (remaining[1])
+                  aiHandAfterDraw = [...aiHandAfterDraw, remaining[1]];
+              } else {
+                aiHandAfterDraw = [...aiHandAfterDraw, remaining[0]];
+                if (remaining[1])
+                  myHandAfterDraw = [...myHandAfterDraw, remaining[1]];
+              }
+              remaining = remaining.slice(2);
+            }
+          }
+
+          const isAllCardsPlayed =
+            remaining.length === 0 &&
+            myHandAfterDraw.length === 0 &&
+            aiHandAfterDraw.length === 0;
+
+          const p1Points = useTreseta
+            ? calculatePointsTreseta(
+                myCards,
+                isAllCardsPlayed ? winner : null,
+                1,
+              ).points
+            : calculatePoints(myCards);
+          const p2Points = useTreseta
+            ? calculatePointsTreseta(
+                aiCards,
+                isAllCardsPlayed ? winner : null,
+                2,
+              ).points
+            : calculatePoints(aiCards);
+
+          let end;
+          if (useTreseta && prevState.totalMyPoints !== undefined) {
+            const partidaEnd = isAllCardsPlayed;
+            if (partidaEnd) {
+              const myPartidaPoints =
+                p1Points +
+                (prevState.myAkuze?.reduce(
+                  (sum, akuz) => sum + akuz.points,
+                  0,
+                ) || 0);
+              const opponentPartidaPoints =
+                p2Points +
+                (prevState.opponentAkuze?.reduce(
+                  (sum, akuz) => sum + akuz.points,
+                  0,
+                ) || 0);
+              const newTotalMyPoints =
+                prevState.totalMyPoints + myPartidaPoints;
+              const newTotalOpponentPoints =
+                prevState.totalOpponentPoints + opponentPartidaPoints;
+              const matchFinished =
+                newTotalMyPoints >= prevState.targetScore ||
+                newTotalOpponentPoints >= prevState.targetScore;
+              end = {
+                isGameOver: matchFinished,
+                winner: matchFinished
+                  ? newTotalMyPoints >= prevState.targetScore
+                    ? 1
+                    : 2
+                  : null,
+                isPartidaOver: true,
+                newTotalMyPoints,
+                newTotalOpponentPoints,
+              };
+            } else {
+              end = { isGameOver: false, isPartidaOver: false };
+            }
+          } else {
+            end = useTreseta
+              ? checkGameEndTreseta(
+                  { points: p1Points },
+                  { points: p2Points },
+                  calculateAkuzeTreseta(myCards || []),
+                  calculateAkuzeTreseta(aiCards || []),
+                  remaining,
+                  myHandAfterDraw,
+                  aiHandAfterDraw,
+                )
+              : checkGameEnd(
+                  p1Points,
+                  p2Points,
+                  remaining,
+                  myHandAfterDraw,
+                  aiHandAfterDraw,
+                  winner,
+                );
+          }
+
+          const newState = {
+            ...prevState,
+            playedCards: [null, null],
+            myHand: myHandAfterDraw,
+            aiHand: aiHandAfterDraw,
+            remainingDeck: remaining,
+            myCards,
+            aiCards,
+            myPoints: p1Points,
+            opponentPoints: p2Points,
+            currentPlayer: winner,
+            message: winnerIsP1 ? "Osvajate rundu!" : "AI osvaja rundu!",
+            roundResolving: false,
+          };
+
+          // Reset flags before returning state
+          aiThinking.current = false;
+          roundResolving.current = false;
+
+          console.log("🔄 [Game] Round resolved after refresh", {
+            winner,
+            currentPlayer: winner,
+            nextTurn: winner === 2 ? "AI" : "Player",
+          });
+
+          if (end.isGameOver) {
+            const finalWinner =
+              end.winner === 1 ? prevState.opponent.name : "Vi";
+            return {
+              ...newState,
+              gamePhase: "finished",
+              winner: end.winner,
+              message: `🏆 Igra završena! Pobjednik: ${finalWinner}`,
+              currentPlayer: null,
+            };
+          } else if (end.isPartidaOver) {
+            return {
+              ...newState,
+              gamePhase: "partidaFinished",
+              totalMyPoints: end.newTotalMyPoints,
+              totalOpponentPoints: end.newTotalOpponentPoints,
+              message: `Partija završena! Rezultat: ${end.newTotalMyPoints} - ${end.newTotalOpponentPoints}`,
+              currentPlayer: null,
+            };
+          }
+
+          return newState;
+        });
+      }, 300); // Short delay to show cards before resolving
+    }
+  }, [gameState, mode]);
+
+  // Fallback: Force AI turn if conditions are met after restoration
+  useEffect(() => {
+    if (!gameState || mode !== "ai" || gameState.gamePhase !== "playing")
+      return;
+
+    const played = Array.isArray(gameState.playedCards)
+      ? gameState.playedCards
+      : [];
+    const noCardsPlayed = played.filter((c) => c).length === 0;
+
+    // If it's AI's turn and no cards played, ensure AI plays after a delay
+    if (
+      gameState.currentPlayer === 2 &&
+      noCardsPlayed &&
+      !aiThinking.current &&
+      !roundResolving.current
+    ) {
+      console.log("🤖 [Fallback] Ensuring AI plays after restoration");
+      const checkTimer = setTimeout(() => {
+        // Double-check conditions haven't changed
+        if (!aiThinking.current && !roundResolving.current) {
+          console.log("🤖 [Fallback] Triggering AI turn manually");
+          aiThinking.current = true;
+
+          setTimeout(() => {
+            const firstPlayedCard = (played || []).find((c) => c) || null;
+            const aiIsFirst = !played[0];
+            let aiHandForChoice = gameState.aiHand || [];
+
+            if (
+              gameState.gameType === "treseta" &&
+              firstPlayedCard &&
+              !aiIsFirst
+            ) {
+              const sameSuit = (gameState.aiHand || []).filter(
+                (c) => c.suit === firstPlayedCard.suit,
+              );
+              if (sameSuit.length > 0) aiHandForChoice = sameSuit;
+            }
+
+            const aiCard =
+              gameState.gameType === "treseta"
+                ? chooseAiTreseta({
+                    hand: aiHandForChoice,
+                    opponentCard: firstPlayedCard,
+                    aiIsFirst,
+                  })
+                : chooseAiBriskula({
+                    hand: aiHandForChoice,
+                    opponentCard: firstPlayedCard,
+                    trumpSuit: gameState.trumpSuit,
+                    aiIsFirst,
+                  });
+
+            if (aiCard) {
+              console.log("🤖 [Fallback] AI playing card:", aiCard);
+              playLocalCard(aiCard, 2);
+            } else {
+              console.warn("🤖 [Fallback] No valid AI card found");
+              aiThinking.current = false;
+            }
+          }, 500);
+        }
+      }, 800); // Wait 800ms after restoration to ensure all effects have run
+
+      return () => clearTimeout(checkTimer);
     }
   }, [gameState, mode]);
 

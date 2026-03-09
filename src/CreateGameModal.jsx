@@ -3,7 +3,7 @@
 import { useState } from "react";
 import "./CreateGameModal.css";
 
-function CreateGameModal({ gameType, onClose, onCreateGame }) {
+function CreateGameModal({ gameType, onClose, onCreateGame, createdGameData }) {
   const [formData, setFormData] = useState({
     name: "",
     maxPlayers: 2, // 2 for 1v1, 4 for 2v2
@@ -12,6 +12,7 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
     akuzeEnabled: true, // Default to enabled for Treseta
   });
   const [errors, setErrors] = useState({});
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -20,8 +21,8 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
       type === "checkbox"
         ? checked
         : name === "maxPlayers"
-        ? parseInt(value, 10)
-        : value;
+          ? parseInt(value, 10)
+          : value;
 
     setFormData((prev) => ({
       ...prev,
@@ -88,16 +89,111 @@ function CreateGameModal({ gameType, onClose, onCreateGame }) {
   const getGameIcon = () => {
     return gameType === "briskula" ? "🃏" : "🎯";
   };
+  const handleCopyCode = async () => {
+    if (!createdGameData?.roomCode) return;
 
+    // Create shareable link instead of just copying the code
+    const shareUrl = `${window.location.origin}${window.location.pathname}?join=${createdGameData.roomCode}`;
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = shareUrl;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+      } catch (err2) {
+        console.error("Fallback copy failed:", err2);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
+  // If game was created, show success screen with room code
+  if (createdGameData) {
+    return (
+      <div className="create-game-modal-overlay">
+        <div className="create-game-modal success-modal">
+          <div className="modal-header">
+            <h2>✅ Game Created Successfully!</h2>
+          </div>
+
+          <div className="success-content">
+            <div className="game-info">
+              <h3>{createdGameData.name}</h3>
+              <p className="game-details">
+                {getGameIcon()}{" "}
+                {gameType.charAt(0).toUpperCase() + gameType.slice(1)} •{" "}
+                {createdGameData.maxPlayers === 2 ? "1v1" : "2v2"}
+              </p>
+            </div>
+
+            <div className="room-code-section">
+              <div className="room-code-label">
+                🔑 Share this link with friends:
+              </div>
+              <div className="room-code-display">
+                <span className="room-code">{createdGameData.roomCode}</span>
+                <button
+                  className={`copy-code-btn ${copySuccess ? "copied" : ""}`}
+                  onClick={handleCopyCode}
+                  title="Copy invite link"
+                >
+                  {copySuccess ? "✔️ Link Copied!" : "🔗 Copy Link"}
+                </button>
+              </div>
+              <div className="share-instructions">
+                <p>
+                  👥 Click "Copy Link" and send it via WhatsApp, Discord, etc.
+                </p>
+                <p className="instruction-detail">
+                  When they click the link, they'll join your game instantly!
+                </p>
+              </div>
+            </div>
+
+            <div className="waiting-status">
+              <div className="waiting-animation">
+                <span className="dot"></span>
+                <span className="dot"></span>
+                <span className="dot"></span>
+              </div>
+              <p>Waiting for players to join...</p>
+              <p className="player-count">
+                {createdGameData.players?.length || 1} /{" "}
+                {createdGameData.maxPlayers} players
+              </p>
+            </div>
+          </div>
+
+          <div className="modal-actions">
+            <button className="done-btn" onClick={onClose}>
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="modal-overlay">
+    <div className="create-game-modal-overlay">
       <div className="create-game-modal">
         <div className="modal-header">
           <h2>
             {getGameIcon()} Create{" "}
             {gameType.charAt(0).toUpperCase() + gameType.slice(1)} Game
           </h2>
-          <button className="close-btn" onClick={onClose}>
+          <button className="modal-close-btn" onClick={onClose}>
             ✕
           </button>
         </div>
