@@ -10,15 +10,15 @@
   align-items: center;
   justify-content: center;
   z-index: 9999;
-  padding: 20px;
+  padding: var(--space-xl);
 }
 
 .reconnect-dialog {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
-  border-radius: 15px;
-  padding: 25px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2xl);
+  box-shadow: var(--shadow-2xl);
   max-width: 450px;
   width: 100%;
   text-align: center;
@@ -27,20 +27,20 @@
 }
 
 .reconnect-header {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-xl);
 }
 
 .reconnect-header h2 {
-  margin: 0 0 10px 0;
+  margin: 0 0 var(--space-sm) 0;
   color: #4a5568;
   font-size: 1.3em;
 }
 
 .connection-status {
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 0.85em;
-  font-weight: 600;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
   display: inline-block;
 }
 
@@ -57,29 +57,29 @@
 }
 
 .reconnect-content {
-  margin-bottom: 25px;
+  margin-bottom: var(--space-2xl);
   text-align: left;
 }
 
 .reconnect-content > p {
   text-align: center;
-  margin-bottom: 15px;
+  margin-bottom: var(--space-md);
   color: #666;
 }
 
 .game-info {
   background: rgba(102, 126, 234, 0.1);
   border: 1px solid rgba(102, 126, 234, 0.2);
-  border-radius: 10px;
-  padding: 15px;
-  margin-bottom: 15px;
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
 }
 
 .info-item {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
-  padding: 4px 0;
+  margin-bottom: var(--space-sm);
+  padding: var(--space-xs) 0;
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
@@ -95,16 +95,16 @@
 .connection-warning {
   background: rgba(255, 193, 7, 0.2);
   border: 1px solid rgba(255, 193, 7, 0.4);
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 10px;
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
   text-align: center;
 }
 
 .connection-warning p {
-  margin: 0 0 5px 0;
+  margin: 0 0 var(--space-xs) 0;
   color: #856404;
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 
 .connection-warning small {
@@ -113,7 +113,7 @@
 
 .reconnect-attempts {
   text-align: center;
-  margin-bottom: 10px;
+  margin-bottom: var(--space-sm);
 }
 
 .reconnect-attempts small {
@@ -123,7 +123,7 @@
 
 .reconnect-actions {
   display: flex;
-  gap: 12px;
+  gap: var(--space-md);
   justify-content: center;
 }
 
@@ -131,12 +131,12 @@
   background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
   color: white;
   border: none;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: 600;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-semibold);
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.9em;
+  transition: var(--transition-base);
+  font-size: var(--text-sm);
   flex: 1;
 }
 
@@ -155,12 +155,12 @@
   background: #6c757d;
   color: white;
   border: none;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: 600;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-semibold);
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.9em;
+  transition: var(--transition-base);
+  font-size: var(--text-sm);
   flex: 1;
 }
 
@@ -183,11 +183,11 @@
 /* Mobile responsive */
 @media (max-width: 768px) {
   .reconnect-overlay {
-    padding: 15px;
+    padding: var(--space-md);
   }
 
   .reconnect-dialog {
-    padding: 20px;
+    padding: var(--space-xl);
   }
 
   .reconnect-actions {
@@ -205,10 +205,10 @@
   }
 
   .game-info {
-    padding: 12px;
+    padding: var(--space-md);
   }
 
   .info-item {
-    font-size: 0.9em;
+    font-size: var(--text-sm);
   }
 }
