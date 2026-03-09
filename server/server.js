@@ -101,12 +101,71 @@ const io = new SocketIOServer(server, {
 // Strukture za čuvanje stanja
 const connectedUsers = new Map(); // socketId -> user info
 const gameRooms = new Map(); // roomId -> game state
+const roomCodes = new Map(); // roomCode -> roomId (for friend invite system)
 const waitingQueue1v1 = []; // korisnici koji čekaju 1v1 protivnika
 const waitingQueue2v2 = []; // korisnici koji čekaju 2v2 protivnike
 // Tournament match readiness: matchId -> Set of user keys who clicked "Igraj sada"
 const tournamentReady = new Map();
 // Player session mapping for reconnection: playerId -> {roomId, playerNumber, socketId}
 const playerSessions = new Map();
+
+// --- Room Code Generation (Friend Invite System) ---
+/**
+ * Generates a unique 6-character alphanumeric room code
+ * Format: AB3X9Z (uppercase letters and numbers, excludes confusing chars: 0, O, I, 1)
+ * @returns {string} Unique 6-character room code
+ */
+function generateRoomCode() {
+  // Use characters that are easy to read and distinguish
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Excludes: 0, O, I, 1
+  let code;
+  let attempts = 0;
+  const maxAttempts = 100;
+
+  do {
+    code = "";
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    attempts++;
+
+    if (attempts >= maxAttempts) {
+      // Fallback: add a random suffix to ensure uniqueness
+      code = code + Math.floor(Math.random() * 100);
+      console.warn(
+        "⚠️ Room code generation took many attempts, using fallback",
+      );
+      break;
+    }
+  } while (roomCodes.has(code));
+
+  return code;
+}
+
+/**
+ * Associates a room code with a room ID
+ */
+function registerRoomCode(roomCode, roomId) {
+  roomCodes.set(roomCode, roomId);
+  console.log(`🔑 Registered room code: ${roomCode} -> ${roomId}`);
+}
+
+/**
+ * Removes room code mapping when game is deleted
+ */
+function unregisterRoomCode(roomCode) {
+  if (roomCodes.has(roomCode)) {
+    roomCodes.delete(roomCode);
+    console.log(`🗑️ Unregistered room code: ${roomCode}`);
+  }
+}
+
+/**
+ * Gets room ID from room code
+ */
+function getRoomIdByCode(roomCode) {
+  return roomCodes.get(roomCode?.toUpperCase());
+}
 
 // Reconnect grace period (ms) - configurable via environment variable
 const GRACE_PERIOD_MS = parseInt(process.env.GRACE_PERIOD_MS || "60000", 10); // default 60s
@@ -975,11 +1034,50 @@ io.on("connection", (socket) => {
               }
 
               // Notify others that player reconnected
-              socket.to(roomId).emit("playerReconnected", {
+              // For 2v2, send game state snapshot so others can update hand counts
+              const reconnectData = {
                 playerNumber: player.playerNumber,
                 playerName: player.name,
                 message: `${player.name} se vratio u igru`,
-              });
+              };
+
+              // Add game state info for 2v2 so other players can see correct hand counts
+              if (room.gameMode === "2v2") {
+                reconnectData.gameState = {
+                  player1Hand: new Array(
+                    room.gameState.player1Hand?.length || 0,
+                  ).fill({ hidden: true }),
+                  player2Hand: new Array(
+                    room.gameState.player2Hand?.length || 0,
+                  ).fill({ hidden: true }),
+                  player3Hand: new Array(
+                    room.gameState.player3Hand?.length || 0,
+                  ).fill({ hidden: true }),
+                  player4Hand: new Array(
+                    room.gameState.player4Hand?.length || 0,
+                  ).fill({ hidden: true }),
+                  trump: room.gameState.trump,
+                  trumpSuit: room.gameState.trumpSuit,
+                  remainingDeck: room.gameState.remainingDeck,
+                  deckCount: room.gameState.remainingDeck?.length || 0,
+                  currentPlayer: room.gameState.currentPlayer,
+                  gamePhase: room.gameState.gamePhase,
+                };
+              } else if (room.gameMode === "1v1") {
+                // For 1v1, just send hand counts
+                reconnectData.gameState = {
+                  player1Hand: new Array(
+                    room.gameState.player1Hand?.length || 0,
+                  ).fill({ hidden: true }),
+                  player2Hand: new Array(
+                    room.gameState.player2Hand?.length || 0,
+                  ).fill({ hidden: true }),
+                  trump: room.gameState.trump,
+                  deckCount: room.gameState.remainingDeck?.length || 0,
+                };
+              }
+
+              socket.to(roomId).emit("playerReconnected", reconnectData);
 
               break; // Player can only be in one room
             }
@@ -1285,8 +1383,11 @@ io.on("connection", (socket) => {
 
     try {
       const roomId = uuidv4();
+      const roomCode = generateRoomCode(); // Generate unique 6-char code
+
       const customRoom = {
         id: roomId,
+        roomCode: roomCode, // Add room code for friend invites
         name: gameData.gameName,
         gameType: gameData.gameType,
         gameMode: gameData.gameMode,
@@ -1322,10 +1423,11 @@ io.on("connection", (socket) => {
       };
 
       gameRooms.set(roomId, customRoom);
+      registerRoomCode(roomCode, roomId); // Register code mapping
       socket.join(roomId);
 
       console.log(
-        `🎮 Custom game created: ${gameData.gameName} by ${user.name}`,
+        `🎮 Custom game created: ${gameData.gameName} by ${user.name} [Code: ${roomCode}]`,
       );
 
       socket.emit("gameCreated", {
@@ -1402,6 +1504,11 @@ io.on("connection", (socket) => {
         io.sockets.sockets.get(player.id)?.leave(roomId);
       });
 
+      // Remove the room code mapping
+      if (room.roomCode) {
+        unregisterRoomCode(room.roomCode);
+      }
+
       // Remove the room
       gameRooms.delete(roomId);
 
@@ -1420,6 +1527,122 @@ io.on("connection", (socket) => {
         error: error.message,
       });
     }
+  });
+
+  // Join game by room code (Friend Invite System)
+  socket.on("joinGameByCode", async (joinData) => {
+    const user = connectedUsers.get(socket.id);
+    if (!user) {
+      socket.emit("joinGameError", { message: "Korisnik nije registriran" });
+      return;
+    }
+
+    const { roomCode, password } = joinData;
+
+    if (!roomCode) {
+      socket.emit("joinGameError", { message: "Unesite kod sobe" });
+      return;
+    }
+
+    // Find room by code
+    const roomId = getRoomIdByCode(roomCode);
+
+    if (!roomId) {
+      socket.emit("joinGameError", {
+        message: `Soba s kodom "${roomCode.toUpperCase()}" ne postoji ili je istekla`,
+      });
+      return;
+    }
+
+    console.log(
+      `🔑 User ${user.name} joining game via code: ${roomCode.toUpperCase()} -> Room ${roomId}`,
+    );
+
+    // Continue with standard join logic using the found roomId
+    const room = gameRooms.get(roomId);
+
+    if (!room) {
+      socket.emit("joinGameError", { message: "Igra ne postoji" });
+      unregisterRoomCode(roomCode); // Clean up stale mapping
+      return;
+    }
+
+    if (!room.isCustom) {
+      socket.emit("joinGameError", { message: "Ova igra nije custom igra" });
+      return;
+    }
+
+    if (room.status === "playing") {
+      socket.emit("joinGameError", { message: "Igra je već u tijeku" });
+      return;
+    }
+
+    if (room.players.length >= room.maxPlayers) {
+      socket.emit("joinGameError", { message: "Igra je puna" });
+      return;
+    }
+
+    // Check if player is already in the room
+    const existingPlayer = room.players.find(
+      (p) =>
+        (p.userId === user.userId && !user.isGuest) ||
+        (p.name === user.name && user.isGuest),
+    );
+
+    if (existingPlayer) {
+      socket.emit("joinGameError", { message: "Već ste u ovoj igri" });
+      return;
+    }
+
+    if (room.hasPassword && room.password !== password) {
+      socket.emit("joinGameError", { message: "Neispravna šifra" });
+      return;
+    }
+
+    // Add player to room
+    const playerNumber = room.players.length + 1;
+    const newPlayer = {
+      id: socket.id,
+      name: user.name,
+      userId: user.userId,
+      sessionToken: user.sessionToken,
+      isGuest: user.isGuest,
+      playerNumber: playerNumber,
+      isConnected: true,
+      team: room.gameMode === "2v2" ? Math.ceil(playerNumber / 2) : null,
+    };
+
+    room.players.push(newPlayer);
+    socket.join(roomId);
+
+    console.log(
+      `👥 ${user.name} joined game via code ${roomCode.toUpperCase()}: ${room.name}`,
+    );
+
+    // Update room status
+    if (room.players.length === room.maxPlayers) {
+      room.status = "full";
+    }
+
+    socket.emit("gameJoined", {
+      success: true,
+      roomId: roomId,
+      gameData: room,
+    });
+
+    // Notify all players in the room
+    io.to(roomId).emit("playerJoined", {
+      player: newPlayer,
+      gameData: room,
+    });
+
+    // If room is full, start the game
+    if (room.players.length === room.maxPlayers) {
+      startCustomGame(roomId);
+    }
+
+    // Broadcast updated game list
+    broadcastGameList();
   });
 
   socket.on("joinGame", async (joinData) => {
@@ -2154,6 +2377,12 @@ io.on("connection", (socket) => {
           return;
         }
 
+        // Skip server-side reconnection for AI games (client-side only)
+        if (roomId === "local-ai" || roomId.startsWith("local-")) {
+          console.log(`🤖 Skipping server reconnect for AI game: ${roomId}`);
+          return;
+        }
+
         // Validate session if provided
         if (sessionToken) {
           try {
@@ -2463,6 +2692,12 @@ io.on("connection", (socket) => {
         socket.emit("reconnectError", {
           message: "Nedostaju podaci za resume",
         });
+        return;
+      }
+
+      // Skip server-side reconnection for AI games (client-side only)
+      if (roomId === "local-ai" || roomId.startsWith("local-")) {
+        console.log(`🤖 Skipping server resume for AI game: ${roomId}`);
         return;
       }
 
@@ -5458,6 +5693,7 @@ function broadcastGameList() {
       hasPassword: room.hasPassword,
       status: room.status,
       createdAt: room.createdAt,
+      roomCode: room.roomCode, // Include room code for shareable links
     }));
 
   io.emit("activeGamesUpdate", customGames);

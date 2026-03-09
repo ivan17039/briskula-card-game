@@ -631,6 +631,16 @@ function Game2v2({ gameData, onGameEnd }) {
       setDisconnectionInfo(null);
       setGraceTimeLeft(0);
       addToast(`${data.message}`, "success");
+
+      // Update game state with reconnected player's hand count and deck info
+      if (data.gameState) {
+        setGameState((prevState) => ({
+          ...prevState,
+          ...data.gameState,
+          // Keep our own hand unchanged
+          myHand: prevState.myHand,
+        }));
+      }
     });
 
     // Handle permanent player disconnect
