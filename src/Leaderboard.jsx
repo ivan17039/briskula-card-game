@@ -142,6 +142,61 @@ function Leaderboard({ onBack, onLogout, onBugReport }) {
           </div>
         )}
 
+        {/* Mobile: Show current user's stats prominently */}
+        {user && !user.isGuest && (
+          <div className="mobile-user-stats">
+            {leaderboardData.map((player) => {
+              if (isCurrentUser(player.userId)) {
+                return (
+                  <div key="mobile-stats" className="mobile-stats-card">
+                    <div className="mobile-stats-header">
+                      <span className="mobile-stats-title">👤 Vaša Stats</span>
+                      <span className="mobile-stats-rank">#{player.rank}</span>
+                    </div>
+                    <div className="mobile-stats-body">
+                      <div className="mobile-stat-item">
+                        <span className="mobile-stat-label">Ime:</span>
+                        <span className="mobile-stat-value">{player.name}</span>
+                      </div>
+                      <div className="mobile-stat-item">
+                        <span className="mobile-stat-label">Level:</span>
+                        <div className={`level-badge level-${player.level}`}>
+                          {player.level}
+                        </div>
+                      </div>
+                      <div className="mobile-stat-item">
+                        <span className="mobile-stat-label">ELO:</span>
+                        <span className="mobile-stat-value">{player.elo}</span>
+                      </div>
+                      <div className="mobile-stat-item">
+                        <span className="mobile-stat-label">Streak:</span>
+                        <span className="mobile-stat-value mobile-streak">
+                          <span className="stat-wins">{player.wins}W</span>
+                          <span className="stat-separator">/</span>
+                          <span className="stat-losses">{player.losses}L</span>
+                        </span>
+                      </div>
+                      <div className="mobile-stat-item">
+                        <span className="mobile-stat-label">Win Rate:</span>
+                        <span
+                          className={`mobile-stat-value winrate ${
+                            parseFloat(player.winRate) >= 50
+                              ? "positive"
+                              : "negative"
+                          }`}
+                        >
+                          {player.winRate}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })}
+          </div>
+        )}
+
         <div className="leaderboard-content">
           <div className="leaderboard-table">
             <div className="table-header">
@@ -173,7 +228,9 @@ function Leaderboard({ onBack, onLogout, onBugReport }) {
                     )}
                   </div>
                   <div className="col-player">
-                    <span className="player-name">{player.name}</span>
+                    <span className="player-name" title={player.name}>
+                      {player.name}
+                    </span>
                     {isCurrentUser(player.userId) && (
                       <span className="you-badge">Vi</span>
                     )}

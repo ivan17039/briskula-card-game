@@ -161,6 +161,7 @@
   justify-content: center;
   font-weight: 700;
   font-size: 18px;
+  color: var(--color-text-dark);
 }
 
 .rank-medal {
@@ -176,6 +177,11 @@
 .player-name {
   font-weight: var(--font-semibold);
   font-size: var(--text-base);
+  color: var(--color-text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
 }
 
 .you-badge {
@@ -375,6 +381,78 @@
   color: var(--color-primary);
 }
 
+/* Mobile User Stats Card */
+.mobile-user-stats {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-user-stats {
+    display: block;
+    margin-bottom: var(--space-xl);
+  }
+
+  .mobile-stats-card {
+    background: linear-gradient(135deg, rgba(47, 93, 58, 0.1) 0%, rgba(47, 93, 58, 0.05) 100%);
+    border: 2px solid var(--color-accent-green);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .mobile-stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: 2px solid var(--color-accent-green);
+  }
+
+  .mobile-stats-title {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--color-accent-green);
+  }
+
+  .mobile-stats-rank {
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+    color: var(--color-accent-gold);
+  }
+
+  .mobile-stats-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .mobile-stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-sm) 0;
+  }
+
+  .mobile-stat-label {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    font-weight: var(--font-medium);
+  }
+
+  .mobile-stat-value {
+    font-size: var(--text-base);
+    color: var(--color-text-dark);
+    font-weight: var(--font-semibold);
+  }
+
+  .mobile-streak {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+}
+
 @keyframes spin {
   0% {
     transform: rotate(0deg);
@@ -389,17 +467,57 @@
     font-size: var(--text-2xl);
   }
 
-  .table-header,
-  .table-row {
-    grid-template-columns: 50px 1fr 60px 80px;
-    gap: var(--space-sm);
-    padding: var(--space-md) var(--space-lg);
-    font-size: 13px;
+  /* Adjust table header labels for mobile */
+  .table-header {
+    font-size: 11px;
+    padding: var(--space-sm) var(--space-md);
   }
 
-  .col-stats,
+  .table-header .col-stats::before {
+    content: "W/L";
+  }
+
+  .table-header .col-stats {
+    font-size: 10px;
+    text-align: center;
+  }
+
+  /* Hide original text, show abbreviated version */
+  .table-header .col-stats {
+    position: relative;
+    overflow: hidden;
+    text-indent: -9999px;
+  }
+
+  .table-header .col-stats::before {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    text-indent: 0;
+  }
+
+  .table-header,
+  .table-row {
+    grid-template-columns: 35px 1fr 45px 55px 55px;
+    gap: 4px;
+    padding: var(--space-sm) var(--space-xs);
+    font-size: 12px;
+  }
+
+  /* Keep stats visible but hide winrate column */
   .col-winrate {
     display: none;
+  }
+
+  /* Make current user row sticky and more prominent */
+  .table-row.current-user {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(47, 93, 58, 0.25);
+    border: 2px solid var(--color-accent-green);
+    box-shadow: 0 4px 12px rgba(47, 93, 58, 0.3);
   }
 
   .level-badge {
@@ -413,6 +531,36 @@
   }
 
   .player-name {
+    font-size: 13px;
+    color: var(--color-text-dark);
+    max-width: 150px;
+  }
+
+  /* Compact W/L display on mobile */
+  .col-stats {
+    font-size: 11px;
+    gap: 2px;
+  }
+
+  .col-rank {
     font-size: 14px;
+  }
+
+  .rank-medal {
+    font-size: 20px;
+  }
+
+  .stat-wins,
+  .stat-losses {
+    font-size: 11px;
+  }
+
+  .stat-separator {
+    font-size: 10px;
+  }
+
+  .you-badge {
+    font-size: 9px;
+    padding: 2px 4px;
   }
 }
