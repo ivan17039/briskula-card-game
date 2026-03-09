@@ -5,7 +5,7 @@ import { auth } from "./supabase.js";
 import { useSocket } from "./SocketContext";
 import "./Login.css";
 
-function Login({ onLogin }) {
+function Login({ onLogin, pendingJoinCode }) {
   const { user } = useSocket();
   const [loginMode, setLoginMode] = useState("guest"); // 'guest', 'login', ili 'register'
   const [formData, setFormData] = useState({
@@ -45,6 +45,16 @@ function Login({ onLogin }) {
     });
   };
 
+  // Generate random 5-character guest name
+  const generateGuestId = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let result = "";
+    for (let i = 0; i < 5; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -53,7 +63,7 @@ function Login({ onLogin }) {
     try {
       if (loginMode === "guest") {
         // Guest pristup
-        const guestName = formData.name.trim() || `Guest_${Date.now()}`;
+        const guestName = formData.name.trim() || `Guest_${generateGuestId()}`;
         await onLogin({
           name: guestName,
           isGuest: true,
@@ -167,6 +177,20 @@ function Login({ onLogin }) {
           Briskula Online
         </h1>
         <p className="subtitle">Pridružite se igri protiv drugih igrača!</p>
+
+        {/* Pending join code notification */}
+        {pendingJoinCode && (
+          <div className="join-code-notification">
+            <div className="join-code-icon">🔗</div>
+            <div className="join-code-text">
+              <strong>Prijavite se kako biste se pridružili igri!</strong>
+              <p>
+                Vaš prijatelj vas je pozvao da se pridružite igri s kodom:{" "}
+                <strong>{pendingJoinCode}</strong>
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Izbor načina prijave */}
         <div className="login-mode-selector">

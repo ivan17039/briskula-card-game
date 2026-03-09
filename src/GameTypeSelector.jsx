@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSocket } from "./SocketContext";
 import "./GameTypeSelector.css";
 
-function GameTypeSelector({ onGameTypeSelect }) {
+function GameTypeSelector({ onGameTypeSelect, pendingJoinCode }) {
   const [selectedType, setSelectedType] = useState(null);
   const { clearUserSession } = useSocket();
 
@@ -75,6 +75,16 @@ function GameTypeSelector({ onGameTypeSelect }) {
           <h2>Odaberite igru</h2>
           <p>Koju kartašku igru želite igrati?</p>
         </div>
+
+        {pendingJoinCode && (
+          <div className="pending-join-banner">
+            <span className="banner-icon">🔗</span>
+            <div className="banner-text">
+              Dobiili ste poziv! Odaberite vrstu igre da se pridružite s kodom:{" "}
+              <strong>{pendingJoinCode}</strong>
+            </div>
+          </div>
+        )}
 
         <div className="type-options">
           {gameTypes.map((type) => (
