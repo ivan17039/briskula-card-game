@@ -1,79 +1,56 @@
-/* index.css - Modern Design System Foundation */
+/* index.css - Global Styles */
+
+/* Import design system and shared components */
+@import './styles/design-system.css';
+@import './styles/components.css';
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-:root {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+html {
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
 
-  /* Custom properties for safe areas and responsive design */
+:root {
+  /* Safe areas for mobile devices */
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
-
-  /* Responsive spacing */
-  --mobile-padding: max(20px, var(--safe-area-top));
-  --mobile-padding-horizontal: max(20px, var(--safe-area-right));
-
-  /* Modern Color Palette */
-  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-  --success-gradient: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
-  --warning-gradient: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
-  --danger-gradient: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-
-  /* Glassmorphism */
-  --glass-bg: rgba(255, 255, 255, 0.15);
-  --glass-border: rgba(255, 255, 255, 0.2);
-  --glass-blur: blur(20px) saturate(180%);
-
-  /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 15px 40px rgba(0, 0, 0, 0.2);
-  --shadow-glow: 0 0 40px rgba(255, 255, 255, 0.3);
-
-  /* Transitions */
-  --transition-fast: 0.2s ease;
-  --transition-normal: 0.3s ease;
-  --transition-slow: 0.6s ease;
-  --transition-bounce: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-  transition: color var(--transition-fast);
-}
-
-a:hover {
-  color: #535bf2;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
+  font-family: var(--font-family);
   min-width: 320px;
   min-height: 100svh;
-  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  padding: var(--safe-area-top) var(--safe-area-right) var(--safe-area-bottom) var(--safe-area-left);
+  background: var(--gradient-wood);
+  color: var(--color-text-primary);
+  line-height: var(--leading-normal);
 }
 
-/* Premium Custom Scrollbars */
+a {
+  color: var(--color-accent-green);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-accent-green-hover);
+  text-decoration: underline;
+}Custom Scrollbars - Themed */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(102, 126, 234, 0.5) rgba(255, 255, 255, 0.1);
+  scrollbar-color: var(--color-accent-gold) var(--color-bg-tertiary);
 }
 
 *::-webkit-scrollbar {
@@ -82,69 +59,49 @@ body {
 }
 
 *::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-bg-tertiary);
   border-radius: 10px;
   margin: 4px;
 }
 
 *::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-accent-gold);
   border-radius: 10px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  transition: background var(--transition-fast);
+  border: 2px solid var(--color-border-main);
+  transition: var(--transition-fast);
 }
 
 *::-webkit-scrollbar-thumb:hover {
+  background: #d4b57a;
+  box-shadow: 0 0 8px rgba(201, 168, 106, 0.4);
   background: linear-gradient(135deg, #764ba2 0%, #f093fb 100%);
   box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-  font-weight: 800;
+/* Typography defaults */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--font-bold);
+  color: var(--color-primary);
+  line-height: var(--leading-tight);
+  margin: 0;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: all var(--transition-normal);
+h1 { font-size: var(--text-4xl); }
+h2 { font-size: var(--text-3xl); }
+h3 { font-size: var(--text-2xl); }
+h4 { font-size: var(--text-xl); }
+h5 { font-size: var(--text-lg); }
+h6 { font-size: var(--text-base); }
+
+p {
+  margin: 0 0 var(--space-lg) 0;
+  line-height: var(--leading-relaxed);
 }
 
-button:hover {
-  border-color: #646cff;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(100, 108, 255, 0.3);
-}
-
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-button:active {
-  transform: translateY(0);
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-
-  a:hover {
-    color: #747bff;
-  }
-
-  button {
-    background-color: #f9f9f9;
-  }
+/* Focus styles */
+*:focus-visible {
+  outline: 3px solid var(--color-accent-gold);
+  outline-offset: 2px;
 }
 
 /* Global Utility Animations */

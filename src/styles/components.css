@@ -1,0 +1,385 @@
+/* Shared Component Styles - Consistent UI Components */
+/* Import design system first */
+
+/* ==================== BUTTONS ==================== */
+
+/* Base button styles */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md) var(--space-xl);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-md);
+  text-decoration: none;
+  gap: var(--space-sm);
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Button variants */
+.btn-primary {
+  background: var(--color-accent-green);
+  color: var(--color-text-light);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-green-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-secondary {
+  background: var(--color-accent-gold);
+  color: var(--color-text-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #d4b57a;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-danger {
+  background: var(--color-danger);
+  color: var(--color-text-light);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #d65c5c;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-primary);
+  border: 2px solid var(--color-border-main);
+  box-shadow: none;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-accent-gold);
+}
+
+/* Button sizes */
+.btn-sm {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--text-xs);
+}
+
+.btn-md {
+  padding: var(--space-md) var(--space-xl);
+  font-size: var(--text-sm);
+}
+
+.btn-lg {
+  padding: var(--space-lg) var(--space-2xl);
+  font-size: var(--text-base);
+}
+
+/* Icon button (circular) */
+.btn-icon {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+/* Back button (consistent across all pages) */
+.back-btn {
+  position: absolute;
+  top: var(--space-lg);
+  left: var(--space-lg);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-main);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-size: var(--text-lg);
+  color: var(--color-primary);
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+  z-index: 10;
+}
+
+.back-btn:hover {
+  background: var(--color-bg-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.back-btn:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ==================== MODALS ==================== */
+
+/* Modal overlay (consistent for all modals) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--overlay-bg);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  padding: var(--space-xl);
+  animation: fadeIn var(--transition-normal);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Modal content base */
+.modal-content {
+  background: var(--color-bg-main);
+  border-radius: var(--radius-lg);
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-2xl);
+  border: 2px solid var(--color-border-main);
+  animation: slideUp var(--transition-slow);
+  color: var(--color-text-primary);
+  padding: var(--space-2xl);
+}
+
+.modal-content h3,
+.modal-content h2 {
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-md);
+}
+
+.modal-content p {
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-sm);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Modal header */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2xl) var(--space-2xl) var(--space-xl);
+  border-bottom: 2px solid var(--color-border-main);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  color: var(--color-primary);
+  font-weight: var(--font-bold);
+}
+
+/* Modal close button (consistent style) */
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: var(--text-2xl);
+  cursor: pointer;
+  color: var(--color-primary);
+  padding: var(--space-xs);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.modal-close-btn:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-primary-dark);
+  transform: rotate(90deg);
+}
+
+/* Modal body */
+.modal-body {
+  padding: var(--space-2xl);
+}
+
+/* Modal footer */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  padding: var(--space-xl) var(--space-2xl) var(--space-2xl);
+  border-top: 2px solid var(--color-border-main);
+}
+
+/* ==================== FORMS ==================== */
+
+/* Form group */
+.form-group {
+  margin-bottom: var(--space-2xl);
+}
+
+/* Form label */
+.form-label {
+  display: block;
+  margin-bottom: var(--space-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-primary);
+  font-size: var(--text-sm);
+}
+
+/* Form inputs */
+.form-input,
+.form-textarea,
+.form-select {
+  width: 100%;
+  padding: var(--space-md) var(--space-lg);
+  border: 2px solid var(--color-border-main);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  transition: all var(--transition-fast);
+  background: white;
+  color: var(--color-text-primary);
+  font-family: var(--font-family);
+}
+
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+  outline: none;
+  border-color: var(--color-accent-gold);
+  box-shadow: 0 0 0 3px rgba(201, 168, 106, 0.15);
+}
+
+.form-input.error,
+.form-textarea.error,
+.form-select.error {
+  border-color: var(--color-danger);
+}
+
+.form-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+/* Error message */
+.form-error {
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  margin-top: var(--space-sm);
+  display: block;
+}
+
+/* Checkbox */
+.form-checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.form-checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+
+
+/* ==================== BADGES ==================== */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-success {
+  background: rgba(47, 93, 58, 0.2);
+  color: var(--color-success);
+  border: 1px solid rgba(47, 93, 58, 0.4);
+}
+
+.badge-warning {
+  background: rgba(201, 168, 106, 0.2);
+  color: var(--color-warning);
+  border: 1px solid rgba(201, 168, 106, 0.4);
+}
+
+.badge-danger {
+  background: rgba(196, 84, 84, 0.2);
+  color: var(--color-danger);
+  border: 1px solid rgba(196, 84, 84, 0.4);
+}
+
+.badge-info {
+  background: rgba(52, 152, 219, 0.2);
+  color: var(--color-info);
+  border: 1px solid rgba(52, 152, 219, 0.4);
+}
+
+/* ==================== LOADING ==================== */
+
+.loading-spinner {
+  border: 3px solid var(--color-bg-tertiary);
+  border-top: 3px solid var(--color-primary);
+  border-radius: var(--radius-full);
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ==================== DIVIDER ==================== */
+
+.divider {
+  height: 2px;
+  background: var(--color-border-main);
+  margin: var(--space-2xl) 0;
+  border: none;
+}
