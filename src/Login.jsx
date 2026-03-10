@@ -1,6 +1,7 @@
 // Login.jsx - Komponenta za autentikaciju sa Supabase
 
 import React, { useState, useEffect } from "react";
+import { track } from "@plausible-analytics/tracker";
 import { auth } from "./supabase.js";
 import { useSocket } from "./SocketContext";
 import "./Login.css";
@@ -68,6 +69,17 @@ function Login({ onLogin, pendingJoinCode }) {
           name: guestName,
           isGuest: true,
         });
+
+        // Track guest login
+        try {
+          track("User Login", {
+            props: {
+              loginType: "guest",
+            },
+          });
+        } catch (err) {
+          console.debug("Analytics tracking error:", err);
+        }
       } else if (loginMode === "login") {
         // Supabase login
         const { data, error } = await auth.signIn(
@@ -95,6 +107,17 @@ function Login({ onLogin, pendingJoinCode }) {
           isGuest: false,
           userId: data.user.id,
         });
+
+        // Track registered user login
+        try {
+          track("User Login", {
+            props: {
+              loginType: "registered",
+            },
+          });
+        } catch (err) {
+          console.debug("Analytics tracking error:", err);
+        }
       } else if (loginMode === "register") {
         // Supabase registracija
         if (!formData.name.trim()) {
@@ -142,6 +165,17 @@ function Login({ onLogin, pendingJoinCode }) {
             isGuest: false,
             userId: data.user.id,
           });
+
+          // Track new user registration
+          try {
+            track("User Registered", {
+              props: {
+                loginType: "new_account",
+              },
+            });
+          } catch (err) {
+            console.debug("Analytics tracking error:", err);
+          }
         }
       }
     } catch (err) {

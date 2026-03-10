@@ -203,6 +203,9 @@ function AppContent() {
         case "playerNotFound":
           message = "Niste dio ove igre.";
           break;
+        case "timeout":
+          message = "Igra više ne postoji ili je istekla.";
+          break;
       }
       addToast(message, "warning");
       localStorage.removeItem("reconnectFailureReason");

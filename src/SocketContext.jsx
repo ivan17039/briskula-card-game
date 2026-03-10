@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { track } from "@plausible-analytics/tracker";
 import io from "socket.io-client";
 
 const SocketContext = createContext();
@@ -145,10 +146,34 @@ export const SocketProvider = ({ children }) => {
                     roomId: gameData.roomId,
                     sessionToken: userData.sessionToken,
                   });
+
+                  // Set timeout to clear gameState if no response after 10 seconds
+                  const resumeTimeout = setTimeout(() => {
+                    console.log("⏰ Auto-resume timeout - clearing gameState");
+                    clearGameState();
+                    localStorage.removeItem("playerId");
+                    localStorage.removeItem("roomId");
+                    localStorage.setItem("reconnectFailureReason", "timeout");
+                  }, 10000);
+
+                  // Clear timeout if gameStart is received
+                  const handleGameStart = () => {
+                    clearTimeout(resumeTimeout);
+                    newSocket.off("gameStart", handleGameStart);
+                  };
+                  newSocket.once("gameStart", handleGameStart);
+
+                  // Also clear timeout if reconnectError is received
+                  const handleResumeError = () => {
+                    clearTimeout(resumeTimeout);
+                    newSocket.off("reconnectError", handleResumeError);
+                  };
+                  newSocket.once("reconnectError", handleResumeError);
                 }, 300);
               }
             } catch (err) {
               console.error("Error parsing saved game state for resume:", err);
+              clearGameState();
             }
           } else {
             // Alternative: try with playerId/roomId from localStorage
@@ -171,6 +196,29 @@ export const SocketProvider = ({ children }) => {
                   roomId: savedRoomId,
                   sessionToken: userData.sessionToken,
                 });
+
+                // Set timeout to clear gameState if no response after 10 seconds
+                const resumeTimeout = setTimeout(() => {
+                  console.log("⏰ Auto-resume timeout - clearing gameState");
+                  clearGameState();
+                  localStorage.removeItem("playerId");
+                  localStorage.removeItem("roomId");
+                  localStorage.setItem("reconnectFailureReason", "timeout");
+                }, 10000);
+
+                // Clear timeout if gameStart is received
+                const handleGameStart = () => {
+                  clearTimeout(resumeTimeout);
+                  newSocket.off("gameStart", handleGameStart);
+                };
+                newSocket.once("gameStart", handleGameStart);
+
+                // Also clear timeout if reconnectError is received
+                const handleResumeError = () => {
+                  clearTimeout(resumeTimeout);
+                  newSocket.off("reconnectError", handleResumeError);
+                };
+                newSocket.once("reconnectError", handleResumeError);
               }, 300);
             } else if (userData.forfeited) {
               console.log("❌ Skipping auto-reconnect - user has forfeited");
@@ -202,7 +250,7 @@ export const SocketProvider = ({ children }) => {
       console.log("🔍 Data.gameState.myHand:", data?.gameState?.myHand);
       console.log(
         "🔍 PlayerHand direct:",
-        data?.gameState?.[`player${data.playerNumber}Hand`]
+        data?.gameState?.[`player${data.playerNumber}Hand`],
       );
 
       if (data?.gameState) {
@@ -230,14 +278,14 @@ export const SocketProvider = ({ children }) => {
             "🃏 Extracted myHand for 2v2:",
             myHand,
             "length:",
-            myHand.length
+            myHand.length,
           );
 
           // If server sends empty hand but we have saved data, try to use it as fallback
           let finalMyHand = myHand;
           if (!myHand || myHand.length === 0) {
             console.log(
-              "🔄 Server sent empty hand, checking localStorage fallback"
+              "🔄 Server sent empty hand, checking localStorage fallback",
             );
             try {
               const savedGameStateStr = localStorage.getItem("gameState");
@@ -247,7 +295,7 @@ export const SocketProvider = ({ children }) => {
                   console.log(
                     "✅ Using saved hand as fallback:",
                     savedData.gameState.myHand.length,
-                    "cards"
+                    "cards",
                   );
                   finalMyHand = savedData.gameState.myHand;
                 }
@@ -277,7 +325,7 @@ export const SocketProvider = ({ children }) => {
         } else {
           // 1v1 game: find opponent
           const opponent = data.players?.find(
-            (p) => p.playerNumber !== data.playerNumber
+            (p) => p.playerNumber !== data.playerNumber,
           );
 
           reconnectGameData = {
@@ -327,6 +375,19 @@ export const SocketProvider = ({ children }) => {
       }
     });
 
+    newSocket.on("reconnectError", (data) => {
+      console.log("❌ Reconnect error:", data.message);
+      clearGameState();
+
+      // Clear additional localStorage items that might cause issues
+      localStorage.removeItem("playerId");
+      localStorage.removeItem("roomId");
+
+      if (data.message) {
+        localStorage.setItem("reconnectFailureReason", "roomDeleted");
+      }
+    });
+
     newSocket.on("roomDeleted", (data) => {
       console.log("🗑️ Room deleted:", data.message);
       clearGameState();
@@ -344,7 +405,7 @@ export const SocketProvider = ({ children }) => {
           "✅ Korisnik registriran:",
           data.user,
           "Session:",
-          data.session
+          data.session,
         );
 
         // Include sessionToken in user object
@@ -366,7 +427,7 @@ export const SocketProvider = ({ children }) => {
           "✅ Sesija reconnected:",
           data.user,
           "Session:",
-          data.session
+          data.session,
         );
 
         // Include sessionToken in user object for reconnected sessions too
@@ -382,7 +443,7 @@ export const SocketProvider = ({ children }) => {
         if (window.showToast) {
           window.showToast(
             data.message || "Uspješno ste se reconnectali!",
-            "success"
+            "success",
           );
         }
       }
@@ -407,7 +468,7 @@ export const SocketProvider = ({ children }) => {
       if (window.showToast) {
         window.showToast(
           "Sesija je istekla, molimo registrirajte se ponovno",
-          "warning"
+          "warning",
         );
       }
     });
@@ -418,7 +479,7 @@ export const SocketProvider = ({ children }) => {
       if (window.showToast) {
         window.showToast(
           data.message || "Sesija je potpuno obrisana",
-          "success"
+          "success",
         );
       }
     });
@@ -531,7 +592,7 @@ export const SocketProvider = ({ children }) => {
             registrationData.userId = parsedUser.userId;
             console.log(
               "🔄 Using existing userId for continuity:",
-              parsedUser.userId
+              parsedUser.userId,
             );
           }
         } catch (error) {
@@ -543,7 +604,7 @@ export const SocketProvider = ({ children }) => {
         "📤 Registering with userId:",
         registrationData.userId,
         "isGuest:",
-        userData.isGuest
+        userData.isGuest,
       );
       socket.emit("register", registrationData);
     });
@@ -552,13 +613,25 @@ export const SocketProvider = ({ children }) => {
   const findMatch = (gameMode = "1v1", gameType = "briskula") => {
     if (socket && user) {
       socket.emit("findMatch", { gameMode, gameType });
+
+      // Track matchmaking start
+      try {
+        track("Matchmaking Started", {
+          props: {
+            gameType: gameType,
+            gameMode: gameMode,
+          },
+        });
+      } catch (err) {
+        console.debug("Analytics tracking error:", err);
+      }
     }
   };
 
   const rematch = (
     gameMode = "1v1",
     gameType = "briskula",
-    opponentId = null
+    opponentId = null,
   ) => {
     if (socket && user) {
       if (opponentId) {
@@ -667,7 +740,7 @@ export const SocketProvider = ({ children }) => {
     } catch (error) {
       console.error(
         "❌ [SocketContext] Error saving game state to localStorage:",
-        error
+        error,
       );
     }
 
@@ -802,7 +875,7 @@ export const SocketProvider = ({ children }) => {
               const savedGameState = JSON.parse(savedGameStateStr);
               if (savedGameState?.roomId) {
                 console.log(
-                  "🔄 Last resort: using localStorage gameState for reconnect"
+                  "🔄 Last resort: using localStorage gameState for reconnect",
                 );
                 socket.emit("reconnectToGame", {
                   roomId: savedGameState.roomId,

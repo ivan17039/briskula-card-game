@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { track } from "@plausible-analytics/tracker";
 import { useSocket } from "./SocketContext";
 import TournamentBracket from "./TournamentBracket";
 import "./TournamentLobby.css";
@@ -134,6 +135,17 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
       userId: user.userId,
       userName: user.name,
     });
+
+    // Track tournament registration
+    try {
+      track("Tournament Joined", {
+        props: {
+          gameType: gameType || "unknown",
+        },
+      });
+    } catch (err) {
+      console.debug("Analytics tracking error:", err);
+    }
   };
 
   // Server is the single source of truth for tournaments

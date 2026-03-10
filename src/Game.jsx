@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { track } from "@plausible-analytics/tracker";
 import Card from "./Card";
 import { useSocket } from "./SocketContext";
 import { useToast } from "./ToastProvider";
@@ -2229,6 +2230,19 @@ function Game({
       const newState = createGameStateFromData(newGameData);
       if (newState) {
         setGameState(newState);
+
+        // Track game start event
+        try {
+          track("Game Started", {
+            props: {
+              gameType: newGameData.gameType || "unknown",
+              gameMode: newGameData.gameMode || "1v1",
+              isTournament: newGameData.isTournamentMatch ? "yes" : "no",
+            },
+          });
+        } catch (err) {
+          console.debug("Analytics tracking error:", err);
+        }
       }
     });
 
@@ -2563,6 +2577,22 @@ function Game({
         if (newState.gamePhase === "finished") {
           // Clear saved game state when game ends
           clearGameState();
+
+          // Track game completion
+          try {
+            const won = newState.winner === prev.playerNumber;
+            const draw = newState.winner === null;
+            track("Game Completed", {
+              props: {
+                gameType: prev.gameType || "unknown",
+                gameMode: prev.gameMode || "1v1",
+                result: draw ? "draw" : won ? "win" : "loss",
+                isTournament: prev.isTournamentMatch ? "yes" : "no",
+              },
+            });
+          } catch (err) {
+            console.debug("Analytics tracking error:", err);
+          }
 
           if (useTreseta && prev.totalMyPoints !== undefined) {
             // Long-term scoring finished message
