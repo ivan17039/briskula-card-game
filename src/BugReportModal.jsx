@@ -25,6 +25,20 @@ function BugReportModal({ onClose }) {
       return;
     }
 
+    // Require minimum detail for bug reports
+    if (formData.type === "bug" && formData.description.trim().length < 20) {
+      addToast("Molimo detaljnije opišite problem (min. 20 znakova)", "error");
+      return;
+    }
+
+    // Encourage steps for bug reports
+    if (formData.type === "bug" && !formData.steps.trim()) {
+      const proceed = window.confirm(
+        "Niste naveli korake za reprodukciju. Bez njih teže je riješiti problem.\n\nŽelite li ipak poslati prijavu?",
+      );
+      if (!proceed) return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -92,6 +106,12 @@ function BugReportModal({ onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="bug-form">
+          <div className="bug-help-banner">
+            <strong>💡 Savjet:</strong> Detaljniji opisi pomažu nam brže
+            riješiti probleme! Navedite što ste radili, što se dogodilo, i što
+            ste očekivali.
+          </div>
+
           <div className="form-group-bug">
             <label htmlFor="type">Vrsta problema</label>
             <select
@@ -109,28 +129,55 @@ function BugReportModal({ onClose }) {
           </div>
 
           <div className="form-group-bug">
-            <label htmlFor="description">Opis problema *</label>
+            <label htmlFor="description">
+              Opis problema *{" "}
+              {formData.type === "bug" && formData.description.length < 20 && (
+                <span className="char-hint">
+                  ({formData.description.length}/20 znakova)
+                </span>
+              )}
+            </label>
             <textarea
               id="description"
               name="description"
               value={formData.description}
               onChange={handleChange}
-              placeholder="Opišite što se dogodilo..."
-              rows="4"
+              placeholder={
+                formData.type === "bug"
+                  ? "Primjer: Kada igram Briskulu 1v1, nakon što odbijem karte protivnik ostaje zaglavljan 'Čeka protivnika...' i igra se ne nastavlja. Morao sam osvježiti stranicu."
+                  : "Opišite što se dogodilo..."
+              }
+              rows="5"
               required
             />
+            {formData.type === "bug" &&
+              formData.description.length < 20 &&
+              formData.description.length > 0 && (
+                <p className="form-hint form-warning">
+                  ⚠️ Molimo detaljnije - navedite što ste radili i što se
+                  dogodilo
+                </p>
+              )}
           </div>
 
           <div className="form-group-bug">
-            <label htmlFor="steps">Koraci za reprodukciju (opcionalno)</label>
+            <label htmlFor="steps">
+              Koraci za reprodukciju{" "}
+              {formData.type === "bug" && (
+                <span className="recommended-badge">preporučeno</span>
+              )}
+            </label>
             <textarea
               id="steps"
               name="steps"
               value={formData.steps}
               onChange={handleChange}
-              placeholder="1. Kliknuo sam na...&#10;2. Zatim sam...&#10;3. Pojavio se..."
-              rows="3"
+              placeholder="1. Kliknuo sam 'Pronađi partiju' za Briskulu 1v1&#10;2. Pričekao matchmaking&#10;3. Igra je počela, odigrao sam prvu kartu&#10;4. Problem: protivnik ne igra, piše 'Čeka...' već 5 minuta"
+              rows="4"
             />
+            <p className="form-hint">
+              📝 Koraci pomažu nam reproducirati i riješiti problem brže
+            </p>
           </div>
 
           <div className="form-group-bug">
