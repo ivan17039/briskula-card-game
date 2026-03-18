@@ -120,14 +120,6 @@ function GameTypeSelector({ onGameTypeSelect, pendingJoinCode }) {
               </button>
               <button
                 type="button"
-                className="dev-btn view-storage"
-                onClick={() => console.log("localStorage:", localStorage)}
-                title="Prikaži localStorage u konzoli"
-              >
-                💾 View Storage
-              </button>
-              <button
-                type="button"
                 className="dev-btn close-console"
                 onClick={() =>
                   (document.getElementById("dev-console").style.display =

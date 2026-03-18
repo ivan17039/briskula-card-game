@@ -79,7 +79,6 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (isAIMode()) {
-      console.log("[v0] 🤖 AI mode detected, skipping socket connection");
       setIsConnected(true); // Set as connected for AI mode
       setConnectionError(null);
 
@@ -94,7 +93,6 @@ export const SocketProvider = ({ children }) => {
 
     const serverUrl =
       import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
-    console.log("🔗 Connecting to server:", serverUrl);
 
     const newSocket = io(serverUrl, {
       transports: ["websocket", "polling"],
@@ -102,7 +100,6 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on("connect", () => {
-      console.log("✅ Spojeno na server:", newSocket.id);
       setIsConnected(true);
       setConnectionError(null);
       setReconnectAttempts(0);
@@ -115,9 +112,6 @@ export const SocketProvider = ({ children }) => {
         try {
           const userData = JSON.parse(savedUser);
 
-          console.log("🔄 User found in localStorage, auto-registering...", {
-            hasSessionToken: !!userData.sessionToken,
-          });
 
           const registrationData = {
             ...userData,
@@ -138,10 +132,6 @@ export const SocketProvider = ({ children }) => {
               // Use sessionToken and roomId for resumeGame
               if (gameData.roomId && userData.sessionToken) {
                 setTimeout(() => {
-                  console.log("🔄 Auto-resuming game with sessionToken...", {
-                    roomId: gameData.roomId,
-                    sessionToken: userData.sessionToken,
-                  });
                   newSocket.emit("resumeGame", {
                     roomId: gameData.roomId,
                     sessionToken: userData.sessionToken,
@@ -149,7 +139,6 @@ export const SocketProvider = ({ children }) => {
 
                   // Set timeout to clear gameState if no response after 10 seconds
                   const resumeTimeout = setTimeout(() => {
-                    console.log("⏰ Auto-resume timeout - clearing gameState");
                     clearGameState();
                     localStorage.removeItem("playerId");
                     localStorage.removeItem("roomId");
@@ -187,11 +176,6 @@ export const SocketProvider = ({ children }) => {
               !userData.forfeited
             ) {
               setTimeout(() => {
-                console.log("🔄 Auto-resuming game with playerId/roomId...", {
-                  roomId: savedRoomId,
-                  playerId: savedPlayerId,
-                  sessionToken: userData.sessionToken,
-                });
                 newSocket.emit("resumeGame", {
                   roomId: savedRoomId,
                   sessionToken: userData.sessionToken,
@@ -199,7 +183,6 @@ export const SocketProvider = ({ children }) => {
 
                 // Set timeout to clear gameState if no response after 10 seconds
                 const resumeTimeout = setTimeout(() => {
-                  console.log("⏰ Auto-resume timeout - clearing gameState");
                   clearGameState();
                   localStorage.removeItem("playerId");
                   localStorage.removeItem("roomId");
@@ -221,7 +204,6 @@ export const SocketProvider = ({ children }) => {
                 newSocket.once("reconnectError", handleResumeError);
               }, 300);
             } else if (userData.forfeited) {
-              console.log("❌ Skipping auto-reconnect - user has forfeited");
               clearGameState();
             }
           }
@@ -234,7 +216,6 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on("disconnect", (reason) => {
-      console.log("❌ Odspojeno od servera:", reason);
       setIsConnected(false);
     });
 
@@ -246,12 +227,6 @@ export const SocketProvider = ({ children }) => {
     });
 
     const handleUnifiedReconnected = (data) => {
-      console.log("✅ Uspješno reconnectan u igru (unified):", data);
-      console.log("🔍 Data.gameState.myHand:", data?.gameState?.myHand);
-      console.log(
-        "🔍 PlayerHand direct:",
-        data?.gameState?.[`player${data.playerNumber}Hand`],
-      );
 
       if (data?.gameState) {
         let reconnectGameData;
@@ -274,29 +249,15 @@ export const SocketProvider = ({ children }) => {
             data.myHand ||
             [];
 
-          console.log(
-            "🃏 Extracted myHand for 2v2:",
-            myHand,
-            "length:",
-            myHand.length,
-          );
 
           // If server sends empty hand but we have saved data, try to use it as fallback
           let finalMyHand = myHand;
           if (!myHand || myHand.length === 0) {
-            console.log(
-              "🔄 Server sent empty hand, checking localStorage fallback",
-            );
             try {
               const savedGameStateStr = localStorage.getItem("gameState");
               if (savedGameStateStr) {
                 const savedData = JSON.parse(savedGameStateStr);
                 if (savedData?.gameState?.myHand?.length > 0) {
-                  console.log(
-                    "✅ Using saved hand as fallback:",
-                    savedData.gameState.myHand.length,
-                    "cards",
-                  );
                   finalMyHand = savedData.gameState.myHand;
                 }
               }
@@ -351,7 +312,6 @@ export const SocketProvider = ({ children }) => {
           };
         }
 
-        console.log("[v1] Mapped reconnect game data:", reconnectGameData);
         // Use the enhanced saveGameState method
         saveGameState(reconnectGameData);
 
@@ -366,7 +326,6 @@ export const SocketProvider = ({ children }) => {
     newSocket.on("gameStateReconnected", handleUnifiedReconnected); // new canonical
 
     newSocket.on("reconnectFailed", (data) => {
-      console.log("❌ Reconnection failed:", data.message, data.reason);
       clearGameState();
       setConnectionError(data.message);
 
@@ -376,7 +335,6 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on("reconnectError", (data) => {
-      console.log("❌ Reconnect error:", data.message);
       clearGameState();
 
       // Clear additional localStorage items that might cause issues
@@ -389,7 +347,6 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on("roomDeleted", (data) => {
-      console.log("🗑️ Room deleted:", data.message);
       clearGameState();
       localStorage.setItem("roomDeletionMessage", data.message);
 
@@ -401,12 +358,6 @@ export const SocketProvider = ({ children }) => {
 
     newSocket.on("registered", (data) => {
       if (data.success) {
-        console.log(
-          "✅ Korisnik registriran:",
-          data.user,
-          "Session:",
-          data.session,
-        );
 
         // Include sessionToken in user object
         // Use userId from server response, only fall back to guestId if none
@@ -423,12 +374,6 @@ export const SocketProvider = ({ children }) => {
 
     newSocket.on("sessionReconnected", (data) => {
       if (data.success) {
-        console.log(
-          "✅ Sesija reconnected:",
-          data.user,
-          "Session:",
-          data.session,
-        );
 
         // Include sessionToken in user object for reconnected sessions too
         const userWithSession = {
@@ -461,7 +406,6 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on("sessionExpired", (data) => {
-      console.log("⏰ Session expired:", data.message);
       localStorage.removeItem("user");
       setUser(null);
 
@@ -474,7 +418,6 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on("forceLogoutComplete", (data) => {
-      console.log("🧹 Force logout completed:", data.message);
 
       if (window.showToast) {
         window.showToast(
@@ -491,7 +434,6 @@ export const SocketProvider = ({ children }) => {
 
     // Add new event handlers for forfeit and spectator updates
     newSocket.on("playerForfeited", (data) => {
-      console.log("⚠️ Player forfeited:", data);
       // Set forfeited flag to prevent auto-reconnect attempts
       if (data.playerName === user?.name) {
         setUser((prev) => ({ ...prev, forfeited: true }));
@@ -500,7 +442,6 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on("spectatorUpdate", (data) => {
-      console.log("👁️ Spectator update received:", data.roomId);
       // Update game state if we're spectating this room
       if (gameState?.roomId === data.roomId && gameState?.spectator) {
         setGameState((prev) => ({
@@ -512,7 +453,6 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on("gameRoomDeleted", (data) => {
-      console.log("🗑️ Game room deleted:", data.message);
       clearGameState();
       setConnectionError(data.message);
     });
@@ -537,7 +477,6 @@ export const SocketProvider = ({ children }) => {
     setSocket(newSocket);
 
     return () => {
-      console.log("🔌 Zatvaranje Socket konekcije");
       newSocket.close();
     };
   }, []);
@@ -545,7 +484,6 @@ export const SocketProvider = ({ children }) => {
   const registerUser = (userData) => {
     return new Promise((resolve, reject) => {
       if (isAIMode()) {
-        console.log("[v0] 🤖 AI mode: Setting user data locally");
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
         resolve({ success: true, user: userData });
@@ -585,27 +523,16 @@ export const SocketProvider = ({ children }) => {
           const parsedUser = JSON.parse(existingUser);
           if (parsedUser.sessionToken) {
             registrationData.sessionToken = parsedUser.sessionToken;
-            console.log("🔄 Including existing session token for continuity");
           }
           // Preserve existing userId only if registrationData doesn't have real one
           if (parsedUser.userId && !userData.userId) {
             registrationData.userId = parsedUser.userId;
-            console.log(
-              "🔄 Using existing userId for continuity:",
-              parsedUser.userId,
-            );
           }
         } catch (error) {
           console.warn("Could not parse existing user data:", error);
         }
       }
 
-      console.log(
-        "📤 Registering with userId:",
-        registrationData.userId,
-        "isGuest:",
-        userData.isGuest,
-      );
       socket.emit("register", registrationData);
     });
   };
@@ -668,7 +595,6 @@ export const SocketProvider = ({ children }) => {
 
   const forfeitMatch = (roomId, reason = "forfeit") => {
     if (socket) {
-      console.log("🏳️ Forfeiting match:", { roomId, reason });
       socket.emit("forfeitMatch", { roomId, reason });
     }
   };
@@ -686,7 +612,6 @@ export const SocketProvider = ({ children }) => {
   };
 
   const clearUserSession = () => {
-    console.log("🧹 Clearing complete user session for development");
 
     setUser(null);
     setGameState(null);
@@ -716,12 +641,6 @@ export const SocketProvider = ({ children }) => {
 
   // Enhanced state persistence that supports both localStorage and external storage
   const saveGameState = (gameData) => {
-    console.log("💾 [SocketContext] Saving game state:", {
-      gameType: gameData?.gameType,
-      gameMode: gameData?.gameMode,
-      roomId: gameData?.roomId,
-      isProduction: isProduction(),
-    });
 
     // Don't update the context gameState - this is just for persistence
     // The calling component manages its own state
@@ -746,7 +665,6 @@ export const SocketProvider = ({ children }) => {
 
     // In production, also attempt to save to external storage (handled by server/backend)
     if (isProduction() && socket && gameData?.roomId && user?.sessionToken) {
-      console.log("☁️ [SocketContext] Requesting server to persist game state");
       socket.emit("persistGameState", {
         roomId: gameData.roomId,
         sessionToken: user.sessionToken,
@@ -756,7 +674,6 @@ export const SocketProvider = ({ children }) => {
   };
 
   const clearGameState = () => {
-    console.log("🧹 [SocketContext] Clearing game state");
     setGameState(null);
     try {
       localStorage.removeItem("gameState");
@@ -773,14 +690,12 @@ export const SocketProvider = ({ children }) => {
   const reconnectToGame = () => {
     return new Promise((resolve, reject) => {
       if (socket && user) {
-        console.log("🔄 Attempting to reconnect to game...");
 
         const handleReconnected = (data) => {
           socket.off("reconnected", handleReconnected);
           socket.off("gameStateReconnected", handleReconnected);
           socket.off("reconnectFailed", handleReconnectFailed);
           socket.off("reconnectError", handleReconnectFailed);
-          console.log("✅ Reconnection successful (promise):", data);
 
           // Pass through server data directly - it's already personalized
           const gameDataFormat = {
@@ -809,7 +724,6 @@ export const SocketProvider = ({ children }) => {
           socket.off("gameStateReconnected", handleReconnected);
           socket.off("reconnectFailed", handleReconnectFailed);
           socket.off("reconnectError", handleReconnectFailed);
-          console.log("❌ Reconnection failed:", data.message, data.reason);
 
           if (
             data.reason === "permanentlyLeft" ||
@@ -836,11 +750,6 @@ export const SocketProvider = ({ children }) => {
         const savedRoomId = localStorage.getItem("roomId");
 
         if (savedPlayerId && savedRoomId && user.sessionToken) {
-          console.log("🔄 Using playerId/roomId reconnect with sessionToken:", {
-            playerId: savedPlayerId,
-            roomId: savedRoomId,
-            hasSessionToken: !!user.sessionToken,
-          });
 
           socket.emit("reconnectToGame", {
             playerId: savedPlayerId,
@@ -850,12 +759,6 @@ export const SocketProvider = ({ children }) => {
             userId: user.userId || user.id,
           });
         } else if (gameState?.roomId) {
-          console.log("🔄 Fallback to gameState reconnect method", {
-            roomId: gameState.roomId,
-            playerName: user.name,
-            userId: user.userId || user.id,
-            hasSessionToken: !!user.sessionToken,
-          });
           socket.emit("reconnectToGame", {
             roomId: gameState.roomId,
             playerId: user.id, // Add current socket ID as playerId fallback
@@ -874,9 +777,6 @@ export const SocketProvider = ({ children }) => {
             if (savedGameStateStr) {
               const savedGameState = JSON.parse(savedGameStateStr);
               if (savedGameState?.roomId) {
-                console.log(
-                  "🔄 Last resort: using localStorage gameState for reconnect",
-                );
                 socket.emit("reconnectToGame", {
                   roomId: savedGameState.roomId,
                   playerId: user.id,
@@ -894,19 +794,9 @@ export const SocketProvider = ({ children }) => {
             console.warn("Could not parse localStorage gameState:", error);
           }
 
-          console.log("❌ No reconnect data available - missing:", {
-            savedPlayerId: !!savedPlayerId,
-            savedRoomId: !!savedRoomId,
-            gameStateRoomId: !!gameState?.roomId,
-            sessionToken: !!user.sessionToken,
-          });
           reject(new Error("Nedostaju potrebni podaci za reconnection"));
         }
       } else {
-        console.log("❌ Missing data for reconnection:", {
-          hasSocket: !!socket,
-          hasUser: !!user,
-        });
         reject(new Error("Nedostaju potrebni podaci za reconnection"));
       }
     });
@@ -917,7 +807,6 @@ export const SocketProvider = ({ children }) => {
     const roomId = gameState?.roomId || savedRoomId;
 
     if (socket && roomId) {
-      console.log("🚫 Dismissing reconnection to room:", roomId);
       socket.emit("dismissReconnect", roomId);
       clearGameState();
     }

@@ -4,7 +4,6 @@ class InMemorySessionManager {
   constructor() {
     this.sessions = new Map();
     this.sessionTimeout = 300000; // 5 minutes
-    console.log("✅ InMemory session manager initialized");
   }
 
   // Find session by token and return a common shape
@@ -63,9 +62,6 @@ class InMemorySessionManager {
 
     this.sessions.set(sessionToken, sessionData);
 
-    console.log(
-      `✅ InMemory session created: ${userData.name} (${sessionId}) userId: ${userId}`
-    );
     return { sessionToken, sessionId, userId };
   }
 

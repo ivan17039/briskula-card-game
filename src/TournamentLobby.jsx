@@ -49,7 +49,6 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
 
     // Slušaj ažuriranja turnira
     socket.on("tournamentsUpdate", (tournamentList) => {
-      console.log("🏆 Received tournaments:", tournamentList);
       setTournaments(tournamentList);
       // If we restored a bracket view and tournament exists, stay in it
       if (
@@ -73,7 +72,6 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
 
     // Slušaj uspješnu registraciju
     socket.on("tournamentRegistered", (data) => {
-      console.log("✅ Registered for tournament:", data);
       setError("");
       setSuccessMessage(data.message);
 
@@ -91,7 +89,6 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
       );
     }); // Listen for tournament updates (when someone else registers)
     socket.on("tournamentUpdated", (updatedTournament) => {
-      console.log("🔄 Tournament updated:", updatedTournament);
       setTournaments((prev) =>
         prev.map((t) =>
           t.id === updatedTournament.id ? { ...t, ...updatedTournament } : t,
@@ -101,7 +98,6 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
 
     // NEW: Handle tournament auto-start
     socket.on("tournamentStarted", (data) => {
-      console.log("🚀 Tournament started:", data);
       setSuccessMessage(
         `Turnir "${data.name}" je počeo! Prelazim na bracket...`,
       );
@@ -129,7 +125,6 @@ function TournamentLobby({ onBack, gameType, onGameStart }) {
       return;
     }
 
-    console.log("📤 Registering for tournament:", tournamentId);
     socket.emit("registerForTournament", {
       tournamentId,
       userId: user.userId,

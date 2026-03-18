@@ -42,7 +42,6 @@ class EloService {
         auth: { persistSession: false },
       });
       this.initialized = true;
-      console.log("✅ EloService initialized with Supabase");
     } else {
       console.warn("⚠️ EloService: Supabase not configured, using mock mode");
     }
@@ -149,14 +148,12 @@ class EloService {
    */
   async processGameResult1v1(winner, loser, gameType, scores = {}) {
     if (!this.supabase) {
-      console.log("📊 [Mock] ELO update skipped - no Supabase");
       return { winnerChange: 0, loserChange: 0 };
     }
 
     try {
       // Skip if guest vs guest or AI game
       if (!winner.userId || !loser.userId) {
-        console.log("📊 ELO update skipped - missing user IDs");
         return { winnerChange: 0, loserChange: 0 };
       }
 
@@ -230,9 +227,6 @@ class EloService {
         eloChange: Math.abs(winnerChange),
       });
 
-      console.log(
-        `📊 ELO Updated: ${winner.userName} +${winnerChange} (${newWinnerElo}), ${loser.userName} ${loserChange} (${newLoserElo})`
-      );
 
       return {
         winnerChange,
@@ -255,7 +249,6 @@ class EloService {
    */
   async processGameResult2v2(winningTeam, losingTeam, gameType, scores = {}) {
     if (!this.supabase) {
-      console.log("📊 [Mock] 2v2 ELO update skipped - no Supabase");
       return { changes: [] };
     }
 
@@ -265,7 +258,6 @@ class EloService {
       const validLosers = losingTeam.filter((p) => p.userId && !p.isGuest);
 
       if (validWinners.length === 0 && validLosers.length === 0) {
-        console.log("📊 2v2 ELO update skipped - no valid players");
         return { changes: [] };
       }
 
@@ -333,12 +325,6 @@ class EloService {
         });
       }
 
-      console.log(
-        `📊 2v2 ELO Updated:`,
-        changes
-          .map((c) => `${c.userName}: ${c.change > 0 ? "+" : ""}${c.change}`)
-          .join(", ")
-      );
 
       return { changes };
     } catch (err) {
@@ -404,11 +390,6 @@ class EloService {
         if (updateError) {
           console.error("Error updating player stats:", updateError);
         } else {
-          console.log(
-            `📊 Updated stats for ${userName || userId}: ELO ${
-              existing.elo
-            } -> ${newElo}`
-          );
         }
       } else {
         // Insert new record
@@ -433,9 +414,6 @@ class EloService {
         if (insertError) {
           console.error("Error inserting player stats:", insertError);
         } else {
-          console.log(
-            `📊 Created new stats for ${userName || userId}: ELO ${newElo}`
-          );
         }
       }
     } catch (err) {
@@ -449,12 +427,6 @@ class EloService {
   async recordMatch(matchData) {
     // Disabled - match_history table doesn't exist
     // Could be enabled later if needed
-    console.log(
-      "📊 Match recorded (in memory):",
-      matchData.winnerName,
-      "beat",
-      matchData.loserName
-    );
   }
 
   /**
@@ -464,7 +436,6 @@ class EloService {
    */
   async getLeaderboard(gameType = "all", limit = 50) {
     if (!this.supabase) {
-      console.log("📊 [Mock] Leaderboard - no Supabase");
       return [];
     }
 

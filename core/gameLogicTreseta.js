@@ -60,12 +60,6 @@ function determineRoundWinner(card1, card2, firstPlayer) {
   // Prva karta određuje boju runde
   const leadingSuit = card1.suit;
 
-  console.log(`🎯 Trešeta Round Analysis:`, {
-    card1: `${card1.name} ${card1.suit} (${getCardStrengthName(card1)})`,
-    card2: `${card2.name} ${card2.suit} (${getCardStrengthName(card2)})`,
-    leadingSuit: leadingSuit,
-    firstPlayer: firstPlayer,
-  });
 
   // Ako su obje karte iste boje, pobjeđuje jača
   if (card1.suit === card2.suit) {
@@ -81,14 +75,10 @@ function determineRoundWinner(card1, card2, firstPlayer) {
       winner = firstPlayer === 1 ? 2 : 1;
     }
 
-    console.log(
-      `✅ Same suit winner: Player ${winner} (${card1Strength} vs ${card2Strength})`
-    );
     return winner;
   }
 
   // Ako druga karta nije iste boje, automatski pobjeđuje prva (mora se odgovarati)
-  console.log(`✅ Different suit - first player wins: Player ${firstPlayer}`);
   return firstPlayer;
 }
 

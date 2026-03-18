@@ -176,17 +176,6 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
 
     // Debug logging for finals match
     if (roundNumber === bracket?.length) {
-      console.log("🔍 FINALS DEBUG:", {
-        matchId: match.id,
-        status: match.status,
-        isPlayable,
-        p1Id,
-        p2Id,
-        userKey,
-        isUserInMatch,
-        user: user,
-        myReadyMatches: Array.from(myReadyMatches),
-      });
     }
 
     return (
@@ -258,13 +247,6 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
               }`}
               disabled={myReadyMatches.has(match.id)}
               onClick={() => {
-                console.log("🎮 Clicking ready for match:", {
-                  tournamentId,
-                  matchId: match.id,
-                  userKey,
-                  p1Id,
-                  p2Id,
-                });
                 socket.emit("tournamentReady", {
                   tournamentId,
                   matchId: match.id,

@@ -71,18 +71,10 @@ function getNextPlayer2v2(currentPlayer) {
  * Determines winner of 4-card round using proper Briskula rules
  */
 function determineRoundWinner2v2(playedCards, firstPlayer, trumpSuit) {
-  console.log("🥊 Determining 2v2 round winner:", {
-    cards: playedCards.map(
-      (c) => `P${c.playerNumber}: ${c.card.name} ${c.card.suit}`
-    ),
-    firstPlayer,
-    trumpSuit: trumpSuit,
-  });
 
   // Get the suit of the first played card (determines the "lead suit")
   const leadSuit = playedCards[0].card.suit;
 
-  console.log(`🎯 Lead suit: ${leadSuit}, Trump suit: ${trumpSuit}`);
 
   let winningCard = playedCards[0];
 
@@ -97,9 +89,6 @@ function determineRoundWinner2v2(playedCards, firstPlayer, trumpSuit) {
         winningCard.card.suit !== trumpSuit
       ) {
         winningCard = currentCard;
-        console.log(
-          `🏆 ${currentCard.card.name} ${currentCard.card.suit} beats non-trump with trump`
-        );
         continue;
       }
 
@@ -108,9 +97,6 @@ function determineRoundWinner2v2(playedCards, firstPlayer, trumpSuit) {
         winningCard.card.suit === trumpSuit &&
         currentCard.card.suit !== trumpSuit
       ) {
-        console.log(
-          `🏆 Trump ${winningCard.card.name} ${winningCard.card.suit} beats non-trump`
-        );
         continue;
       }
 
@@ -121,9 +107,6 @@ function determineRoundWinner2v2(playedCards, firstPlayer, trumpSuit) {
       ) {
         if (currentCard.card.strength > winningCard.card.strength) {
           winningCard = currentCard;
-          console.log(
-            `🏆 Stronger trump: ${currentCard.card.name} beats ${winningCard.card.name}`
-          );
         }
         continue;
       }
@@ -136,9 +119,6 @@ function determineRoundWinner2v2(playedCards, firstPlayer, trumpSuit) {
     ) {
       if (currentCard.card.strength > winningCard.card.strength) {
         winningCard = currentCard;
-        console.log(
-          `🏆 Stronger lead suit: ${currentCard.card.name} beats ${winningCard.card.name}`
-        );
       }
     } else if (
       currentCard.card.suit === leadSuit &&
@@ -146,16 +126,10 @@ function determineRoundWinner2v2(playedCards, firstPlayer, trumpSuit) {
     ) {
       // Current card follows suit, winning card doesn't
       winningCard = currentCard;
-      console.log(
-        `🏆 ${currentCard.card.name} follows lead suit, beats off-suit`
-      );
     }
     // If current card doesn't follow suit and winning card does, winning card stays
   }
 
-  console.log(
-    `🏆 Round winner: Player ${winningCard.playerNumber} with ${winningCard.card.name} ${winningCard.card.suit}`
-  );
   return winningCard.playerNumber;
 }
 

@@ -48,7 +48,6 @@ function AppContent() {
     const joinCode = urlParams.get("join");
 
     if (joinCode && joinCode.length === 6) {
-      console.log("🔗 Detected join code in URL:", joinCode);
       // Store the join code
       setPendingJoinCode(joinCode.toUpperCase());
       localStorage.setItem("pendingJoinCode", joinCode.toUpperCase());
@@ -88,12 +87,6 @@ function AppContent() {
       const savedGameType = localStorage.getItem("gameType");
       const savedGameMode = localStorage.getItem("gameMode");
 
-      console.log("🔄 Restoring user state:", {
-        savedAppState,
-        savedGameType,
-        savedGameMode,
-        hasSavedGameState: !!savedGameState,
-      });
 
       // Priority: savedGameState > localStorage for gameMode
       let finalGameMode = savedGameState?.gameMode || savedGameMode;
@@ -115,17 +108,10 @@ function AppContent() {
           savedGameState.gamePhase === "partidaFinished" ||
           savedGameState.gameInterrupted
         ) {
-          console.log(
-            "⚠️ [App] Saved game state is finished, clearing and going to gameSelect",
-          );
           clearGameState();
           localStorage.removeItem("reconnectFailureReason");
           setAppState("gameSelect");
         } else {
-          console.log(
-            "🔄 Restoring game state from localStorage:",
-            savedGameState,
-          );
           setGameData(savedGameState);
           setAppState("game");
         }
@@ -136,7 +122,6 @@ function AppContent() {
       }
     } else if (!user && appState !== "login") {
       // If user is logged out, go back to login and clear saved states
-      console.log("🔄 User logged out, clearing state");
       setAppState("login");
       setGameData(null);
       setGameType(null);
@@ -156,9 +141,6 @@ function AppContent() {
         savedGameState.gamePhase === "partidaFinished" ||
         savedGameState.gameInterrupted
       ) {
-        console.log(
-          "⚠️ [App] Saved game is finished, clearing and not showing reconnect dialog",
-        );
         clearGameState();
         localStorage.removeItem("reconnectFailureReason");
         setShowReconnectDialog(false);
@@ -217,10 +199,6 @@ function AppContent() {
 
     // Check if server found an existing game to reconnect to
     if (response.gameData) {
-      console.log(
-        "🎮 Server found existing game during registration:",
-        response.gameData,
-      );
       setGameData(response.gameData);
       setGameType(response.gameData.gameType);
       setGameMode(response.gameData.gameMode);
@@ -230,10 +208,6 @@ function AppContent() {
 
     // Check if there's a pending join code after login
     if (pendingJoinCode) {
-      console.log(
-        "🔑 Processing pending join code after login:",
-        pendingJoinCode,
-      );
       // We don't know the game type yet, so go to game selection first
       // The GameLobby will handle the auto-join
       setAppState("gameSelect");
@@ -244,7 +218,6 @@ function AppContent() {
   };
 
   const handleClearPendingJoinCode = () => {
-    console.log("🧹 Clearing pending join code");
     setPendingJoinCode(null);
     localStorage.removeItem("pendingJoinCode");
   };
@@ -489,7 +462,6 @@ function AppContent() {
           />
           <GameModeSelector
             onModeSelect={(modeData) => {
-              console.log("[App.jsx] Mode selected:", modeData);
               if (modeData.gameMode === "1vAI") {
                 // 👉 Direktno u Game (bez matchmakinga)
                 const aiGameData = {
@@ -503,7 +475,6 @@ function AppContent() {
                   }),
                 };
 
-                console.log("[App.jsx] AI Game Data:", aiGameData);
                 setGameData(aiGameData);
                 setGameMode("1vAI");
                 setAppState("game");

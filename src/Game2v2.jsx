@@ -113,9 +113,6 @@ function Game2v2({ gameData, onGameEnd }) {
   const initializeGameState = () => {
     if (!gameData) return null;
 
-    console.log("🎮 Game2v2 gameData:", gameData);
-    console.log("🎯 MyTeam from gameData:", gameData.myTeam);
-
     const myPlayerNumber = gameData.playerNumber;
 
     // Try multiple sources for myHand - server might send it in different places
@@ -131,9 +128,6 @@ function Game2v2({ gameData, onGameEnd }) {
       gameData.gameState?.myTeam || // Nested in gameState
       gameData.players?.find((p) => p.playerNumber === myPlayerNumber)?.team; // Extract from players
 
-    console.log("🃏 Resolved myHand:", myHand?.length || 0, "cards");
-    console.log("🎯 Resolved myTeam:", myTeam);
-
     // Ensure all hands exist and have proper fallbacks
     const player1Hand = gameData.gameState.player1Hand || [];
     const player2Hand = gameData.gameState.player2Hand || [];
@@ -146,18 +140,6 @@ function Game2v2({ gameData, onGameEnd }) {
       myTeam: myTeam,
       players: gameData.players,
       gameType: gameData.gameType || "briskula", // Dodaj gameType
-
-      // Debug log
-      ...(console.log(
-        "🎯 Game2v2 inicijaliziran sa gameType:",
-        gameData.gameType,
-        "| myTeam:",
-        myTeam,
-        "| playerNumber:",
-        myPlayerNumber,
-        "| myHand cards:",
-        myHand?.length || 0,
-      ) || {}),
       myHand: myHand,
       playedCards: [],
       trump: gameData.gameState.trump,
@@ -224,16 +206,6 @@ function Game2v2({ gameData, onGameEnd }) {
   // Handle game state restoration from SocketContext (similar to Game.jsx)
   useEffect(() => {
     if (savedGameState && !gameData) {
-      console.log(
-        "🔄 [Game2v2] Restoring game state from SocketContext:",
-        savedGameState,
-      );
-      console.log(
-        "🃏 [Game2v2] Saved myHand:",
-        savedGameState.gameState?.myHand?.length || 0,
-        "cards",
-      );
-
       // For 2v2 games, reconstruct the state with proper team information
       const restoredState = {
         roomId: savedGameState.roomId,
@@ -286,13 +258,7 @@ function Game2v2({ gameData, onGameEnd }) {
         }),
       };
 
-      console.log(
-        "🎯 [Game2v2] About to restore state with myHand:",
-        restoredState.myHand?.length || 0,
-        "cards",
-      );
       setGameState(restoredState);
-      console.log("✅ [Game2v2] Game state restored from SocketContext");
     }
   }, [savedGameState, gameData]);
 
@@ -382,18 +348,11 @@ function Game2v2({ gameData, onGameEnd }) {
     });
 
     socket.on("roundFinished", (data) => {
-      console.log("🎮 [2v2] Round finished data:", data);
-      console.log("🎮 [2v2] Game end info:", data.gameEnd);
-
       setGameState((prev) => {
-        console.log("🎯 [2v2] prev.myTeam:", prev.myTeam);
-        console.log("🎯 [2v2] prev.playerNumber:", prev.playerNumber);
-
         // Fallback - calculate myTeam from playerNumber if it's undefined
         const myTeam =
           prev.myTeam ||
           (prev.playerNumber === 1 || prev.playerNumber === 3 ? 1 : 2);
-        console.log("🎯 [2v2] Calculated myTeam:", myTeam);
 
         const newMyHand = data[`player${prev.playerNumber}Hand`];
         const useTreseta = prev.gameType === "treseta";
@@ -492,10 +451,6 @@ function Game2v2({ gameData, onGameEnd }) {
             // Clear saved game state when game ends
             clearGameState();
 
-            console.log(
-              `🏆 Game finished! Winning team: ${winningTeam}, My team: ${myTeam}`,
-            );
-
             // Determine message based on winning team
             if (winningTeam === 1) {
               newState.message =
@@ -520,10 +475,6 @@ function Game2v2({ gameData, onGameEnd }) {
             const team2PartidaPoints =
               (newState.team2Points || 0) + team2AkuzePoints;
 
-            console.log(
-              `🏆 Partija finished! Team scores: ${team1PartidaPoints} - ${team2PartidaPoints}, My team: ${myTeam}`,
-            );
-
             // Determine winner based on points
             if (team1PartidaPoints > team2PartidaPoints) {
               // Team 1 won
@@ -546,10 +497,6 @@ function Game2v2({ gameData, onGameEnd }) {
           // Non-Treseta games or simple game over
           newState.gamePhase = "finished";
           newState.winner = data.gameEnd.winner;
-
-          console.log(
-            `🏆 Non-Treseta game finished! Server winner: ${data.gameEnd.winner}, My team: ${myTeam}`,
-          );
 
           // Clear saved game state when game ends
           clearGameState();
@@ -596,7 +543,6 @@ function Game2v2({ gameData, onGameEnd }) {
     });
 
     socket.on("playerDisconnected", (data) => {
-      console.log("⚠️ Player disconnected:", data);
       // Reset card playing flag on disconnect
       setIsCardPlaying(false);
 
@@ -645,7 +591,6 @@ function Game2v2({ gameData, onGameEnd }) {
 
     // Handle permanent player disconnect
     socket.on("playerLeft", (data) => {
-      console.log("❌ Player permanently left:", data);
       if (data.permanent) {
         // Reset card playing flag on permanent leave
         setIsCardPlaying(false);
@@ -755,8 +700,6 @@ function Game2v2({ gameData, onGameEnd }) {
     // Akuže announced by other players
     socket.on("akuzeAnnounced", (data) => {
       if (gameState?.gameType === "treseta") {
-        console.log("[Akuze 2v2] Other player declared akuz:", data);
-
         // Show toast notification for other players' akuze
         if (data.playerNumber !== gameState?.playerNumber) {
           addToast(
@@ -788,8 +731,6 @@ function Game2v2({ gameData, onGameEnd }) {
 
     // New socket listener for partija restart in online Treseta games (like in 1v1)
     socket.on("partidaRestarted", (data) => {
-      console.log("🔄 [2v2] Received partidaRestarted from server:", data);
-
       // Reset next partija status since new partija started
       setNextPartidaStatus({
         playerReady: false,
@@ -835,7 +776,6 @@ function Game2v2({ gameData, onGameEnd }) {
 
     // Handle partija continuation status from server (like in 1v1)
     socket.on("partidaContinueStatus", (data) => {
-      console.log("📊 [2v2] Received partidaContinueStatus:", data);
       setNextPartidaStatus({
         playerReady: data.isPlayerReady || false, // Use server's isPlayerReady flag
         readyPlayers: data.readyPlayers || [],
@@ -845,19 +785,16 @@ function Game2v2({ gameData, onGameEnd }) {
 
     // Handle ELO updates after game ends
     socket.on("eloUpdate", (data) => {
-      console.log("📊 [2v2] ELO update received:", data);
       setEloChanges(data);
     });
 
     // Handle rematch events
     socket.on("rematchAccepted", (data) => {
-      console.log("🔄 [2v2] Rematch accepted - starting new game:", data);
       // Reset to initial game state with same players and teams
       setGameState(initializeGameState());
     });
 
     socket.on("rematchDeclined", (data) => {
-      console.log("❌ [2v2] Rematch declined:", data);
       // Return to finished screen
       setGameState((prev) => ({
         ...prev,
@@ -888,14 +825,8 @@ function Game2v2({ gameData, onGameEnd }) {
 
   const handleAkuze = (akuz) => {
     if (!gameState || !gameState.akuzeEnabled || !gameState.canAkuze) {
-      console.log("[Akuze 2v2] Cannot akuze - disabled or already used:", {
-        akuzeEnabled: gameState?.akuzeEnabled,
-        canAkuze: gameState?.canAkuze,
-      });
       return;
     }
-
-    console.log("[Akuze 2v2] Player declared:", akuz);
 
     // Send to server
     if (socket) {
@@ -922,11 +853,8 @@ function Game2v2({ gameData, onGameEnd }) {
 
   const handleContinueNextPartija = () => {
     if (!gameState.roomId) {
-      console.log("❌ [2v2] Cannot continue - no room");
       return;
     }
-
-    console.log("🔄 [2v2] Player wants to continue next partija");
 
     // Emit to server
     socket.emit("continueNextPartija", {
@@ -937,11 +865,8 @@ function Game2v2({ gameData, onGameEnd }) {
 
   const handleRematch = () => {
     if (!gameState.roomId) {
-      console.log("❌ [2v2] Cannot start rematch - no room");
       return;
     }
-
-    console.log("🔄 [2v2] Player wants to start rematch");
 
     // Set state to show waiting for rematch
     setGameState((prev) => ({

@@ -771,7 +771,6 @@ export default class TournamentManager {
         .from("tournaments")
         .select("id", { count: "exact", head: true });
       if (count && count > 0) return; // already have tournaments
-      console.log("🌱 Seeding default tournaments (none found)...");
       const now = new Date();
       const in2h = new Date(now.getTime() + 2 * 3600 * 1000).toISOString();
       const tomorrow = new Date(now.getTime() + 24 * 3600 * 1000).toISOString();
@@ -793,7 +792,6 @@ export default class TournamentManager {
           seeding_method: "elo",
         },
       ]);
-      console.log("✅ Default tournaments seeded");
     } catch (e) {
       console.error("Seeding tournaments failed:", e.message);
     }
@@ -812,7 +810,6 @@ export default class TournamentManager {
       } else if (this.memory.tournaments.size > 0) {
         return;
       }
-      console.log("🧪 Dev seeding tournaments with dummy players...");
       // Create two tournaments
       const t1 = await this.createTournament(
         {
@@ -848,7 +845,6 @@ export default class TournamentManager {
       // Add two players to second so user can join more spots
       await this.registerPlayer(t2.id, { userId: "demo5", name: "Demo5" });
       await this.registerPlayer(t2.id, { userId: "demo6", name: "Demo6" });
-      console.log("✅ Dev seed complete");
     } catch (e) {
       console.error("Dev seed failed:", e.message);
     }
@@ -866,9 +862,6 @@ export default class TournamentManager {
         return;
       }
 
-      console.log(
-        "🌱 Creating sample tournaments (ensureSampleTournaments)..."
-      );
       const now = Date.now();
       const base = [
         {
@@ -930,7 +923,6 @@ export default class TournamentManager {
         } catch (_) {}
       }
       await this.startTournament(created[0].id);
-      console.log("✅ Sample tournaments created");
     } catch (e) {
       console.error("ensureSampleTournaments failed:", e.message);
     }

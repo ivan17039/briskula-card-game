@@ -4,7 +4,6 @@ class InMemoryGameStateManager {
   constructor() {
     this.gameStates = new Map();
     this.autoSaveInterval = 30000; // 30 seconds
-    console.log("✅ InMemory game state manager initialized");
 
     // Start cleanup interval
     this.startAutoSave();
@@ -37,7 +36,6 @@ class InMemoryGameStateManager {
       };
 
       this.gameStates.set(roomId, gameState);
-      console.log(`💾 Game state saved to memory: ${roomId}`);
       return true;
     } catch (error) {
       console.error(`Error saving game state to memory for ${roomId}:`, error);
@@ -73,7 +71,6 @@ class InMemoryGameStateManager {
         return null;
       }
 
-      console.log(`📖 Game state loaded from memory: ${roomId}`);
       return {
         roomId: data.roomId,
         gameMode: data.gameMode,
@@ -96,7 +93,6 @@ class InMemoryGameStateManager {
     try {
       const deleted = this.gameStates.delete(roomId);
       if (deleted) {
-        console.log(`🗑️ Game state deleted from memory: ${roomId}`);
       }
       return deleted;
     } catch (error) {
@@ -207,11 +203,6 @@ class InMemoryGameStateManager {
       }),
     };
 
-    console.log(
-      `🔄 Game restored from memory: ${roomId} with ${
-        restoredGame.players.filter((p) => p.isConnected).length
-      } connected players`
-    );
     return restoredGame;
   }
 
@@ -227,7 +218,6 @@ class InMemoryGameStateManager {
       game.gameState.gamePhase = "finished";
       game.lastSaved = now.toISOString();
 
-      console.log(`🏁 Game marked as finished: ${roomId} (expires in 1 hour)`);
       return true;
     } catch (error) {
       console.error(`Error marking game as finished for ${roomId}:`, error);
@@ -246,7 +236,6 @@ class InMemoryGameStateManager {
       game.expiresAt = activeExpiresAt.toISOString();
       game.lastSaved = now.toISOString();
 
-      console.log(`🔄 Finished status removed for ${roomId} - game continues`);
       return true;
     } catch (error) {
       console.error(`Error removing finished status for ${roomId}:`, error);
@@ -265,7 +254,6 @@ class InMemoryGameStateManager {
       game.expiresAt = activeExpiresAt.toISOString();
       game.lastSaved = now.toISOString();
 
-      console.log(`🔄 Finished status removed for ${roomId} - game continues`);
       return true;
     } catch (error) {
       console.error(`Error removing finished status for ${roomId}:`, error);
@@ -307,17 +295,11 @@ class InMemoryGameStateManager {
         }
 
         if (cleanedCount > 0) {
-          console.log(
-            `🧹 Cleaned up ${cleanedCount} expired games from memory`
-          );
         }
 
         // Log current stats
         const stats = await this.getStats();
         if (stats.totalGames > 0) {
-          console.log(
-            `📊 Memory Games: ${stats.activeGames} active, ${stats.totalGames} total`
-          );
         }
       } catch (error) {
         console.error("Error in auto-save:", error);

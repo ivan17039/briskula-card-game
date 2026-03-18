@@ -36,7 +36,6 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
     const joinCode = urlParams.get("join");
 
     if (joinCode && joinCode.length === 6) {
-      console.log("🔗 Detected join code in URL:", joinCode);
       setRoomCode(joinCode.toUpperCase());
       // Clean up URL without page reload
       window.history.replaceState({}, "", window.location.pathname);
@@ -54,7 +53,6 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
       // Check for pending join code from localStorage (set when user clicked link before login)
       const pendingCode = localStorage.getItem("pendingJoinCode");
       if (pendingCode && pendingCode.length === 6) {
-        console.log("🔑 Found pending join code after login:", pendingCode);
         setRoomCode(pendingCode);
         // Clear it from storage
         localStorage.removeItem("pendingJoinCode");
@@ -82,9 +80,6 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
       const filteredGames = games.filter(
         (game) => game.gameType === safeGameType,
       );
-      console.log(
-        `🎮 Filtered to ${filteredGames.length} ${safeGameType} games`,
-      );
 
       setActiveGames(filteredGames);
       setLoading(false);
@@ -92,7 +87,6 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
 
     // Listen for successful game creation
     socket.on("gameCreated", (response) => {
-      console.log("✅ Game created successfully:", response);
       // Extract the actual game data from the response (includes roomCode)
       setCreatedGameData(response.gameData);
       // Refresh games list to show the new game
@@ -101,7 +95,6 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
 
     // Listen for successful game join
     socket.on("gameJoined", (gameData) => {
-      console.log("✅ Joined game successfully:", gameData);
       setShowPasswordModal(false);
       setJoinPassword("");
       setSelectedGameId(null);
@@ -121,7 +114,6 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
 
     // Listen for game start (when enough players join)
     socket.on("gameStart", (gameData) => {
-      console.log("🎮 Game started:", gameData);
       onGameStart(gameData);
     });
 
@@ -135,7 +127,6 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
 
       // If room doesn't exist or expired, clear pending join code
       if (errorData.message.includes("ne postoji ili je istekla")) {
-        console.log("🧹 Room doesn't exist, clearing pending join code");
         setRoomCode("");
         localStorage.removeItem("pendingJoinCode");
         if (clearPendingJoinCode) {
@@ -156,7 +147,6 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
 
     // Listen for game deletion
     socket.on("gameDeleted", (data) => {
-      console.log("🗑️ Game deleted successfully:", data);
       if (data.message) {
         // If we receive a message, it means we were notified that someone else deleted the game
         setError(data.message);
@@ -193,8 +183,6 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
       return;
     }
 
-    console.log("📤 Creating game:", gameData);
-    console.log("📤 User data:", user);
     socket.emit("createGame", {
       gameName: gameData.name,
       gameType: safeGameType,
@@ -228,7 +216,6 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
       return;
     }
 
-    console.log("📤 Joining game:", gameId);
     socket.emit("joinGame", {
       roomId: gameId,
       password: password,
@@ -285,7 +272,6 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
       return;
     }
 
-    console.log("🔑 Attempting to join game with code:", trimmedCode);
     setJoiningByCode(true);
     setError("");
 
@@ -304,10 +290,6 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
       return;
     }
 
-    console.log(
-      "🔑 Attempting to join password-protected game with code:",
-      trimmedCode,
-    );
     setJoiningByCode(true);
     setError("");
 
@@ -320,7 +302,6 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
   const confirmDeleteGame = () => {
     if (!gameToDelete) return;
 
-    console.log("📤 Deleting game:", gameToDelete.id);
     socket.emit("deleteGame", {
       roomId: gameToDelete.id,
     });

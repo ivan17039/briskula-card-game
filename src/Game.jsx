@@ -190,7 +190,6 @@ function Game({
 
       // If we're in game state but have no online game data, it's likely an AI game
       if (savedAppState === "game" && savedGameType && !savedState) {
-        console.log("🤖 [Game] Detected AI game from app state pattern");
         return "ai";
       }
     } catch (error) {
@@ -232,7 +231,6 @@ function Game({
 
     // --- SPECTATOR MODE: Only if explicitly flagged ---
     if (data.spectator === true || data.isSpectatorMode === true) {
-      console.log("👁️ Creating spectator state");
       const player1 = data.players?.find((p) => p.playerNumber === 1);
       const player2 = data.players?.find((p) => p.playerNumber === 2);
       return {
@@ -461,8 +459,6 @@ function Game({
       }),
     };
 
-    console.log("🎮 Final game state from createGameStateFromData:", state);
-    console.log("🎮 Final opponent:", state.opponent);
     return state;
   };
 
@@ -475,9 +471,6 @@ function Game({
       gameData?.isSpectatorMode === true ||
       mode === "spectator"
     ) {
-      console.log(
-        "👁️ [Game] Detected spectator mode - clearing any saved state and using createGameStateFromData",
-      );
       clearGameState(); // Clear any saved game state for spectators
       return createGameStateFromData(gameData);
     }
@@ -497,9 +490,6 @@ function Game({
             parsedState.gamePhase === "partidaFinished" ||
             parsedState.gameInterrupted
           ) {
-            console.log(
-              "⚠️ [Game] Saved AI game is finished, clearing and starting new game",
-            );
             localStorage.removeItem("gameState");
             localStorage.removeItem("aiGameState");
             // Continue to create new game below
@@ -507,7 +497,6 @@ function Game({
             parsedState.mode === "ai" &&
             parsedState.roomId === "local-ai"
           ) {
-            console.log("🤖 [Game] Found saved AI game state, restoring it");
             return parsedState; // Return the exact saved state
           }
         } catch (error) {
@@ -519,29 +508,15 @@ function Game({
       }
 
       // No saved state found or error parsing - create new AI game
-      console.log("🤖 [Game] No saved AI state found, creating new AI game");
 
       // Lokalna partija 1v1 protiv AI-ja
       const useTreseta = (gameData.gameType || "briskula") === "treseta";
       const deck = useTreseta
         ? shuffleDeckTreseta(createDeckTreseta())
         : shuffleDeck(createDeck());
-      console.log(
-        "[v0] 📦 Created and shuffled deck:",
-        deck.length,
-        "cards",
-        "useTreseta:",
-        useTreseta,
-      );
 
       // For Trešeta AI mode we must use 1v1 dealing (do NOT pass is2v2=true)
       const dealt = useTreseta ? dealCardsTreseta(deck) : dealCards(deck);
-      console.log(
-        "[v0] 🃏 Dealt cards - Player:",
-        dealt.player1Hand.length,
-        "AI:",
-        dealt.player2Hand.length,
-      );
 
       const initialState = {
         mode: "ai",
@@ -597,16 +572,12 @@ function Game({
     // Online state – kompatibilno s postojećim backendom
     // --- FIX: Check if gameState exists before proceeding ---
     if (!gameData.gameState) {
-      console.log(
-        "⚠️ [Game] gameState is missing from gameData, attempting fallback",
-      );
       // Try to use saved game state as fallback
       const savedState = localStorage.getItem("gameState");
       if (savedState) {
         try {
           const parsedState = JSON.parse(savedState);
           if (parsedState.mode === "online" && parsedState.roomId) {
-            console.log("🔄 [Game] Using saved online game state as fallback");
             return parsedState;
           }
         } catch (error) {
@@ -615,7 +586,6 @@ function Game({
       }
 
       // If no valid fallback, create minimal state and let reconnection handle it
-      console.log("🔄 [Game] Creating minimal state for reconnection");
       return createGameStateFromData(gameData);
     }
 
@@ -688,14 +658,11 @@ function Game({
       }),
     };
 
-    console.log("🎮 Final game state:", state);
     return state;
   };
 
   const [gameState, setGameState] = useState(() => {
     const initialState = initializeGameState();
-    console.log("🎯 [Game] Initial gameState:", initialState);
-    console.log("🎯 [Game] GamePhase:", initialState?.gameState?.gamePhase);
 
     // If no initial state, try to get game type from localStorage
     let savedGameType = "briskula";
@@ -748,9 +715,6 @@ function Game({
         // If we're in game state but have no online game data, it's likely an AI game
         const savedAppState = localStorage.getItem("appState");
         if (savedAppState === "game" && savedAppGameType && !savedState) {
-          console.log(
-            "🤖 [Game] Detected AI game from app state pattern in fallback",
-          );
           savedMode = "ai";
         }
       } catch (error) {
@@ -760,14 +724,6 @@ function Game({
         );
       }
 
-      console.log(
-        "🔄 [Game] Using fallback state with gameType:",
-        savedGameType,
-        "gameMode:",
-        savedGameMode,
-        "mode:",
-        savedMode,
-      );
     }
 
     // Return safe default state if no initial state to prevent crashes
@@ -1226,14 +1182,10 @@ function Game({
       return;
     }
 
-    console.log("🔄 [Game] useEffect triggered with gameData:", gameData);
     const initialState = initializeGameState();
-    console.log("🔄 [Game] initializeGameState returned:", initialState);
     if (initialState) {
       setGameState(initialState);
-      console.log("✅ [Game] gameState set successfully");
     } else {
-      console.log("❌ [Game] initializeGameState returned null/undefined");
     }
   }, [gameData, gameState]);
 
@@ -1246,9 +1198,6 @@ function Game({
         savedGameStateFromContext.gamePhase === "partidaFinished" ||
         savedGameStateFromContext.gameInterrupted
       ) {
-        console.log(
-          "⚠️ [Game] Saved game state is finished, clearing and redirecting...",
-        );
         clearGameState?.();
         localStorage.removeItem("gameState");
         localStorage.removeItem("aiGameState");
@@ -1257,16 +1206,10 @@ function Game({
         return;
       }
 
-      console.log(
-        "🔄 [Game] Restoring game state from SocketContext:",
-        savedGameStateFromContext,
-      );
 
       // For AI games, restore the exact saved state directly
       if (savedGameStateFromContext.mode === "ai") {
-        console.log("🤖 [Game] Restoring AI game state directly");
         setGameState(savedGameStateFromContext);
-        console.log("✅ [Game] AI game state restored from SocketContext");
       } else {
         // For online games, use the server data processing function
         const restoredState = createGameStateFromData(
@@ -1274,9 +1217,6 @@ function Game({
         );
         if (restoredState) {
           setGameState(restoredState);
-          console.log(
-            "✅ [Game] Online game state restored from SocketContext",
-          );
         }
       }
     }
@@ -1284,7 +1224,6 @@ function Game({
 
   // Auto-reconnect handled by SocketContext now
   useEffect(() => {
-    console.log("🔄 Game component mounted - checking for finished games");
 
     const storedExpiry = localStorage.getItem("sessionExpiresAt");
     const expiryMs = storedExpiry ? Number(storedExpiry) : null;
@@ -1307,16 +1246,9 @@ function Game({
           parsedState.gamePhase === "partidaFinished" ||
           parsedState.gameInterrupted
         ) {
-          console.log(
-            "⚠️ Detected finished game on mount, starting auto-exit...",
-          );
 
           // Leave the room on server if it exists
           if (parsedState.roomId && socket && parsedState.mode === "online") {
-            console.log(
-              "🚪 Leaving finished room on server:",
-              parsedState.roomId,
-            );
             socket.emit("leaveRoom", {
               roomId: parsedState.roomId,
               permanent: true,
@@ -1391,14 +1323,6 @@ function Game({
       ? gameState.playedCards
       : [];
 
-    console.log("🤖 [AI Turn Check]", {
-      currentPlayer: gameState.currentPlayer,
-      aiThinking: aiThinking.current,
-      roundResolving: roundResolving.current,
-      gamePhase: gameState.gamePhase,
-      playedCardsCount: played.filter((c) => c).length,
-      playedCards: played,
-    });
 
     if (
       gameState.currentPlayer === 2 &&
@@ -1407,7 +1331,6 @@ function Game({
       gameState.gamePhase === "playing" &&
       played.filter((c) => c).length < 2
     ) {
-      console.log("🤖 [AI] Taking turn...");
       aiThinking.current = true;
       setTimeout(() => {
         const aiIsFirst = !played[0];
@@ -1433,7 +1356,6 @@ function Game({
                 aiIsFirst: aiIsFirst,
               });
         if (aiCard) {
-          console.log("🤖 [AI] Playing card:", aiCard);
           playLocalCard(aiCard, 2);
         } else {
           console.warn("🤖 [AI] No valid card found!");
@@ -1456,13 +1378,6 @@ function Game({
 
     // If both cards are played but resolution flags aren't set, we likely restored from refresh mid-resolution
     if (bothCardsPlayed && !aiThinking.current && !roundResolving.current) {
-      console.log(
-        "🔄 [Game] Detected incomplete round after refresh, resolving...",
-        {
-          playedCards: played,
-          currentPlayer: gameState.currentPlayer,
-        },
-      );
 
       // Mark as resolving to prevent AI from playing
       aiThinking.current = true;
@@ -1629,11 +1544,6 @@ function Game({
           aiThinking.current = false;
           roundResolving.current = false;
 
-          console.log("🔄 [Game] Round resolved after refresh", {
-            winner,
-            currentPlayer: winner,
-            nextTurn: winner === 2 ? "AI" : "Player",
-          });
 
           if (end.isGameOver) {
             const finalWinner =
@@ -1679,11 +1589,9 @@ function Game({
       !aiThinking.current &&
       !roundResolving.current
     ) {
-      console.log("🤖 [Fallback] Ensuring AI plays after restoration");
       const checkTimer = setTimeout(() => {
         // Double-check conditions haven't changed
         if (!aiThinking.current && !roundResolving.current) {
-          console.log("🤖 [Fallback] Triggering AI turn manually");
           aiThinking.current = true;
 
           setTimeout(() => {
@@ -1717,7 +1625,6 @@ function Game({
                   });
 
             if (aiCard) {
-              console.log("🤖 [Fallback] AI playing card:", aiCard);
               playLocalCard(aiCard, 2);
             } else {
               console.warn("🤖 [Fallback] No valid AI card found");
@@ -1769,7 +1676,6 @@ function Game({
 
     const remainingMs = sessionExpiryAt - Date.now();
     if (remainingMs <= 0) {
-      console.log("⏰ Auto-exiting finished game");
       handleReturnToMenu();
       return;
     }
@@ -1789,7 +1695,6 @@ function Game({
       gameState?.gamePhase === "partidaFinished" ||
       gameState?.gameInterrupted
     ) {
-      console.log("🧹 [Game] Clearing saved game state - game ended");
       localStorage.removeItem("aiGameState");
       localStorage.removeItem("gameState");
       clearGameState?.();
@@ -1874,10 +1779,6 @@ function Game({
           }),
         };
 
-        console.log(
-          "💾 [Game] Saving complete AI game state:",
-          completeAIState,
-        );
         saveGameState(completeAIState);
       }, 1000);
 
@@ -1891,7 +1792,6 @@ function Game({
 
     // Reconnect handlers
     socket.on("gameStateReconnected", (data) => {
-      console.log("🔄 Reconnected to game:", data);
       setPlayerDisconnected(false);
       setReconnectModalVisible(false);
 
@@ -1975,7 +1875,6 @@ function Game({
     });
 
     socket.on("playerDisconnected", (data) => {
-      console.log("⚠️ Player disconnected:", data);
       if (data.canReconnect) {
         setPlayerDisconnected(true);
         setDisconnectionInfo({
@@ -1997,7 +1896,6 @@ function Game({
 
     // Handle permanent player disconnect
     socket.on("playerLeft", (data) => {
-      console.log("❌ Player permanently left:", data);
       if (data.permanent) {
         // Show permanent disconnect modal
         setPlayerDisconnected(true);
@@ -2013,7 +1911,6 @@ function Game({
 
     // Add new event handlers
     socket.on("playerForfeited", (data) => {
-      console.log("⚠️ Player forfeited:", data);
       setPlayerForfeited(true);
       setPlayerDisconnected(false);
       setDisconnectionInfo(null);
@@ -2086,7 +1983,6 @@ function Game({
     });
 
     socket.on("gameRoomDeleted", (data) => {
-      console.log("🗑️ Game room deleted:", data);
       addToast(data.message, "warning");
       clearGameState();
       setTimeout(() => {
@@ -2095,7 +1991,6 @@ function Game({
     });
 
     socket.on("spectatorUpdate", (data) => {
-      console.log("👁️ Spectator update received");
       // Update spectator state if we're spectating
       if (isSpectator && data.roomId === gameState?.roomId) {
         setSpectatorState((prev) => ({
@@ -2122,7 +2017,6 @@ function Game({
   // Auto-join as spectator if in spectator mode
   useEffect(() => {
     if (isSpectator && spectatorRoomId && socket && !spectatorState) {
-      console.log("👁️ Auto-joining as spectator for room:", spectatorRoomId);
       socket.emit("joinAsSpectator", { roomId: spectatorRoomId });
     }
   }, [isSpectator, spectatorRoomId, socket, spectatorState]);
@@ -2136,11 +2030,6 @@ function Game({
 
     // Listener za novu igru nakon revan��a ili spectator join
     socket.on("gameStart", (newGameData) => {
-      console.log("🎮 Nova igra počinje (revanš ili spectator):", newGameData);
-      console.log("🎮 Spectator flag:", newGameData.spectator);
-      console.log("🎮 Opponent data received:", newGameData.opponent);
-      console.log("🎮 Player number:", newGameData.playerNumber);
-      console.log("🎮 Is resume/reconnect:", newGameData.isResume);
 
       // Save reconnect data if this is a player (not spectator)
       if (
@@ -2150,10 +2039,6 @@ function Game({
       ) {
         localStorage.setItem("playerId", newGameData.playerId);
         localStorage.setItem("roomId", newGameData.roomId);
-        console.log("💾 Saved reconnect data:", {
-          playerId: newGameData.playerId,
-          roomId: newGameData.roomId,
-        });
       }
 
       // If this is spectator data, update spectator state
@@ -2164,7 +2049,6 @@ function Game({
 
       // If this is a resume/reconnect, merge with existing state instead of replacing
       if (newGameData.isResume) {
-        console.log("🔄 Resuming existing game, merging state...");
         setPlayerDisconnected(false);
         setReconnectModalVisible(false);
 
@@ -2248,7 +2132,6 @@ function Game({
 
     // Obavijest: protivnik je odustao od revanša
     socket.on("rematchDeclined", (data) => {
-      console.log("❌ Revanš odbijen:", data);
       // Ako čekamo revanš, prekini matchmaking i vrati na završni ekran
       setGameState((prev) => {
         // Samo ako smo bili u traženju revanša ili na završnom ekranu
@@ -2277,7 +2160,6 @@ function Game({
 
     // Spectator start handler
     socket.on("spectatorStart", (spectatorData) => {
-      console.log("👁️ Spectator start:", spectatorData);
       setIsSpectator(true);
       setSpectatorState(spectatorData);
 
@@ -2319,7 +2201,6 @@ function Game({
 
     // Spectator update handler
     socket.on("spectatorUpdate", (publicStateUpdate) => {
-      console.log("👁️ Spectator update:", publicStateUpdate);
       setGameState((prev) => ({
         ...prev,
         ...publicStateUpdate,
@@ -2736,7 +2617,6 @@ function Game({
 
     // Trešeta - ažuriranje igrljivih karata
     socket.on("playableCardsUpdate", (data) => {
-      console.log("🎮 Playable cards update:", data.playableCards);
       setGameState((prev) => ({
         ...prev,
         playableCards: data.playableCards,
@@ -2745,7 +2625,6 @@ function Game({
 
     // Trešeta - nevaljan potez
     socket.on("invalidMove", (data) => {
-      console.log("❌ Invalid move:", data.message);
       addToast(`Nevaljan potez: ${data.message}`, "error");
     });
 
@@ -2769,7 +2648,6 @@ function Game({
 
     // New socket listener for partija restart in online Treseta games
     socket.on("partidaRestarted", (data) => {
-      console.log("🔄 Received partidaRestarted from server:", data);
 
       // Reset next partija status since new partija started
       setNextPartidaStatus({
@@ -2915,14 +2793,9 @@ function Game({
 
   const handleAkuze = (akuz) => {
     if (!gameState || !gameState.akuzeEnabled || !gameState.canAkuze) {
-      console.log("[Akuze] Cannot akuze - disabled or already used:", {
-        akuzeEnabled: gameState?.akuzeEnabled,
-        canAkuze: gameState?.canAkuze,
-      });
       return;
     }
 
-    console.log("[Akuze] Player declared:", akuz);
 
     // Send to server for online games
     if (mode === "online" && socket) {
@@ -2947,11 +2820,9 @@ function Game({
 
   const handleContinueNextPartija = () => {
     if (!gameState.roomId || gameState.mode !== "online") {
-      console.log("❌ Cannot continue - not in online mode or no room");
       return;
     }
 
-    console.log("🔄 Player wants to continue next partija");
 
     // Don't set playerReady here - wait for server confirmation
     // setNextPartidaStatus(prev => ({ ...prev, playerReady: true }));
@@ -2996,7 +2867,6 @@ function Game({
       }));
     } else if (gameState.mode === "online" && socket && gameState.roomId) {
       // Online mode - request new partija from server
-      console.log("🔄 Requesting new partija from server...");
       socket.emit("startNewPartija", {
         roomId: gameState.roomId,
         playerNumber: gameState.playerNumber,
@@ -3175,9 +3045,6 @@ function Game({
       return;
     }
 
-    console.log(
-      `🔄 Attempting reconnect to room ${gameState.roomId} as ${user.name}`,
-    );
     socket?.emit("reconnectToGame", {
       roomId: gameState.roomId,
       playerName: user.name,
@@ -3185,7 +3052,6 @@ function Game({
   };
 
   const handleJoinAsSpectator = (roomId) => {
-    console.log(`👁️ Joining as spectator for room ${roomId}`);
     socket?.emit("joinAsSpectator", { roomId });
   };
 

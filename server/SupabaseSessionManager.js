@@ -52,7 +52,6 @@ class SupabaseSessionManager {
     try {
       // Tables should be created manually via Supabase SQL Editor
       // using the provided supabase-setup.sql script
-      console.log("✅ Supabase session tables ready");
     } catch (error) {
       console.error("Error initializing session tables:", error);
     }
@@ -106,9 +105,6 @@ class SupabaseSessionManager {
         throw error;
       }
 
-      console.log(
-        `✅ Supabase session created: ${userData.name} (${sessionId}) userId: ${userId}`
-      );
       return { sessionToken, sessionId, userId };
     } catch (error) {
       console.error("Error creating session:", error);
@@ -473,7 +469,6 @@ class SupabaseSessionManager {
         // Optionally log stats
         const stats = await this.getStats();
         if (stats.activeSessions > 0) {
-          console.log(`📊 Active Sessions: ${stats.activeSessions}`);
         }
       } catch (error) {
         console.error("Error in heartbeat monitor:", error);

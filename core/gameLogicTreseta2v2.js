@@ -99,16 +99,6 @@ function determineRoundWinner(playedCards, firstPlayer) {
   const leadCard = playedCards[0].card;
   const leadingSuit = leadCard.suit;
 
-  console.log(`🎯 Trešeta 2v2 Round Analysis:`, {
-    cards: playedCards.map(
-      (pc) =>
-        `Player${pc.playerNumber}: ${pc.card.name} ${
-          pc.card.suit
-        } (${getCardStrengthName(pc.card)})`
-    ),
-    leadingSuit: leadingSuit,
-    firstPlayer: firstPlayer,
-  });
 
   let strongestCard = leadCard;
   let winningPlayer = playedCards[0].playerNumber;
@@ -130,9 +120,6 @@ function determineRoundWinner(playedCards, firstPlayer) {
     }
   }
 
-  console.log(
-    `✅ Winner: Player ${winningPlayer} with ${strongestCard.name} ${strongestCard.suit}`
-  );
   return winningPlayer;
 }
 

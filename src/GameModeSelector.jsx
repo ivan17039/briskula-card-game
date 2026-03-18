@@ -122,11 +122,6 @@ function GameModeSelector({ onModeSelect, onBack, gameType }) {
                 // Add akuze settings for Treseta
                 if (gameType === "treseta") {
                   aiMode.akuzeEnabled = akuzeEnabled;
-                  console.log("[GameModeSelector] AI mode with akuze:", {
-                    gameType,
-                    akuzeEnabled,
-                    aiMode,
-                  });
                 }
 
                 handleModeSelect(aiMode);

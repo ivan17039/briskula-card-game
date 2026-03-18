@@ -24,13 +24,11 @@ let resend = null;
 if (resendApiKey) {
   try {
     resend = new Resend(resendApiKey);
-    console.log("📧 Resend initialized");
   } catch (e) {
     console.warn("⚠️ Failed to initialize Resend:", e.message);
     resend = null;
   }
 } else {
-  console.log("📧 Resend API key missing - bug reports will be simulated.");
 }
 
 // Inicijaliziraj managere based on environment
@@ -147,7 +145,6 @@ function generateRoomCode() {
  */
 function registerRoomCode(roomCode, roomId) {
   roomCodes.set(roomCode, roomId);
-  console.log(`🔑 Registered room code: ${roomCode} -> ${roomId}`);
 }
 
 /**
@@ -156,7 +153,6 @@ function registerRoomCode(roomCode, roomId) {
 function unregisterRoomCode(roomCode) {
   if (roomCodes.has(roomCode)) {
     roomCodes.delete(roomCode);
-    console.log(`🗑️ Unregistered room code: ${roomCode}`);
   }
 }
 
@@ -178,9 +174,6 @@ function createPlayerSession(playerId, roomId, playerNumber, socketId) {
     socketId,
     lastSeen: Date.now(),
   });
-  console.log(
-    `📋 Created player session: ${playerId} -> Room ${roomId}, Player ${playerNumber}`,
-  );
 }
 
 function updatePlayerSession(playerId, socketId) {
@@ -188,13 +181,11 @@ function updatePlayerSession(playerId, socketId) {
   if (session) {
     session.socketId = socketId;
     session.lastSeen = Date.now();
-    console.log(`🔄 Updated player session: ${playerId} -> Socket ${socketId}`);
   }
 }
 
 function removePlayerSession(playerId) {
   if (playerSessions.has(playerId)) {
-    console.log(`🗑️ Removed player session: ${playerId}`);
     playerSessions.delete(playerId);
   }
 }
@@ -252,10 +243,7 @@ function markPlayerSoftDisconnected(room, player) {
       setTimeout(async () => {
         try {
           await gameStateManager.deleteGame(roomId);
-          console.log(`🗑️ Deleted game storage for room ${roomId}`);
-        } catch (error) {
-          console.log("Game storage cleanup failed:", error.message);
-        }
+        } catch (error) {}
 
         try {
           for (const player of stillRoom.players) {
@@ -276,12 +264,7 @@ function markPlayerSoftDisconnected(room, player) {
               }
             }
           }
-        } catch (error) {
-          console.log(
-            "Session cleanup for room players failed:",
-            error.message,
-          );
-        }
+        } catch (error) {}
 
         io.to(roomId).emit("roomDeleted", {
           message: `Protivnik je odustao od igre. Soba je obrisana.`,
@@ -289,7 +272,6 @@ function markPlayerSoftDisconnected(room, player) {
         });
 
         gameRooms.delete(roomId);
-        console.log(`🗑️ Soba ${roomId} obrisana zbog timeout-a.`);
       }, 1000);
     }
   }, GRACE_PERIOD_MS);
@@ -357,7 +339,6 @@ function getPublicGameState(gameState) {
 const tournamentManager = new TournamentManager({ io });
 
 // Disabled auto-creation - manual control only
-console.log("🎯 Tournament auto-creation disabled - use manual endpoints");
 
 app.use(express.json());
 
@@ -581,8 +562,6 @@ app.get("/api/tournaments/:id/bracket", async (req, res) => {
 // 🧹 Cleanup endpoint - Delete all Supabase games (for testing/cleanup)
 app.post("/api/cleanup/games", async (req, res) => {
   try {
-    console.log("🧹 Cleanup request received - deleting all Supabase games");
-
     const result = await gameStateManager.deleteAllGameStates();
 
     if (result.success) {
@@ -662,19 +641,11 @@ app.get("/healthz", (req, res) => {
 
 // Socket.io logika
 io.on("connection", (socket) => {
-  console.log(`🔌 Nova konekcija: ${socket.id}`);
-
   // NOTE: Previous in-memory tournament mock removed. Using TournamentManager.
 
   // Enhanced registration with session management
   socket.on("register", async (userData) => {
     try {
-      console.log(`📝 Registracija zahtjev od ${socket.id}:`, {
-        name: userData.name,
-        isGuest: userData.isGuest,
-        hasSessionToken: !!userData.sessionToken,
-      });
-
       let session = null;
 
       // Ako korisnik šalje session token, pokušaj reconnect
@@ -703,9 +674,6 @@ io.on("connection", (socket) => {
             });
 
             // 🔧 KLJUČNO: Ažuriraj player.id u svim rooms gdje je ovaj user
-            console.log(
-              "🔄 Updating player.id in game rooms for session reconnect...",
-            );
             let gameResumeData = null;
 
             for (const [roomId, room] of gameRooms.entries()) {
@@ -736,14 +704,7 @@ io.on("connection", (socket) => {
                     room.disconnectTimeouts.get(player.playerNumber),
                   );
                   room.disconnectTimeouts.delete(player.playerNumber);
-                  console.log(
-                    `⏰ Cleared disconnect timeout for player ${player.playerNumber} in room ${roomId}`,
-                  );
                 }
-
-                console.log(
-                  `🔄 Updated player in room ${roomId}: ${oldId} → ${socket.id} (${player.name})`,
-                );
 
                 // Join socket to room
                 socket.join(roomId);
@@ -866,9 +827,6 @@ io.on("connection", (socket) => {
               ...(gameResumeData && { gameData: gameResumeData }),
             });
 
-            console.log(
-              `✅ Session reconnected: ${session.userName} (${session.sessionId})`,
-            );
             return;
           }
         }
@@ -902,9 +860,6 @@ io.on("connection", (socket) => {
           });
 
           // 🔧 KLJUČNO: Ažuriraj player.id u svim rooms gdje je ovaj user
-          console.log(
-            "🔄 Updating player.id in game rooms for existing session...",
-          );
           let gameResumeData = null;
 
           for (const [roomId, room] of gameRooms.entries()) {
@@ -933,14 +888,7 @@ io.on("connection", (socket) => {
               ) {
                 clearTimeout(room.disconnectTimeouts.get(player.playerNumber));
                 room.disconnectTimeouts.delete(player.playerNumber);
-                console.log(
-                  `⏰ Cleared disconnect timeout for player ${player.playerNumber} in room ${roomId}`,
-                );
               }
-
-              console.log(
-                `🔄 Updated player in room ${roomId}: ${oldId} → ${socket.id} (${player.name})`,
-              );
 
               // Join socket to room
               socket.join(roomId);
@@ -1128,7 +1076,6 @@ io.on("connection", (socket) => {
             ...(gameResumeData && { gameData: gameResumeData }),
           });
 
-          console.log(`✅ Existing session reconnected: ${session.userName}`);
           return;
         }
       }
@@ -1138,8 +1085,6 @@ io.on("connection", (socket) => {
         userData,
         socket.id,
       );
-
-      console.log("🔍 Debug sessionData:", sessionData);
 
       // Determine if user is guest - explicit false means registered user
       const isGuestUser =
@@ -1158,9 +1103,6 @@ io.on("connection", (socket) => {
       // Fetch ELO for registered users
       if (!user.isGuest && user.userId) {
         try {
-          console.log(
-            `📊 Loading ELO for ${user.name} (userId: ${user.userId})`,
-          );
           const briskulaStats = await eloService.getPlayerStats(
             user.userId,
             "briskula",
@@ -1169,15 +1111,10 @@ io.on("connection", (socket) => {
             user.userId,
             "treseta",
           );
-          console.log(`📊 Stats from DB:`, {
-            briskula: briskulaStats,
-            treseta: tresetaStats,
-          });
           user.elo = {
             briskula: briskulaStats?.elo || 1000,
             treseta: tresetaStats?.elo || 1000,
           };
-          console.log(`📊 Final ELO for ${user.name}:`, user.elo);
         } catch (err) {
           console.warn(`⚠️ Could not load ELO for ${user.name}:`, err.message);
           user.elo = { briskula: 1000, treseta: 1000 };
@@ -1189,7 +1126,6 @@ io.on("connection", (socket) => {
       // 🆘 FALLBACK: Check if this new user should reconnect to an existing game
       // This handles cases where user lost sessionToken but has game in localStorage
       let fallbackGameResumeData = null;
-      console.log("🔍 Checking for fallback game reconnection...");
 
       for (const [roomId, room] of gameRooms.entries()) {
         const player = room.players?.find(
@@ -1204,10 +1140,6 @@ io.on("connection", (socket) => {
         );
 
         if (player) {
-          console.log(
-            `🔄 Fallback reconnection found for ${user.name} in room ${roomId}`,
-          );
-
           // Update player with new connection info
           const oldId = player.id;
           player.id = socket.id;
@@ -1223,14 +1155,7 @@ io.on("connection", (socket) => {
           ) {
             clearTimeout(room.disconnectTimeouts.get(player.playerNumber));
             room.disconnectTimeouts.delete(player.playerNumber);
-            console.log(
-              `⏰ Cleared disconnect timeout for player ${player.playerNumber} in room ${roomId}`,
-            );
           }
-
-          console.log(
-            `🔄 Fallback updated player in room ${roomId}: ${oldId} → ${socket.id} (${player.name})`,
-          );
 
           // Join socket to room
           socket.join(roomId);
@@ -1342,12 +1267,6 @@ io.on("connection", (socket) => {
         // Include game data if fallback reconnection found
         ...(fallbackGameResumeData && { gameData: fallbackGameResumeData }),
       });
-
-      console.log(
-        `✅ Nova sesija kreirana: ${user.name} (${
-          user.isGuest ? "Guest" : "Registered"
-        })`,
-      );
     } catch (error) {
       console.error("Error during registration:", error);
       socket.emit("registrationError", {
@@ -1377,9 +1296,6 @@ io.on("connection", (socket) => {
       });
       return;
     }
-
-    console.log("🎮 Received createGame request:", gameData);
-    console.log("🎮 From user:", user);
 
     try {
       const roomId = uuidv4();
@@ -1425,10 +1341,6 @@ io.on("connection", (socket) => {
       gameRooms.set(roomId, customRoom);
       registerRoomCode(roomCode, roomId); // Register code mapping
       socket.join(roomId);
-
-      console.log(
-        `🎮 Custom game created: ${gameData.gameName} by ${user.name} [Code: ${roomCode}]`,
-      );
 
       socket.emit("gameCreated", {
         success: true,
@@ -1487,8 +1399,6 @@ io.on("connection", (socket) => {
     }
 
     try {
-      console.log(`🗑️ Deleting game: ${room.name} by ${user.name}`);
-
       // Notify all players in the room that the game is being deleted
       room.players.forEach((player) => {
         if (player.id !== socket.id) {
@@ -1554,10 +1464,6 @@ io.on("connection", (socket) => {
       return;
     }
 
-    console.log(
-      `🔑 User ${user.name} joining game via code: ${roomCode.toUpperCase()} -> Room ${roomId}`,
-    );
-
     // Continue with standard join logic using the found roomId
     const room = gameRooms.get(roomId);
 
@@ -1614,10 +1520,6 @@ io.on("connection", (socket) => {
 
     room.players.push(newPlayer);
     socket.join(roomId);
-
-    console.log(
-      `👥 ${user.name} joined game via code ${roomCode.toUpperCase()}: ${room.name}`,
-    );
 
     // Update room status
     if (room.players.length === room.maxPlayers) {
@@ -1708,8 +1610,6 @@ io.on("connection", (socket) => {
     room.players.push(newPlayer);
     socket.join(roomId);
 
-    console.log(`👥 ${user.name} joined custom game: ${room.name}`);
-
     // Update room status
     if (room.players.length === room.maxPlayers) {
       room.status = "full";
@@ -1738,9 +1638,6 @@ io.on("connection", (socket) => {
 
   socket.on("getActiveGames", (data) => {
     const requestedGameType = data?.gameType;
-    console.log(
-      `📋 Requesting active games for gameType: ${requestedGameType}`,
-    );
 
     let customGames = Array.from(gameRooms.values()).filter(
       (room) => room.isCustom && room.status !== "playing",
@@ -1750,9 +1647,6 @@ io.on("connection", (socket) => {
     if (requestedGameType) {
       customGames = customGames.filter(
         (room) => room.gameType === requestedGameType,
-      );
-      console.log(
-        `🎯 Filtered to ${customGames.length} ${requestedGameType} games`,
       );
     }
 
@@ -1785,12 +1679,9 @@ io.on("connection", (socket) => {
     room.players.splice(playerIndex, 1);
     socket.leave(roomId);
 
-    console.log(`🚪 ${user.name} left custom game: ${room.name}`);
-
     // If room is empty, delete it
     if (room.players.length === 0) {
       gameRooms.delete(roomId);
-      console.log(`🗑️ Empty custom room deleted: ${room.name}`);
     } else {
       // Update player numbers and teams
       room.players.forEach((player, index) => {
@@ -1910,16 +1801,10 @@ io.on("connection", (socket) => {
   // Igranje karte - UPDATED za oba načina
   socket.on("playCard", (data) => {
     const { roomId, card } = data;
-    console.log(`🎴 Pokušaj igranja karte:`, {
-      playerId: socket.id,
-      roomId,
-      cardName: card?.name + " " + card?.suit,
-    });
 
     const room = gameRooms.get(roomId);
 
     if (!room) {
-      console.log(`❌ Soba ${roomId} ne postoji`);
       socket.emit("error", { message: "Soba ne postoji" });
       return;
     }
@@ -1942,16 +1827,7 @@ io.on("connection", (socket) => {
     }
     const playerNumber = player?.playerNumber;
 
-    console.log(`🔍 Provjera reda:`, {
-      playerNumber,
-      currentPlayer: room.gameState.currentPlayer,
-      isPlayersTurn: room.gameState.currentPlayer === playerNumber,
-    });
-
     if (!playerNumber || room.gameState.currentPlayer !== playerNumber) {
-      console.log(
-        `❌ Nije red igrača ${playerNumber}, trenutni red: ${room.gameState.currentPlayer}`,
-      );
       socket.emit("error", { message: "Nije vaš red" });
       return;
     }
@@ -1964,12 +1840,9 @@ io.on("connection", (socket) => {
       );
 
     if (playerAlreadyPlayed) {
-      console.log(`❌ Igrač ${playerNumber} je već odigrao kartu u ovoj rundi`);
       socket.emit("error", { message: "Već ste odigrali kartu u ovoj rundi" });
       return;
     }
-
-    console.log(`✅ Kartu može igrati, obrađujem potez`);
 
     // Obradi potez ovisno o načinu igre
     if (room.gameMode === "1v1") {
@@ -1982,11 +1855,6 @@ io.on("connection", (socket) => {
   // Akuže handler for Treseta (1v1 and 2v2)
   socket.on("akuze", (data) => {
     const { roomId, akuz } = data;
-    console.log(`🃏 Akuže declared:`, {
-      playerId: socket.id,
-      roomId,
-      akuz,
-    });
 
     const room = gameRooms.get(roomId);
     if (!room || room.gameType !== "treseta") {
@@ -2030,8 +1898,6 @@ io.on("connection", (socket) => {
     room.gameState[akuzeKey].details.push(akuz);
     room.gameState[akuzeKey].points += akuz.points;
 
-    console.log(`✅ Akuže registered for player ${playerNumber}:`, akuz);
-
     if (room.gameMode === "2v2") {
       // 2v2 mode - also add to team akuze for tracking
       const team = playerNumber === 1 || playerNumber === 3 ? 1 : 2;
@@ -2070,9 +1936,6 @@ io.on("connection", (socket) => {
   // Start new partija event (for manual trigger)
   socket.on("startNewPartija", (data) => {
     const { roomId, playerNumber } = data;
-    console.log(
-      `🔄 Player ${playerNumber} requesting new partija in room ${roomId}`,
-    );
 
     const room = gameRooms.get(roomId);
     if (!room) {
@@ -2106,7 +1969,6 @@ io.on("connection", (socket) => {
 
     // Check if this is a spectator first
     if (room.spectators && room.spectators.includes(socket.id)) {
-      console.log(`👁️ Spectator ${socket.id} left room ${roomId}`);
       // Remove from spectators list only - don't disrupt the game
       room.spectators = room.spectators.filter((id) => id !== socket.id);
       socket.leave(roomId);
@@ -2118,9 +1980,6 @@ io.on("connection", (socket) => {
 
     // Note: Actual disconnect handling is done by handlePlayerDisconnectWithReconnect
     // in the main 'disconnect' event. This is just for explicit leave requests.
-    console.log(
-      `🚪 Player ${leavingPlayer.name} explicitly requested to leave room ${roomId}`,
-    );
     socket.leave(roomId); // remove this socket from room
   });
 
@@ -2131,7 +1990,6 @@ io.on("connection", (socket) => {
 
     // Check if this is a spectator first
     if (room.spectators && room.spectators.includes(socket.id)) {
-      console.log(`👁️ Spectator ${socket.id} left room ${roomId} permanently`);
       // Remove from spectators list only - don't disrupt the game
       room.spectators = room.spectators.filter((id) => id !== socket.id);
       socket.leave(roomId);
@@ -2140,10 +1998,6 @@ io.on("connection", (socket) => {
 
     const leavingPlayer = room.players.find((p) => p.id === socket.id);
     if (!leavingPlayer) return;
-
-    console.log(
-      `🚪 Igrač ${leavingPlayer.name} (${leavingPlayer.playerNumber}) je trajno napustio ${room.gameMode} igru`,
-    );
 
     // Clear any saved session/game state for this player
     try {
@@ -2157,12 +2011,9 @@ io.on("connection", (socket) => {
           userSession.sessionToken || userSession.session?.sessionToken;
         if (token && typeof sessionManager.markSessionAsLeft === "function") {
           await sessionManager.markSessionAsLeft(token);
-          console.log(`🗑️ Cleared session for ${leavingPlayer.name}`);
         }
       }
-    } catch (error) {
-      console.log("Session cleanup failed:", error.message);
-    }
+    } catch (error) {}
 
     let message;
     if (room.gameMode === "2v2") {
@@ -2213,10 +2064,7 @@ io.on("connection", (socket) => {
     // Clean up game storage
     try {
       await gameStateManager.deleteGame(roomId);
-      console.log(`🗑️ Deleted game storage for room ${roomId}`);
-    } catch (error) {
-      console.log("Game storage cleanup failed:", error.message);
-    }
+    } catch (error) {}
 
     // Clean up sessions for all players
     try {
@@ -2231,13 +2079,10 @@ io.on("connection", (socket) => {
             playerSession.sessionToken || playerSession.session?.sessionToken;
           if (token && typeof sessionManager.markSessionAsLeft === "function") {
             await sessionManager.markSessionAsLeft(token);
-            console.log(`🗑️ Cleared session for ${player.name}`);
           }
         }
       }
-    } catch (error) {
-      console.log("Session cleanup for room players failed:", error.message);
-    }
+    } catch (error) {}
 
     // Send the old clear roomDeleted message that worked well
     io.to(roomId).emit("roomDeleted", {
@@ -2251,13 +2096,8 @@ io.on("connection", (socket) => {
 
   // Handle reconnect dismissal - when player chooses to abandon reconnection
   socket.on("dismissReconnect", async (roomId) => {
-    console.log(
-      `🚫 Player ${socket.id} dismissed reconnection to room ${roomId}`,
-    );
-
     const room = gameRooms.get(roomId);
     if (!room) {
-      console.log(`❌ Room ${roomId} not found for dismissal`);
       return;
     }
 
@@ -2267,17 +2107,10 @@ io.on("connection", (socket) => {
       ? dismissingPlayer.name
       : "Unknown Player";
 
-    console.log(
-      `🚫 ${dismissingPlayerName} odustaje od ponovnog spajanja na sobu ${roomId}`,
-    );
-
     // Delete the room and all related data since one player abandoned reconnection
     try {
       await gameStateManager.deleteGame(roomId);
-      console.log(`🗑️ Deleted game storage for abandoned room ${roomId}`);
-    } catch (error) {
-      console.log("Game storage cleanup failed:", error.message);
-    }
+    } catch (error) {}
 
     // Clear sessions for all players in this room
     try {
@@ -2287,14 +2120,9 @@ io.on("connection", (socket) => {
         );
         if (playerSession) {
           await sessionManager.markSessionAsLeft(playerSession.id);
-          console.log(
-            `🗑️ Cleared session for ${player.name} due to room abandonment`,
-          );
         }
       }
-    } catch (error) {
-      console.log("Session cleanup for abandoned room failed:", error.message);
-    }
+    } catch (error) {}
 
     // Notify any other players who might be trying to reconnect
     io.to(roomId).emit("roomDeleted", {
@@ -2305,9 +2133,6 @@ io.on("connection", (socket) => {
     // Delete room from memory
     gameRooms.delete(roomId);
     socket.leave(roomId);
-    console.log(
-      `🗑️ Soba ${roomId} obrisana jer je igrač odustao od reconnection-a.`,
-    );
   });
 
   // Leave tournament view (non-destructive, only leaves socket room)
@@ -2316,26 +2141,13 @@ io.on("connection", (socket) => {
       const room = gameRooms.get(roomId);
       if (!room) return;
       const player = room.players.find((p) => p.id === socket.id);
-      console.log(
-        `👀 ${
-          player?.name || socket.id
-        } left tournament view for room ${roomId}`,
-      );
       socket.leave(roomId);
-    } catch (e) {
-      console.log("leaveTournamentView error:", e.message);
-    }
+    } catch (e) {}
   });
 
   // Legacy reconnection handler for old format
   socket.on("reconnectToGameLegacy", async (reconnectData) => {
     try {
-      console.log(`  Legacy reconnection attempt from ${socket.id}:`, {
-        roomId: reconnectData?.roomId,
-        sessionToken: reconnectData?.sessionToken ? "present" : "missing",
-        userName: reconnectData?.playerName,
-      });
-
       if (!reconnectData || !reconnectData.roomId) {
         socket.emit("reconnectFailed", {
           message: "Neispravni podaci za reconnect",
@@ -2361,15 +2173,6 @@ io.on("connection", (socket) => {
     "reconnectToGame",
     async ({ playerId, roomId, sessionToken, playerName, userId }) => {
       try {
-        console.log(
-          `🔄 Simple reconnect attempt: ${playerId} -> Room ${roomId}`,
-          {
-            hasSessionToken: !!sessionToken,
-            playerName,
-            userId,
-          },
-        );
-
         if (!playerId || !roomId) {
           socket.emit("reconnectError", {
             message: "Nedostaju podaci za reconnect",
@@ -2379,7 +2182,6 @@ io.on("connection", (socket) => {
 
         // Skip server-side reconnection for AI games (client-side only)
         if (roomId === "local-ai" || roomId.startsWith("local-")) {
-          console.log(`🤖 Skipping server reconnect for AI game: ${roomId}`);
           return;
         }
 
@@ -2394,14 +2196,11 @@ io.on("connection", (socket) => {
               });
               return;
             }
-          } catch (err) {
-            console.log("Session validation failed:", err.message);
-          }
+          } catch (err) {}
         }
 
         const room = gameRooms.get(roomId);
         if (!room) {
-          console.log(`❌ Room ${roomId} not found`);
           socket.emit("reconnectError", { message: "Soba više ne postoji" });
           return;
         }
@@ -2429,9 +2228,7 @@ io.on("connection", (socket) => {
                 );
               }
             }
-          } catch (err) {
-            console.log("Session-based player lookup failed:", err.message);
-          }
+          } catch (err) {}
         }
 
         // Final fallback: try original playerId lookup AND userId/name matching
@@ -2455,32 +2252,15 @@ io.on("connection", (socket) => {
           );
 
           if (player) {
-            console.log(
-              `🔄 Found disconnected player ${player.name} for reconnection`,
-            );
           }
         }
 
         if (!player) {
-          console.log(`❌ Player ${playerId} not found in room ${roomId}`, {
-            requestedPlayerId: playerId,
-            requestedPlayerName: playerName,
-            requestedUserId: userId,
-            playersInRoom: room.players.map((p) => ({
-              id: p.id,
-              playerId: p.playerId,
-              name: p.name,
-              userId: p.userId,
-              playerNumber: p.playerNumber,
-              isConnected: p.isConnected,
-            })),
-          });
           socket.emit("reconnectError", { message: "Niste dio ove igre" });
           return;
         }
 
         if (player.permanentlyLeft) {
-          console.log(`❌ Player ${playerId} permanently left`);
           socket.emit("reconnectError", {
             message: "Napustili ste ovu igru i ne možete se vratiti",
           });
@@ -2500,13 +2280,7 @@ io.on("connection", (socket) => {
           const timeoutId = room.disconnectTimeouts.get(player.playerNumber);
           clearTimeout(timeoutId);
           room.disconnectTimeouts.delete(player.playerNumber);
-          console.log(
-            `⏰ Cleared disconnect timeout ${timeoutId} for player ${player.playerNumber} in room ${roomId}`,
-          );
         } else {
-          console.log(
-            `⚠️ No disconnect timeout found for player ${player.playerNumber} in room ${roomId}`,
-          );
         }
 
         // Update session mapping
@@ -2644,24 +2418,6 @@ io.on("connection", (socket) => {
           };
         }
 
-        console.log(
-          `[reconnectToGame] Sending gameStateReconnected to ${player.name}:`,
-          {
-            roomId: reconnectResponse.roomId,
-            playerNumber: reconnectResponse.playerNumber,
-            myHandCount:
-              reconnectResponse.gameState[`player${player.playerNumber}Hand`]
-                ?.length,
-            opponentHandCount:
-              reconnectResponse.gameState[
-                `player${player.playerNumber === 1 ? 2 : 1}Hand`
-              ]?.length,
-            playableCardsCount:
-              reconnectResponse.gameState.playableCards?.length,
-            gamePhase: reconnectResponse.gameState.gamePhase,
-          },
-        );
-
         socket.emit("gameStateReconnected", reconnectResponse);
 
         // Notify others
@@ -2670,10 +2426,6 @@ io.on("connection", (socket) => {
           playerName: player.name,
           message: `${player.name} se reconnected`,
         });
-
-        console.log(
-          `✅ ${player.name} successfully reconnected to room ${roomId}`,
-        );
       } catch (error) {
         console.error("Error in simple reconnect:", error);
         socket.emit("reconnectError", { message: "Greška pri reconnection" });
@@ -2684,10 +2436,6 @@ io.on("connection", (socket) => {
   // New resumeGame handler - send gameStart instead of gameStateReconnected
   socket.on("resumeGame", async ({ roomId, sessionToken }) => {
     try {
-      console.log(
-        `🔄 Resume game attempt: Room ${roomId}, Session ${sessionToken}`,
-      );
-
       if (!roomId || !sessionToken) {
         socket.emit("reconnectError", {
           message: "Nedostaju podaci za resume",
@@ -2697,7 +2445,6 @@ io.on("connection", (socket) => {
 
       // Skip server-side reconnection for AI games (client-side only)
       if (roomId === "local-ai" || roomId.startsWith("local-")) {
-        console.log(`🤖 Skipping server resume for AI game: ${roomId}`);
         return;
       }
 
@@ -2712,7 +2459,6 @@ io.on("connection", (socket) => {
 
       const room = gameRooms.get(roomId);
       if (!room) {
-        console.log(`❌ Room ${roomId} not found`);
         socket.emit("reconnectError", { message: "Soba više ne postoji" });
         return;
       }
@@ -2724,15 +2470,11 @@ io.on("connection", (socket) => {
           p.userId === userSession.user.userId,
       );
       if (!player) {
-        console.log(
-          `❌ Player ${userSession.user.name} not found in room ${roomId}`,
-        );
         socket.emit("reconnectError", { message: "Niste dio ove igre" });
         return;
       }
 
       if (player.permanentlyLeft) {
-        console.log(`❌ Player ${userSession.user.name} permanently left`);
         socket.emit("reconnectError", {
           message: "Napustili ste ovu igru i ne možete se vratiti",
         });
@@ -2751,9 +2493,6 @@ io.on("connection", (socket) => {
       ) {
         clearTimeout(room.disconnectTimeouts.get(player.playerNumber));
         room.disconnectTimeouts.delete(player.playerNumber);
-        console.log(
-          `⏰ Cleared disconnect timeout for player ${player.playerNumber}`,
-        );
       }
 
       // Update connected users
@@ -2847,19 +2586,6 @@ io.on("connection", (socket) => {
         isResume: true, // Flag to indicate this is a resume/reconnect, not a new game
       };
 
-      console.log(`[resumeGame] Sending gameStart to ${player.name}:`, {
-        roomId: resumePayload.roomId,
-        playerNumber: resumePayload.playerNumber,
-        myHandCount:
-          resumePayload.gameState[`player${player.playerNumber}Hand`]?.length,
-        opponentHandCount:
-          resumePayload.gameState[
-            `player${player.playerNumber === 1 ? 2 : 1}Hand`
-          ]?.length,
-        playableCardsCount: resumePayload.gameState.playableCards?.length,
-        gamePhase: resumePayload.gameState.gamePhase,
-      });
-
       // Send gameStart event so frontend creates state normally
       socket.emit("gameStart", resumePayload);
 
@@ -2870,10 +2596,6 @@ io.on("connection", (socket) => {
         message: `${player.name} se vratio u igru`,
         isConnected: true,
       });
-
-      console.log(
-        `✅ [resumeGame] ${player.name} (p${player.playerNumber}) successfully resumed game in room ${roomId}`,
-      );
     } catch (error) {
       console.error("Error in resumeGame:", error);
       socket.emit("reconnectError", { message: "Greška pri resume" });
@@ -2882,15 +2604,12 @@ io.on("connection", (socket) => {
 
   // Force logout handler for development/cleanup
   socket.on("forceLogout", async (data) => {
-    console.log(`🧹 Force logout requested from ${socket.id}`);
-
     const user = connectedUsers.get(socket.id);
 
     if (user && data.sessionToken) {
       // Invalidate session completely
       const removed = await sessionManager.invalidateSession(data.sessionToken);
       if (removed) {
-        console.log(`✅ Session ${data.sessionToken} forcefully removed`);
       }
 
       // Remove from game rooms if active
@@ -2919,28 +2638,21 @@ io.on("connection", (socket) => {
         success: true,
         message: "Sesija je potpuno obrisana",
       });
-
-      console.log(`🧹 Force logout completed for ${user.name}`);
     }
   });
 
   // Continue to next partija handler
   socket.on("continueNextPartija", async (data) => {
     const { roomId } = data;
-    console.log(
-      `🔄 Player ${socket.id} wants to continue next partija in room ${roomId}`,
-    );
 
     const room = gameRooms.get(roomId);
     if (!room) {
-      console.log(`❌ Room ${roomId} not found for partija continuation`);
       socket.emit("error", { message: "Soba ne postoji" });
       return;
     }
 
     const player = room.players.find((p) => p.id === socket.id);
     if (!player) {
-      console.log(`❌ Player ${socket.id} not found in room ${roomId}`);
       socket.emit("error", { message: "Niste u toj sobi" });
       return;
     }
@@ -2952,21 +2664,9 @@ io.on("connection", (socket) => {
 
     room.nextPartidaReady.add(player.playerNumber);
 
-    console.log(
-      `✅ Player ${
-        player.playerNumber
-      } marked as ready. Ready players: ${Array.from(
-        room.nextPartidaReady,
-      ).join(", ")}`,
-    );
-
     // Check if both players are ready
     const totalPlayers = room.gameMode === "1v1" ? 2 : 4;
     if (room.nextPartidaReady.size >= totalPlayers) {
-      console.log(
-        `🎮 All players ready, starting new partija for room ${roomId}...`,
-      );
-
       // Clear ready status
       room.nextPartidaReady.clear();
 
@@ -2975,7 +2675,6 @@ io.on("connection", (socket) => {
     } else {
       // Notify waiting for other players
       const waitingFor = totalPlayers - room.nextPartidaReady.size;
-      console.log(`⏳ Waiting for ${waitingFor} more players to be ready`);
 
       // Send different status to each player
       room.players.forEach((roomPlayer) => {
@@ -2990,10 +2689,6 @@ io.on("connection", (socket) => {
             waitingFor: waitingFor,
             isPlayerReady: isPlayerReady,
           });
-
-          console.log(
-            `📤 Sent status to player ${roomPlayer.playerNumber}: ready=${isPlayerReady}`,
-          );
         }
       });
     }
@@ -3001,13 +2696,8 @@ io.on("connection", (socket) => {
 
   // Handle rematch requests for 2v2 games
   socket.on("requestRematch", async (data) => {
-    console.log(
-      `🔄 Player ${socket.id} requested rematch in room ${data.gameId}`,
-    );
-
     const room = gameRooms.get(data.gameId);
     if (!room) {
-      console.log(`⚠️ Room ${data.gameId} not found for rematch`);
       socket.emit("error", { message: "Soba nije pronađena" });
       return;
     }
@@ -3015,7 +2705,6 @@ io.on("connection", (socket) => {
     // Find player in room
     const player = room.players.find((p) => p.id === socket.id);
     if (!player) {
-      console.log(`⚠️ Player ${socket.id} not found in room ${data.gameId}`);
       socket.emit("error", { message: "Niste u ovoj sobi" });
       return;
     }
@@ -3027,14 +2716,11 @@ io.on("connection", (socket) => {
 
     // Add player to rematch ready list
     room.rematchReady.add(player.playerNumber);
-    console.log(`✅ Player ${player.playerNumber} ready for rematch`);
 
     const totalPlayers = room.players.length;
 
     // Check if all players are ready for rematch
     if (room.rematchReady.size === totalPlayers) {
-      console.log("🎯 All players ready for rematch, starting new game...");
-
       // Store team assignments from current game
       const teamAssignments = {};
       room.players.forEach((p) => {
@@ -3062,9 +2748,6 @@ io.on("connection", (socket) => {
             gameState: room.gameState,
             myTeam: teamAssignments[roomPlayer.playerNumber],
           });
-          console.log(
-            `📤 Sent rematch accepted to player ${roomPlayer.playerNumber}`,
-          );
         }
       });
 
@@ -3073,7 +2756,6 @@ io.on("connection", (socket) => {
     } else {
       // Notify about rematch status
       const waitingFor = totalPlayers - room.rematchReady.size;
-      console.log(`⏳ Waiting for ${waitingFor} more players for rematch`);
 
       room.players.forEach((roomPlayer) => {
         const playerSocket = io.sockets.sockets.get(roomPlayer.id);
@@ -3085,10 +2767,6 @@ io.on("connection", (socket) => {
             waitingFor: waitingFor,
             isPlayerReady: isPlayerReady,
           });
-
-          console.log(
-            `📤 Sent rematch status to player ${roomPlayer.playerNumber}: ready=${isPlayerReady}`,
-          );
         }
       });
     }
@@ -3097,23 +2775,19 @@ io.on("connection", (socket) => {
   // Handle rematch decline (1v1 and 2v2) - accepts roomId or gameId
   socket.on("declineRematch", async (data = {}) => {
     const roomId = data.roomId || data.gameId; // support both payload shapes
-    console.log(`❌ Player ${socket.id} declined rematch in room ${roomId}`);
 
     if (!roomId) {
-      console.log(`⚠️ declineRematch missing roomId/gameId in payload`);
       return;
     }
 
     const room = gameRooms.get(roomId);
     if (!room) {
-      console.log(`⚠️ Room ${roomId} not found for decline`);
       return;
     }
 
     // Find player in room
     const player = room.players.find((p) => p.id === socket.id);
     if (!player) {
-      console.log(`⚠️ Player ${socket.id} not found in room ${roomId}`);
       return;
     }
 
@@ -3129,9 +2803,6 @@ io.on("connection", (socket) => {
         playerSocket.emit("rematchDeclined", {
           declinedBy: player.playerNumber,
         });
-        console.log(
-          `📤 Sent rematch declined to player ${roomPlayer.playerNumber}`,
-        );
       }
     });
   });
@@ -3269,37 +2940,25 @@ io.on("connection", (socket) => {
     const user = connectedUsers.get(socket.id);
 
     if (!user) {
-      console.log("❌ Forfeit failed - user not authenticated");
       return;
     }
 
-    console.log(
-      `🏳️ Player ${user.name} forfeiting match in room ${roomId}, reason: ${reason}`,
-    );
-
     const room = gameRooms.get(roomId);
     if (!room) {
-      console.log(`❌ Forfeit failed - room ${roomId} not found`);
       return;
     }
 
     // Find the forfeiting player
     const forfeitingPlayer = room.players.find((p) => p.id === socket.id);
     if (!forfeitingPlayer) {
-      console.log(`❌ Forfeit failed - player not found in room ${roomId}`);
       return;
     }
 
     // Determine the winner (the other player)
     const winnerPlayer = room.players.find((p) => p.id !== socket.id);
     if (!winnerPlayer) {
-      console.log(`❌ Forfeit failed - winner not found in room ${roomId}`);
       return;
     }
-
-    console.log(
-      `🏆 ${winnerPlayer.name} wins by forfeit from ${forfeitingPlayer.name}`,
-    );
 
     // Set the game to finished with winner getting full points
     const isBreakula = room.gameState?.gameType === "briskula";
@@ -3335,10 +2994,6 @@ io.on("connection", (socket) => {
       message: `${forfeitingPlayer.name} je predao meč. ${winnerPlayer.name} pobjeđuje!`,
     };
 
-    console.log(
-      `🎯 Game finished - ${winnerPlayer.name} gets ${winnerPoints} points by forfeit`,
-    );
-
     // For tournament matches, report the result immediately
     if (
       room.gameState?.isTournamentMatch &&
@@ -3351,9 +3006,6 @@ io.on("connection", (socket) => {
           room.gameState.tournamentId,
           room.gameState.matchId,
           winnerPlayer.name || winnerPlayer.userId,
-        );
-        console.log(
-          `📊 Tournament result reported: ${winnerPlayer.name} wins match ${room.gameState.matchId}`,
         );
       } catch (error) {
         console.error("❌ Failed to report tournament forfeit result:", error);
@@ -3383,8 +3035,6 @@ io.on("connection", (socket) => {
         removePlayerSession(playerId);
       }
     }
-
-    console.log(`🧹 Room ${roomId} cleaned up after forfeit`);
   });
 
   socket.on("getTournamentLeaderboard", async () => {
@@ -3413,7 +3063,6 @@ io.on("connection", (socket) => {
       return;
     }
 
-    console.log(`🎮 ${user.name} ready for tournament match: ${matchId}`);
     const tournament = await tournamentManager.getTournament(tournamentId);
     if (!tournament) {
       socket.emit("tournamentError", { message: "Tournament not found" });
@@ -3479,10 +3128,6 @@ io.on("connection", (socket) => {
         required: 2,
         youAreReady: true,
       });
-
-      console.log(
-        `🎮 ${user.name} ready for tournament match: ${matchId} (${readySet.size}/2)`,
-      );
 
       // If both ready, start the match
       // Check if both players are ready by looking for any user that matches each player slot
@@ -3563,14 +3208,6 @@ io.on("connection", (socket) => {
           createdAt: new Date(),
           status: "playing",
         };
-
-        console.log(
-          `🎮 Tournament room players:`,
-          room.players.map((p) => ({
-            name: p.name,
-            playerNumber: p.playerNumber,
-          })),
-        );
 
         // Initialize game state
         let gameLogic;
@@ -3716,40 +3353,10 @@ io.on("connection", (socket) => {
         };
 
         // Debug logovi za karte
-        console.log("🃏 [Tournament] Player 1 hand:", p1Hand);
-        console.log("🃏 [Tournament] Player 2 hand:", p2Hand);
-        console.log("🃏 [Tournament] p1Payload sent:", {
-          playerNumber: p1Payload.playerNumber,
-          myHand: p1Payload.gameState.player1Hand,
-          opponentHand: p1Payload.gameState.player2Hand,
-        });
-        console.log("🃏 [Tournament] p2Payload sent:", {
-          playerNumber: p2Payload.playerNumber,
-          myHand: p2Payload.gameState.player2Hand,
-          opponentHand: p2Payload.gameState.player1Hand,
-        });
 
         // Emit standard gameStart event so client uses same init path
-        console.log(`📤 Sending gameStart to player 1 (${player1User.name}):`, {
-          playerNumber: p1Payload.playerNumber,
-          opponent: p1Payload.opponent,
-          gameType: p1Payload.gameType,
-          roomPlayers: room.players.map((p) => ({
-            name: p.name,
-            playerNumber: p.playerNumber,
-          })),
-        });
         p1Sock?.emit("gameStart", p1Payload);
 
-        console.log(`📤 Sending gameStart to player 2 (${player2User.name}):`, {
-          playerNumber: p2Payload.playerNumber,
-          opponent: p2Payload.opponent,
-          gameType: p2Payload.gameType,
-          roomPlayers: room.players.map((p) => ({
-            name: p.name,
-            playerNumber: p.playerNumber,
-          })),
-        });
         p2Sock?.emit("gameStart", p2Payload);
 
         await gameStateManager.saveGameState(roomId, room);
@@ -3831,10 +3438,6 @@ io.on("connection", (socket) => {
         user.status = "spectating"; // Different from "in-game"
       }
 
-      console.log(
-        `👁️ Spectator ${socket.id} joined room ${targetMatch.gameRoomId} (${room.spectators.length} spectators)`,
-      );
-
       // Koristi getPublicGameState helper za spectatore
       const publicState = getPublicGameState(room.gameState);
 
@@ -3883,10 +3486,6 @@ io.on("connection", (socket) => {
         room.spectators.push(socket.id);
       }
 
-      console.log(
-        `👁️ Spectator ${socket.id} joined room ${roomId} (${room.spectators.length} spectators)`,
-      );
-
       // Send spectator gameStart event instead of spectatorJoined
       socket.emit("gameStart", {
         roomId,
@@ -3918,8 +3517,6 @@ io.on("connection", (socket) => {
   // Join as spectator handler
   socket.on("joinAsSpectator", ({ roomId }) => {
     try {
-      console.log(`👁️ ${user?.name} wants to spectate room ${roomId}`);
-
       if (!roomId) {
         socket.emit("spectatorError", { message: "Room ID required" });
         return;
@@ -3982,8 +3579,6 @@ io.on("connection", (socket) => {
       };
 
       socket.emit("spectatorStart", spectatorPayload);
-
-      console.log(`✅ ${user?.name} joined as spectator in room ${roomId}`);
     } catch (error) {
       console.error("Error in joinAsSpectator:", error);
       socket.emit("spectatorError", { message: "Failed to join as spectator" });
@@ -3992,13 +3587,10 @@ io.on("connection", (socket) => {
 
   // Handle disconnect
   socket.on("disconnect", async (reason) => {
-    console.log(`❌ Korisnik ${socket.id} se odspojio: ${reason}`);
-
     // Remove from spectator lists first
     gameRooms.forEach((room, roomId) => {
       if (room.spectators && room.spectators.includes(socket.id)) {
         room.spectators = room.spectators.filter((id) => id !== socket.id);
-        console.log(`👁️ Removed spectator ${socket.id} from room ${roomId}`);
       }
     });
 
@@ -4022,7 +3614,6 @@ io.on("connection", (socket) => {
         try {
           if (typeof sessionManager.setDisconnected === "function") {
             await sessionManager.setDisconnected(user.sessionToken);
-            console.log(`💤 Session marked as disconnected: ${user.name}`);
           } else {
             // Fallback: try to validate and set inactive on returned object (in-memory)
             const validation = await sessionManager.validateSession(
@@ -4031,12 +3622,9 @@ io.on("connection", (socket) => {
             if (validation?.valid && validation.session) {
               validation.session.isActive = false;
               validation.session.disconnectedAt = new Date();
-              console.log(`💤 Session marked as disconnected: ${user.name}`);
             }
           }
-        } catch (e) {
-          console.log("Session disconnect mark failed:", e.message);
-        }
+        } catch (e) {}
       }
 
       // Handle game room disconnection
@@ -4095,12 +3683,8 @@ const handleTournamentGameFinished = async (data) => {
   } finally {
     // Only delete room if this is truly the end of the match, not just a partija
     if (isFinalGameOver || isTresetaMatchComplete) {
-      console.log(`🗑️ Tournament match completed, deleting room ${roomId}`);
       gameRooms.delete(roomId);
     } else {
-      console.log(
-        `🎮 Tournament match partija completed, keeping room ${roomId} for next partija`,
-      );
     }
   }
 };
@@ -4267,10 +3851,6 @@ async function createGameRoom1v1(player1, player2, gameType = "briskula") {
         playableCards: player2PlayableCards,
       },
     });
-
-    console.log(
-      `Nova 1v1 igra stvorena: ${player1.name} vs ${player2.name} (Room: ${roomId})`,
-    );
   }
 }
 
@@ -4298,10 +3878,6 @@ async function createGameRoom2v2(players, gameType = "briskula") {
     players: players.map((player, index) => {
       const playerNumber = index + 1;
       const team = playerNumber === 1 || playerNumber === 3 ? 1 : 2; // 1&3=tim1, 2&4=tim2
-
-      console.log(
-        `🎮 Player ${playerNumber} (${player.name}) assigned to team ${team}`,
-      );
 
       return {
         ...player,
@@ -4387,21 +3963,6 @@ async function createGameRoom2v2(players, gameType = "briskula") {
       team: p.team,
     })),
   });
-
-  console.log(
-    `Nova 2v2 igra stvorena: ${players
-      .map((p) => p.name)
-      .join(", ")} (Room: ${roomId})`,
-  );
-  console.log(
-    `Timovi: Tim 1 (${gameRoom.players
-      .filter((p) => p.team === 1)
-      .map((p) => p.name)
-      .join(", ")}) vs Tim 2 (${gameRoom.players
-      .filter((p) => p.team === 2)
-      .map((p) => p.name)
-      .join(", ")})`,
-  );
 }
 
 /**
@@ -4444,7 +4005,6 @@ async function processCardPlay1v1(roomId, playerId, card) {
     );
 
     if (!moveValidation.isValid) {
-      console.log(`❌ Nevaljan potez: ${moveValidation.reason}`);
       const playerSocket = io.sockets.sockets.get(playerId);
       if (playerSocket) {
         playerSocket.emit("invalidMove", {
@@ -4514,14 +4074,6 @@ async function processCardPlay1v1(roomId, playerId, card) {
         playedCardsOnly,
       );
 
-      console.log(`🎮 Trešeta playableCards mid-round update:`, {
-        player1PlayableCards: player1PlayableCards.length,
-        player2PlayableCards: player2PlayableCards.length,
-        playedCards: room.gameState.playedCards.length,
-        nextPlayer: room.gameState.currentPlayer,
-        leadSuit: playedCardsOnly[0]?.suit,
-      });
-
       const player1Socket = io.sockets.sockets.get(
         room.players.find((p) => p.playerNumber === 1)?.id,
       );
@@ -4576,7 +4128,6 @@ async function processCardPlay2v2(roomId, playerId, card) {
     const validation = isValidMove(card, playerHand, playedCardsOnly);
 
     if (!validation.isValid) {
-      console.log(`❌ Invalid move: ${validation.reason}`);
       const playerSocket = io.sockets.sockets.get(playerId);
       if (playerSocket) {
         playerSocket.emit("invalidMove", { reason: validation.reason });
@@ -4686,14 +4237,6 @@ async function finishRound1v1(roomId) {
   const card1 = cardA.card; // Karta koju je igrao firstPlayer
   const card2 = cardB.card; // Karta koju je igrao drugi igrač
 
-  console.log(`🎯 Pozivam determineRoundWinner za ${room.gameType}:`, {
-    card1: `${card1.name} ${card1.suit}`,
-    card2: `${card2.name} ${card2.suit}`,
-    firstPlayer: firstPlayer,
-    secondPlayer: cardB.playerNumber,
-    explanation: `Igrač ${firstPlayer} je igrao prvi (${card1.name} ${card1.suit})`,
-  });
-
   let roundWinner;
   if (room.gameType === "treseta") {
     // Trešeta nema trump suit
@@ -4795,13 +4338,6 @@ async function finishRound1v1(roomId) {
     }
 
     // For 1v1 Treseta with long-term scoring
-    console.log(`🔍 Checking long-term scoring conditions:`, {
-      gameMode: room.gameMode,
-      totalPlayer1Points: room.gameState.totalPlayer1Points,
-      isPartidaFinished,
-      condition1: room.gameMode === "1v1",
-      condition2: room.gameState.totalPlayer1Points !== undefined,
-    });
 
     if (
       room.gameMode === "1v1" &&
@@ -4853,9 +4389,6 @@ async function finishRound1v1(roomId) {
             winner: null,
             reason: `Partija ${room.gameState.currentPartija} finished: ${player1PartidaPoints} - ${player2PartidaPoints}`,
           };
-          console.log(
-            `🏆 Partija ${room.gameState.currentPartija} finished. Total scores: ${room.gameState.totalPlayer1Points} - ${room.gameState.totalPlayer2Points}. Will start new partija.`,
-          );
         }
       } else {
         // Round finished but partija continues
@@ -4897,12 +4430,6 @@ async function finishRound1v1(roomId) {
     if (gameEnd.isGameOver) {
       const p1 = room.players.find((p) => p.playerNumber === 1);
       const p2 = room.players.find((p) => p.playerNumber === 2);
-      console.log(`🏁 GAME END DEBUG:`, {
-        player1: { name: p1?.name, points: player1Points, playerNumber: 1 },
-        player2: { name: p2?.name, points: player2Points, playerNumber: 2 },
-        gameEndWinner: gameEnd.winner,
-        gameEndReason: gameEnd.reason,
-      });
     }
   }
 
@@ -4939,16 +4466,9 @@ async function finishRound1v1(roomId) {
       });
 
       // === ELO UPDATE FOR 1v1 GAMES ===
-      console.log(`📊 Checking ELO update for 1v1 game:`, {
-        gameMode: room.gameMode,
-        playersCount: room.players.length,
-        gameType: room.gameType,
-        winner: gameEnd.winner,
-      });
 
       if (room.gameMode === "1v1" && room.players.length === 2) {
         if (gameEnd.winner == null) {
-          console.log("📊 ELO update skipped - draw");
         } else {
           const winner = room.players.find(
             (p) => p.playerNumber === gameEnd.winner,
@@ -4957,34 +4477,12 @@ async function finishRound1v1(roomId) {
             (p) => p.playerNumber !== gameEnd.winner,
           );
 
-          console.log(`📊 ELO players found:`, {
-            winner: winner
-              ? {
-                  name: winner.name,
-                  isAI: winner.isAI,
-                  isGuest: winner.isGuest,
-                  userId: winner.userId,
-                }
-              : null,
-            loser: loser
-              ? {
-                  name: loser.name,
-                  isAI: loser.isAI,
-                  isGuest: loser.isGuest,
-                  userId: loser.userId,
-                }
-              : null,
-          });
-
           if (winner && loser && !winner.isAI && !loser.isAI) {
             // Skip if BOTH players are guests (no persistent stats)
             const winnerIsGuest = winner.isGuest === true;
             const loserIsGuest = loser.isGuest === true;
 
-            console.log(`📊 ELO guest check:`, { winnerIsGuest, loserIsGuest });
-
             if (!winnerIsGuest || !loserIsGuest) {
-              console.log(`📊 Processing ELO for ${room.gameType} game...`);
               eloService
                 .processGameResult1v1(
                   { userId: winner.userId, userName: winner.name },
@@ -5013,7 +4511,6 @@ async function finishRound1v1(roomId) {
                         newElo: eloResult.loserNewElo,
                       },
                     });
-                    console.log(`📊 ELO sent to room ${roomId}`);
                   }
                 })
                 .catch((err) => {
@@ -5031,10 +4528,6 @@ async function finishRound1v1(roomId) {
       room.gameState.gamePhase = "partidaFinished";
       room.gameState.winner = gameEnd.partidaWinner;
 
-      console.log(
-        `🏆 Partija finished for room ${room.id}. Total scores: ${gameEnd.newTotalPlayer1Points} - ${gameEnd.newTotalPlayer2Points}. Preparing new partija...`,
-      );
-
       // Ne označavaj kao finished - serija nastavlja!
     } else {
       // Standardna pobjeda za ostale tipove igara
@@ -5049,9 +4542,6 @@ async function finishRound1v1(roomId) {
     // For Treseta 1v1: partija finished but match continues
     room.gameState.gamePhase = "partidaFinished";
     // DON'T mark as finished - match continues!
-    console.log(
-      `🏆 Partija finished for room ${room.id}. Waiting for players to continue...`,
-    );
   }
 
   // Save game state asynchronously
@@ -5099,14 +4589,6 @@ async function finishRound1v1(roomId) {
       playedCardsOnly,
     );
 
-    console.log(`🎮 Trešeta playableCards update after round:`, {
-      player1PlayableCards: player1PlayableCards.length,
-      player2PlayableCards: player2PlayableCards.length,
-      playedCards: room.gameState.playedCards.length,
-      player1HandSize: room.gameState.player1Hand.length,
-      player2HandSize: room.gameState.player2Hand.length,
-    });
-
     roundFinishedData.player1PlayableCards = player1PlayableCards;
     roundFinishedData.player2PlayableCards = player2PlayableCards;
   }
@@ -5116,12 +4598,6 @@ async function finishRound1v1(roomId) {
 
   // Check if this is a tournament match that just finished
   if (gameEnd.isGameOver && room.gameState.isTournamentMatch) {
-    console.log(`🏆 Tournament match finished in room ${roomId}`, {
-      tournamentId: room.gameState.tournamentId,
-      matchId: room.gameState.matchId,
-      winner: gameEnd.winner,
-    });
-
     // Automatically report tournament result
     setTimeout(() => {
       // Emit tournament game finished event to trigger bracket update
@@ -5146,7 +4622,6 @@ async function finishRound1v1(roomId) {
   ) {
     setTimeout(() => {
       gameRooms.delete(roomId);
-      console.log(`Soba obrisana: ${roomId}`);
     }, 30000);
   }
 }
@@ -5181,14 +4656,6 @@ async function finishRound2v2(roomId) {
   // Tko je počeo ovu rundu
   const firstPlayerInRound = room.gameState.roundStartPlayer;
 
-  console.log(`🎯 Round analysis: First player was ${firstPlayerInRound}`);
-  console.log(
-    `🎯 Cards played in order:`,
-    room.gameState.playedCards.map(
-      (pc) => `P${pc.playerNumber}: ${pc.card.name} ${pc.card.suit}`,
-    ),
-  );
-
   const roundWinner = determineRoundWinner2v2(
     room.gameState.playedCards,
     firstPlayerInRound,
@@ -5197,8 +4664,6 @@ async function finishRound2v2(roomId) {
 
   const winningTeam = getPlayerTeam(roundWinner);
   const roundCards = room.gameState.playedCards.map((pc) => pc.card);
-
-  console.log(`🏆 Round winner: Player ${roundWinner} (Team ${winningTeam})`);
 
   // Add cards to winning team
   if (winningTeam === 1) {
@@ -5216,8 +4681,6 @@ async function finishRound2v2(roomId) {
       drawOrder.push(nextPlayer);
       nextPlayer = nextPlayer === 4 ? 1 : nextPlayer + 1;
     }
-
-    console.log(`🃏 Draw order: ${drawOrder.join(" → ")}`);
 
     drawOrder.forEach((playerNum, index) => {
       room.gameState[`player${playerNum}Hand`].push(
@@ -5271,9 +4734,6 @@ async function finishRound2v2(roomId) {
   let team2TotalPoints = team2Points.points;
 
   // DON'T add akuze points here - they are added only at the end of partija
-  console.log(
-    `📊 Current score: Team 1: ${team1TotalPoints}, Team 2: ${team2TotalPoints} (prije akuža)`,
-  );
 
   let gameEnd;
   if (room.gameType === "treseta") {
@@ -5335,12 +4795,6 @@ async function finishRound2v2(roomId) {
       });
 
       // === ELO UPDATE FOR 2v2 GAMES ===
-      console.log(`📊 Checking ELO update for 2v2 game:`, {
-        gameMode: room.gameMode,
-        playersCount: room.players.length,
-        gameType: room.gameType,
-        winner: gameEnd.winner,
-      });
 
       if (room.gameMode === "2v2" && room.players.length === 4) {
         const winningTeamNumber = gameEnd.winner; // 1 or 2
@@ -5398,7 +4852,6 @@ async function finishRound2v2(roomId) {
                   };
                 });
                 io.to(roomId).emit("eloUpdate", eloUpdates);
-                console.log(`📊 2v2 ELO sent to room ${roomId}`);
               }
             })
             .catch((err) => {
@@ -5414,10 +4867,6 @@ async function finishRound2v2(roomId) {
       room.gameState.gamePhase = "partidaFinished";
       room.gameState.winner = gameEnd.partidaWinner;
 
-      console.log(
-        `🏆 Partija finished for room ${room.id}. Total scores: ${gameEnd.newTotalTeam1Points} - ${gameEnd.newTotalTeam2Points}. Preparing new partija...`,
-      );
-
       // Ne označavaj kao finished - serija nastavlja!
     } else {
       // Standardna pobjeda za ostale tipove igara
@@ -5428,12 +4877,6 @@ async function finishRound2v2(roomId) {
         console.error("Error marking game as finished:", err);
       });
     }
-
-    console.log(
-      `🎮 Game Over! Winner: ${
-        gameEnd.winner ? `Team ${gameEnd.winner}` : "Draw"
-      } (${gameEnd.reason})`,
-    );
   }
 
   const roundFinishedData = {
@@ -5501,7 +4944,6 @@ async function finishRound2v2(roomId) {
   ) {
     setTimeout(() => {
       gameRooms.delete(roomId);
-      console.log(`2v2 Soba obrisana: ${roomId}`);
     }, 30000);
   }
 }
@@ -5515,9 +4957,43 @@ async function handlePlayerDisconnectWithReconnect(socketId, force = false) {
     // Provjeri je li pravi igrač
     const disconnectedPlayer = room.players.find((p) => p.id === socketId);
     if (disconnectedPlayer) {
-      console.log(
-        `🚪 Igrač ${disconnectedPlayer.name} (${disconnectedPlayer.playerNumber}) se odspojio iz ${room.gameMode} igre`,
-      );
+      // Custom waiting rooms should not keep ghost players with reconnect timeout.
+      // If someone disconnects before game start, remove that player immediately.
+      if (room.isCustom && room.status !== "playing") {
+        const leavingIndex = room.players.findIndex((p) => p.id === socketId);
+        if (leavingIndex !== -1) {
+          const leavingPlayer = room.players[leavingIndex];
+          room.players.splice(leavingIndex, 1);
+
+          if (room.players.length === 0) {
+            if (room.roomCode) {
+              unregisterRoomCode(room.roomCode);
+            }
+            gameRooms.delete(roomId);
+          } else {
+            room.players.forEach((player, index) => {
+              player.playerNumber = index + 1;
+              if (room.gameMode === "2v2") {
+                player.team = Math.ceil(player.playerNumber / 2);
+              }
+            });
+
+            if (room.creator === leavingPlayer.name) {
+              room.creator = room.players[0].name;
+            }
+
+            room.status = "waiting";
+
+            io.to(roomId).emit("playerLeft", {
+              playerName: leavingPlayer.name,
+              gameData: room,
+            });
+          }
+
+          broadcastGameList();
+        }
+        break;
+      }
 
       // Mark player as disconnected but keep them in the room for potential reconnect
       disconnectedPlayer.isConnected = false;
@@ -5559,24 +5035,7 @@ async function handlePlayerDisconnectWithReconnect(socketId, force = false) {
               !p.isConnected,
           );
 
-          console.log(
-            `⏰ Timeout fired for room ${roomId}, player ${disconnectedPlayer.playerNumber}`,
-          );
-          console.log(
-            `📊 Current room players:`,
-            currentRoom.players.map((p) => ({
-              playerNumber: p.playerNumber,
-              name: p.name,
-              isConnected: p.isConnected,
-              socketId: p.id,
-            })),
-          );
-
           if (stillDisconnected) {
-            console.log(
-              `🗑️ Player ${disconnectedPlayer.playerNumber} still disconnected, deleting room ${roomId}`,
-            );
-
             // Mark player as permanently left
             stillDisconnected.permanentlyLeft = true;
             stillDisconnected.forfeited = true;
@@ -5597,15 +5056,10 @@ async function handlePlayerDisconnectWithReconnect(socketId, force = false) {
                 message: "Igra je završena zbog dugotrajnog disconnection",
                 reason: "timeout",
               });
-              console.log(`🗑️ Soba ${roomId} obrisana nakon timeout (60s)`);
             }, 500);
           } else {
-            console.log(
-              `✅ Player ${disconnectedPlayer.playerNumber} reconnected, keeping room ${roomId}`,
-            );
           }
         } else {
-          console.log(`⏰ Timeout fired but room ${roomId} no longer exists`);
         }
       }, 60000); // 60 seconds timeout
 
@@ -5614,22 +5068,14 @@ async function handlePlayerDisconnectWithReconnect(socketId, force = false) {
         room.disconnectTimeouts = new Map();
       }
       room.disconnectTimeouts.set(disconnectedPlayer.playerNumber, timeoutId);
-      console.log(
-        `⏰ Set disconnect timeout ${timeoutId} for player ${disconnectedPlayer.playerNumber} in room ${roomId}`,
-      );
 
       break;
     }
     // --- NOVO: Provjeri je li spectator ---
     else if (room.spectators && room.spectators.includes(socketId)) {
-      console.log(`👁️ Spectator ${socketId} left room ${roomId}`);
-
       // Samo ukloni iz spectators liste - NE prekidaj igru
       room.spectators = room.spectators.filter((id) => id !== socketId);
 
-      console.log(
-        `👁️ Remaining spectators in room ${roomId}: ${room.spectators.length}`,
-      );
       break;
     }
   }
@@ -5643,10 +5089,6 @@ function handlePlayerDisconnect(socketId) {
   for (const [roomId, room] of gameRooms.entries()) {
     const disconnectedPlayer = room.players.find((p) => p.id === socketId);
     if (disconnectedPlayer) {
-      console.log(
-        `🚪 Igrač ${disconnectedPlayer.name} (${disconnectedPlayer.playerNumber}) se odspojio iz ${room.gameMode} igre`,
-      );
-
       let message;
       if (room.gameMode === "2v2") {
         // Za 2v2 igre, prikaži tim informacije
@@ -5669,7 +5111,6 @@ function handlePlayerDisconnect(socketId) {
       setTimeout(() => {
         if (gameRooms.has(roomId)) {
           gameRooms.delete(roomId);
-          console.log(`🗑️ Soba ${roomId} obrisana nakon disconnection`);
         }
       }, 5000);
 
@@ -5702,10 +5143,6 @@ function broadcastGameList() {
 async function startCustomGame(roomId) {
   const room = gameRooms.get(roomId);
   if (!room) return;
-
-  console.log(
-    `🎯 Starting custom ${room.gameMode} ${room.gameType} game: ${room.name}`,
-  );
 
   room.status = "playing";
   room.gameState.gamePhase = "playing";
@@ -5859,16 +5296,8 @@ async function startCustomGame(roomId) {
     }
   });
 
-  console.log(`📤 Sent individual gameStart events with playableCards:`, {
-    roomId: roomId,
-    player1PlayableCards: player1PlayableCards.length,
-    player2PlayableCards: player2PlayableCards.length,
-  });
-
   // Remove from game list since it's now playing
   broadcastGameList();
-
-  console.log(`✅ Custom game started: ${room.name}`);
 }
 
 // Function to automatically start new partija in Treseta 1v1 games
@@ -5878,19 +5307,8 @@ async function startNewPartija(room) {
     room.gameType !== "treseta" ||
     (room.gameMode !== "1v1" && room.gameMode !== "2v2")
   ) {
-    console.log(`❌ Cannot start new partija - invalid room or game type:`, {
-      hasRoom: !!room,
-      gameType: room?.gameType,
-      gameMode: room?.gameMode,
-    });
     return;
   }
-
-  console.log(
-    `🔄 Starting new partija ${room.gameState.currentPartija + 1} in room ${
-      room.id
-    } (${room.gameMode})`,
-  );
 
   try {
     // Import game logic
@@ -5944,14 +5362,9 @@ async function startNewPartija(room) {
     room.gameState.version = Date.now();
     room.gameState.lastMove = new Date();
 
-    console.log(
-      `📦 New partija ${room.gameState.currentPartija} prepared. Dealing cards...`,
-    );
-
     // Save state
     try {
       await gameStateManager.saveGameState(room.id, room);
-      console.log(`💾 Game state saved for new partija`);
     } catch (err) {
       console.error("Error saving new partija state:", err);
     }
@@ -6009,25 +5422,14 @@ async function startNewPartija(room) {
       };
     }
 
-    console.log(
-      `📤 Sending partidaRestarted event to ${room.players.length} players`,
-    );
-
     // Send partidaRestarted event to all players in room
     room.players.forEach((player, index) => {
       if (player.isConnected) {
-        console.log(
-          `📤 Sending to player ${index + 1}: ${player.name} (${player.id})`,
-        );
         io.to(player.id).emit("partidaRestarted", partidaData);
       } else {
-        console.log(`⚠️ Player ${index + 1}: ${player.name} is not connected`);
       }
     });
 
-    console.log(
-      `✅ New partija ${room.gameState.currentPartija} started in room ${room.id}`,
-    );
     // Notify spectators of the new partija (public info only)
     broadcastSpectatorUpdate(room);
   } catch (error) {
@@ -6036,7 +5438,4 @@ async function startNewPartija(room) {
 }
 
 const PORT = process.env.PORT || 3002;
-server.listen(PORT, () => {
-  console.log(`🎮 Briskula server (1v1 + 2v2) pokrenut na portu ${PORT}`);
-  console.log(`📊 Status endpoint: http://localhost:${PORT}/api/status`);
-});
+server.listen(PORT, () => {});

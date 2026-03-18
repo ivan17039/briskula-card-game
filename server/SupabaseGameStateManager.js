@@ -25,7 +25,6 @@ class SupabaseGameStateManager {
     try {
       // Tables should be created manually via Supabase SQL Editor
       // using the provided supabase-setup.sql script
-      console.log("✅ Supabase tables ready");
     } catch (error) {
       console.error("Error initializing Supabase tables:", error);
     }
@@ -72,7 +71,6 @@ class SupabaseGameStateManager {
         return false;
       }
 
-      console.log(`💾 Game state saved to Supabase: ${roomId}`);
       return true;
     } catch (error) {
       console.error(
@@ -131,7 +129,6 @@ class SupabaseGameStateManager {
       }
 
       if (data) {
-        console.log(`📖 Game state loaded from Supabase: ${roomId}`);
         return this.convertFromSupabaseFormat(data);
       }
 
@@ -163,7 +160,6 @@ class SupabaseGameStateManager {
         return false;
       }
 
-      console.log(`🗑️ Game state deleted from Supabase: ${roomId}`);
       return true;
     } catch (error) {
       console.error(
@@ -192,7 +188,6 @@ class SupabaseGameStateManager {
       const expiresAt = new Date(data.expires_at);
 
       if (now > expiresAt) {
-        console.log(`⏰ Game ${roomId} has expired, deleting...`);
         await this.deleteGameState(roomId);
         return false;
       }
@@ -292,11 +287,6 @@ class SupabaseGameStateManager {
       }),
     };
 
-    console.log(
-      `🔄 Game restored from Supabase: ${roomId} with ${
-        restoredGame.players.filter((p) => p.isConnected).length
-      } connected players`
-    );
     return restoredGame;
   }
 
@@ -346,7 +336,6 @@ class SupabaseGameStateManager {
         return false;
       }
 
-      console.log(`🏁 Game marked as finished: ${roomId} (expires in 1 hour)`);
       return true;
     } catch (error) {
       console.error(`Error marking game as finished for ${roomId}:`, error);
@@ -416,7 +405,6 @@ class SupabaseGameStateManager {
         return false;
       }
 
-      console.log(`🔄 Finished status removed for ${roomId} - game continues`);
       return true;
     } catch (error) {
       console.error(`Error removing finished status for ${roomId}:`, error);
@@ -439,9 +427,6 @@ class SupabaseGameStateManager {
 
         // Log current stats
         const stats = await this.getStats();
-        console.log(
-          `📊 Supabase Games: ${stats.activeGames} active, ${stats.totalGames} total`
-        );
       } catch (error) {
         console.error("Error in auto-save:", error);
       }
@@ -463,7 +448,6 @@ class SupabaseGameStateManager {
         return { success: false, error: error.message };
       }
 
-      console.log(`🗑️ Deleted all game states from Supabase. Count: ${count}`);
       return { success: true, deletedCount: count };
     } catch (error) {
       console.error("Error deleting all game states from Supabase:", error);
