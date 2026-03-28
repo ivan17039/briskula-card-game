@@ -87,7 +87,6 @@ function AppContent() {
       const savedGameType = localStorage.getItem("gameType");
       const savedGameMode = localStorage.getItem("gameMode");
 
-
       // Priority: savedGameState > localStorage for gameMode
       let finalGameMode = savedGameState?.gameMode || savedGameMode;
       let finalGameType = savedGameState?.gameType || savedGameType;
@@ -245,6 +244,7 @@ function AppContent() {
       setGameData({
         gameType: gameType,
         gameMode: "1vAI",
+        aiDifficulty: "hard",
         akuzeEnabled: modeData.akuzeEnabled,
         opponent: { name: "AI Bot", isAI: true },
         gameState: {},
@@ -468,6 +468,7 @@ function AppContent() {
                   gameMode: "1vAI",
                   opponent: { name: "AI Bot", isAI: true },
                   gameType: gameType, // preuzima odabran tip (briskula/treseta)
+                  aiDifficulty: "hard",
                   gameState: {}, // Game.jsx sam generira špil
                   // Include akuze setting from modeData
                   ...(modeData.akuzeEnabled !== undefined && {

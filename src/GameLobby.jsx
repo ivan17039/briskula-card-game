@@ -209,6 +209,13 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
       return;
     }
 
+    const isUserInGame =
+      game.creator === user?.name || game.playerNames?.includes(user?.name);
+    if (isUserInGame) {
+      setError("Već ste u ovoj igri");
+      return;
+    }
+
     // Check if password is required
     if (game.hasPassword && !password) {
       setSelectedGameId(gameId);
@@ -445,52 +452,65 @@ function GameLobby({ onGameStart, onBack, gameType, clearPendingJoinCode }) {
           </div>
         ) : (
           <div className="games-grid">
-            {activeGames.map((game) => (
-              <div key={game.id} className="game-card">
-                <div className="game-header-lobby">
-                  <div className="game-title-area">
-                    <h3>{game.name}</h3>
-                    {game.creator === user?.name && (
-                      <button
-                        className="delete-btn"
-                        onClick={() => handleDeleteGame(game.id)}
-                        title="Delete game"
-                      >
-                        🗑️
-                      </button>
-                    )}
+            {activeGames.map((game) => {
+              const isUserInGame =
+                game.creator === user?.name ||
+                game.playerNames?.includes(user?.name);
+              const isFull = game.playerCount >= game.maxPlayers;
+              const buttonDisabled = isFull || isUserInGame;
+              const buttonText = isUserInGame
+                ? "U sobi ste"
+                : isFull
+                  ? "Soba puna"
+                  : "Pridruži se partiji";
+
+              return (
+                <div key={game.id} className="game-card">
+                  <div className="game-header-lobby">
+                    <div className="game-title-area">
+                      <h3>{game.name}</h3>
+                      {game.creator === user?.name && (
+                        <button
+                          className="delete-btn"
+                          onClick={() => handleDeleteGame(game.id)}
+                          title="Delete game"
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
+                    <div className="game-badges">
+                      <span className="mode-badge">{game.gameMode}</span>
+                      {game.hasPassword && (
+                        <span className="password-badge">🔒</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="game-badges">
-                    <span className="mode-badge">{game.gameMode}</span>
-                    {game.hasPassword && (
-                      <span className="password-badge">🔒</span>
-                    )}
+                  <div className="game-info">
+                    <p>
+                      <strong>Created by:</strong> {game.creator}
+                    </p>
+                    <p>
+                      <strong>Players:</strong> {game.playerCount}/
+                      {game.maxPlayers}
+                    </p>
+                    <p>
+                      <strong>Type:</strong> {game.gameType}
+                    </p>
+                    <p className="created-time">
+                      Created: {new Date(game.createdAt).toLocaleTimeString()}
+                    </p>
                   </div>
+                  <button
+                    className="join-btn"
+                    onClick={() => handleJoinGame(game.id)}
+                    disabled={buttonDisabled}
+                  >
+                    {buttonText}
+                  </button>
                 </div>
-                <div className="game-info">
-                  <p>
-                    <strong>Created by:</strong> {game.creator}
-                  </p>
-                  <p>
-                    <strong>Players:</strong> {game.playerCount}/
-                    {game.maxPlayers}
-                  </p>
-                  <p>
-                    <strong>Type:</strong> {game.gameType}
-                  </p>
-                  <p className="created-time">
-                    Created: {new Date(game.createdAt).toLocaleTimeString()}
-                  </p>
-                </div>
-                <button
-                  className="join-btn"
-                  onClick={() => handleJoinGame(game.id)}
-                  disabled={game.playerCount >= game.maxPlayers}
-                >
-                  {game.playerCount >= game.maxPlayers ? "Full" : "Join Game"}
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

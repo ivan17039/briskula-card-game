@@ -116,6 +116,7 @@ function GameModeSelector({ onModeSelect, onBack, gameType }) {
                 const aiMode = {
                   gameMode: "1vAI",
                   opponent: { name: "AI Bot", isAI: true },
+                  aiDifficulty: "hard",
                   gameState: {}, // Game.jsx će sam generirati špil
                 };
 

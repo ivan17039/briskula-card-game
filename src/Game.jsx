@@ -524,6 +524,7 @@ function Game({
         roomId: "local-ai",
         opponent: { id: "ai", name: "AI Bot", isAI: true },
         gameType: gameData.gameType || "briskula",
+        aiDifficulty: "hard",
         myHand: dealt.player1Hand,
         aiHand: dealt.player2Hand,
         myCards: [],
@@ -723,7 +724,6 @@ function Game({
           error,
         );
       }
-
     }
 
     // Return safe default state if no initial state to prevent crashes
@@ -734,6 +734,7 @@ function Game({
         playerNumber: null,
         opponent: savedOpponent,
         gameType: savedGameType,
+        aiDifficulty: "hard",
         myHand: [],
         opponentHandCount: 0,
         myCards: [],
@@ -805,6 +806,21 @@ function Game({
       </div>
     );
   }
+
+  const buildAiStrategyContext = (state) => {
+    const capturedCards =
+      (state?.myCards?.length || 0) + (state?.aiCards?.length || 0);
+    const roundNumber = Math.floor(capturedCards / 2) + 1;
+
+    return {
+      difficulty: state?.aiDifficulty || "hard",
+      roundNumber,
+      remainingDeckCount: state?.remainingDeck?.length || 0,
+      myPoints: state?.opponentPoints || 0,
+      opponentPoints: state?.myPoints || 0,
+      cardsPlayed: [...(state?.myCards || []), ...(state?.aiCards || [])],
+    };
+  };
 
   const playLocalCard = (card, playerNum) => {
     setGameState((prevState) => {
@@ -1206,7 +1222,6 @@ function Game({
         return;
       }
 
-
       // For AI games, restore the exact saved state directly
       if (savedGameStateFromContext.mode === "ai") {
         setGameState(savedGameStateFromContext);
@@ -1224,7 +1239,6 @@ function Game({
 
   // Auto-reconnect handled by SocketContext now
   useEffect(() => {
-
     const storedExpiry = localStorage.getItem("sessionExpiresAt");
     const expiryMs = storedExpiry ? Number(storedExpiry) : null;
 
@@ -1246,7 +1260,6 @@ function Game({
           parsedState.gamePhase === "partidaFinished" ||
           parsedState.gameInterrupted
         ) {
-
           // Leave the room on server if it exists
           if (parsedState.roomId && socket && parsedState.mode === "online") {
             socket.emit("leaveRoom", {
@@ -1323,7 +1336,6 @@ function Game({
       ? gameState.playedCards
       : [];
 
-
     if (
       gameState.currentPlayer === 2 &&
       !aiThinking.current &&
@@ -1348,12 +1360,14 @@ function Game({
                 hand: aiHandForChoice,
                 opponentCard: firstPlayedCard,
                 aiIsFirst: aiIsFirst,
+                ...buildAiStrategyContext(gameState),
               })
             : chooseAiBriskula({
                 hand: aiHandForChoice,
                 opponentCard: firstPlayedCard,
                 trumpSuit: gameState.trumpSuit,
                 aiIsFirst: aiIsFirst,
+                ...buildAiStrategyContext(gameState),
               });
         if (aiCard) {
           playLocalCard(aiCard, 2);
@@ -1378,7 +1392,6 @@ function Game({
 
     // If both cards are played but resolution flags aren't set, we likely restored from refresh mid-resolution
     if (bothCardsPlayed && !aiThinking.current && !roundResolving.current) {
-
       // Mark as resolving to prevent AI from playing
       aiThinking.current = true;
       roundResolving.current = true;
@@ -1544,7 +1557,6 @@ function Game({
           aiThinking.current = false;
           roundResolving.current = false;
 
-
           if (end.isGameOver) {
             const finalWinner =
               end.winner === 1 ? prevState.opponent.name : "Vi";
@@ -1616,12 +1628,14 @@ function Game({
                     hand: aiHandForChoice,
                     opponentCard: firstPlayedCard,
                     aiIsFirst,
+                    ...buildAiStrategyContext(gameState),
                   })
                 : chooseAiBriskula({
                     hand: aiHandForChoice,
                     opponentCard: firstPlayedCard,
                     trumpSuit: gameState.trumpSuit,
                     aiIsFirst,
+                    ...buildAiStrategyContext(gameState),
                   });
 
             if (aiCard) {
@@ -2030,7 +2044,6 @@ function Game({
 
     // Listener za novu igru nakon revan��a ili spectator join
     socket.on("gameStart", (newGameData) => {
-
       // Save reconnect data if this is a player (not spectator)
       if (
         !newGameData.spectator &&
@@ -2648,7 +2661,6 @@ function Game({
 
     // New socket listener for partija restart in online Treseta games
     socket.on("partidaRestarted", (data) => {
-
       // Reset next partija status since new partija started
       setNextPartidaStatus({
         playerReady: false,
@@ -2796,7 +2808,6 @@ function Game({
       return;
     }
 
-
     // Send to server for online games
     if (mode === "online" && socket) {
       socket.emit("akuze", {
@@ -2822,7 +2833,6 @@ function Game({
     if (!gameState.roomId || gameState.mode !== "online") {
       return;
     }
-
 
     // Don't set playerReady here - wait for server confirmation
     // setNextPartidaStatus(prev => ({ ...prev, playerReady: true }));

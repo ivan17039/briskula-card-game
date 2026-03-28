@@ -1496,7 +1496,20 @@ io.on("connection", (socket) => {
     );
 
     if (existingPlayer) {
-      socket.emit("joinGameError", { message: "Već ste u ovoj igri" });
+      // Idempotent join: if user is already in this room, reattach this socket
+      // instead of returning an error that leaves client state out of sync.
+      existingPlayer.id = socket.id;
+      existingPlayer.isConnected = true;
+      socket.join(roomId);
+
+      socket.emit("gameJoined", {
+        success: true,
+        roomId: roomId,
+        gameData: room,
+        alreadyInRoom: true,
+      });
+
+      broadcastGameList();
       return;
     }
 
@@ -1585,7 +1598,20 @@ io.on("connection", (socket) => {
     );
 
     if (existingPlayer) {
-      socket.emit("joinGameError", { message: "Već ste u ovoj igri" });
+      // Idempotent join: if user is already in this room, reattach this socket
+      // instead of returning an error that leaves client state out of sync.
+      existingPlayer.id = socket.id;
+      existingPlayer.isConnected = true;
+      socket.join(roomId);
+
+      socket.emit("gameJoined", {
+        success: true,
+        roomId: roomId,
+        gameData: room,
+        alreadyInRoom: true,
+      });
+
+      broadcastGameList();
       return;
     }
 
@@ -1656,6 +1682,7 @@ io.on("connection", (socket) => {
       gameType: room.gameType,
       gameMode: room.gameMode,
       creator: room.creator,
+      playerNames: room.players.map((p) => p.name),
       playerCount: room.players.length,
       maxPlayers: room.maxPlayers,
       hasPassword: room.hasPassword,
@@ -5129,6 +5156,7 @@ function broadcastGameList() {
       gameType: room.gameType,
       gameMode: room.gameMode,
       creator: room.creator,
+      playerNames: room.players.map((p) => p.name),
       playerCount: room.players.length,
       maxPlayers: room.maxPlayers,
       hasPassword: room.hasPassword,
