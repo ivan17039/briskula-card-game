@@ -1528,7 +1528,12 @@ io.on("connection", (socket) => {
       isGuest: user.isGuest,
       playerNumber: playerNumber,
       isConnected: true,
-      team: room.gameMode === "2v2" ? Math.ceil(playerNumber / 2) : null,
+      team:
+        room.gameMode === "2v2"
+          ? playerNumber === 1 || playerNumber === 3
+            ? 1
+            : 2
+          : null,
     };
 
     room.players.push(newPlayer);
@@ -1630,7 +1635,12 @@ io.on("connection", (socket) => {
       isGuest: user.isGuest,
       playerNumber: playerNumber,
       isConnected: true,
-      team: room.gameMode === "2v2" ? Math.ceil(playerNumber / 2) : null,
+      team:
+        room.gameMode === "2v2"
+          ? playerNumber === 1 || playerNumber === 3
+            ? 1
+            : 2
+          : null,
     };
 
     room.players.push(newPlayer);

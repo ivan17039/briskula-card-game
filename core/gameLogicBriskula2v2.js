@@ -8,7 +8,7 @@ import {
 } from "./gameLogicBriskula.js";
 
 /**
- * Deals cards for 2v2 game (4 cards each player)
+ * Deals cards for 2v2 game (3 cards each player)
  */
 function dealCards2v2(deck) {
   const player1Hand = [];
@@ -16,8 +16,8 @@ function dealCards2v2(deck) {
   const player3Hand = [];
   const player4Hand = [];
 
-  // Deal 4 cards to each player (16 cards total)
-  for (let i = 0; i < 16; i++) {
+  // Deal 3 cards to each player (12 cards total)
+  for (let i = 0; i < 12; i++) {
     const playerIndex = i % 4;
     switch (playerIndex) {
       case 0:
@@ -35,10 +35,10 @@ function dealCards2v2(deck) {
     }
   }
 
-  // Trump card is the 17th card
-  const trump = deck[16];
+  // Trump card is the 13th card
+  const trump = deck[12];
   const trumpSuit = trump.suit; // KLJUČNO: Sačuvaj trumpSuit nezavisno od trump karte
-  const remainingDeck = deck.slice(17);
+  const remainingDeck = deck.slice(13);
 
   return {
     player1Hand,
@@ -71,10 +71,8 @@ function getNextPlayer2v2(currentPlayer) {
  * Determines winner of 4-card round using proper Briskula rules
  */
 function determineRoundWinner2v2(playedCards, firstPlayer, trumpSuit) {
-
   // Get the suit of the first played card (determines the "lead suit")
   const leadSuit = playedCards[0].card.suit;
-
 
   let winningCard = playedCards[0];
 
