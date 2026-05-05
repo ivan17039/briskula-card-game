@@ -42,6 +42,16 @@ function AppContent() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [pendingJoinCode, setPendingJoinCode] = useState(null);
 
+  const resetDeadOnlineGame = () => {
+    setGameData(null);
+    setGameType(null);
+    setGameMode("1v1");
+    setAppState("gameSelect");
+    localStorage.removeItem("appState");
+    localStorage.removeItem("gameType");
+    localStorage.removeItem("gameMode");
+  };
+
   // Check for join code in URL on mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -166,6 +176,10 @@ function AppContent() {
     if (roomDeletionMessage) {
       addToast(roomDeletionMessage, "error");
       localStorage.removeItem("roomDeletionMessage");
+
+      if (appState === "game" && gameMode !== "1vAI") {
+        resetDeadOnlineGame();
+      }
     }
 
     // Check for reconnection failure reason
@@ -190,8 +204,12 @@ function AppContent() {
       }
       addToast(message, "warning");
       localStorage.removeItem("reconnectFailureReason");
+
+      if (appState === "game" && gameMode !== "1vAI") {
+        resetDeadOnlineGame();
+      }
     }
-  }, [addToast]);
+  }, [addToast, appState, gameMode, resetDeadOnlineGame]);
 
   const handleLogin = async (userData) => {
     const response = await registerUser(userData);
