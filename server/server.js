@@ -4381,9 +4381,9 @@ async function finishRound1v1(roomId) {
       room.gameState.totalPlayer1Points !== undefined
     ) {
       if (isPartidaFinished) {
-        // Points already include akuze from client calculation
-        const player1PartidaPoints = player1Points.points;
-        const player2PartidaPoints = player2Points.points;
+        // Add akuze to base points for total partija score
+        const player1PartidaPoints = player1Points.points + room.gameState.player1Akuze.points;
+        const player2PartidaPoints = player2Points.points + room.gameState.player2Akuze.points;
 
         // Add partija points to totals
         room.gameState.totalPlayer1Points += player1PartidaPoints;
