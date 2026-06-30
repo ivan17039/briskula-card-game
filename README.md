@@ -33,19 +33,20 @@ Popular Balkan card game with trick-taking mechanics:
 
 ### Briskula Rules
 
-- **Deck**: 40 cards (A, 2, 3, 4, 5, 6, 7, J, Q, K) in 4 suits
+- **Deck**: 40 cards (As, 2, 3, 4, 5, 6, 7, Fant, Konj, Kralj) in 4 suits
 - **Trump Card**: Determines winning suit hierarchy
-- **Card Values**: A=11, 3=10, K=4, Q=3, J=2, others=0
+- **Card Values**: As=11, Trica=10, Kralj=4, Konj=3, Fant=2, others=0
 - **Winning**: Trump beats non-trump, higher value wins
 - **Objective**: Score 61+ points to win
 
 ### Trešeta Rules
 
 - **Deck**: Same 40-card deck, no trump system
-- **Card Hierarchy**: 3 > 2 > A > K > Q > J > 7 > 6 > 5 > 4
-- **Card Values**: A=11, 3=10, K=4, Q=3, J=2, others=0
+- **Card Hierarchy**: Trica > Duja > As > Kralj > Konj > Fant > 7 > 6 > 5 > 4
+- **Scoring**: As=1 point, 3 Bele (face cards)=1 point, Ultima (last trick)=1 point (max 11 per game)
 - **Follow Suit**: Must follow the led suit when possible
-- **Objective**: Score most points when all cards played
+- **Akuze**: Napolitana (As+Duja+Trica same suit)=3, 3 or 4 same rank=3 or 4 points
+- **Objective**: Score 31 points across rounds or 41 with Akuze
 
 ## 🛠️ Technology Stack
 
