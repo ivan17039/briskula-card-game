@@ -1,21 +1,20 @@
 /* Tournament Bracket Component Styles */
 .tournament-bracket-container {
   padding: calc(var(--user-header-height) + 10px) var(--space-xl) var(--space-xl);
-  background: var(--gradient-wood);
+  background:
+    radial-gradient(circle at top, rgba(255, 233, 182, 0.08), transparent 32%),
+    var(--gradient-wood);
   min-height: 100vh;
   color: var(--color-text-dark);
 }
 
 .bracket-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-xl);
-  margin-bottom: var(--space-4xl);
+  margin-bottom: var(--space-3xl);
   padding-bottom: var(--space-xl);
   border-bottom: 3px solid var(--color-accent-gold);
-  margin-top: 0; /* ensure below sticky user header */
-  position: relative;
-  top: -50px;
 }
 
 .bracket-header .back-btn-bracket {
@@ -28,8 +27,12 @@
   background: var(--color-danger);
   color: var(--color-text-light);
   border: none;
-  padding: var(--space-md) var(--space-xl);
-  border-radius: var(--radius-md);
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
   cursor: pointer;
   font-weight: var(--font-bold);
   transition: var(--transition-base);
@@ -46,7 +49,8 @@
 .tournament-info h2 {
   margin: 0 0 var(--space-sm) 0;
   color: var(--color-accent-gold);
-  font-size: 2.2em;
+  font-size: 2.1em;
+  line-height: 1.1;
 }
 
 .tournament-meta {
@@ -57,12 +61,12 @@
 }
 
 .tournament-meta span {
-  background: var(--color-bg-secondary);
+  background: rgba(255, 255, 255, 0.16);
   padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-md);
+  border-radius: 999px;
   font-size: 0.9em;
-  border: 2px solid var(--color-border-main);
-  color: var(--color-text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: var(--color-text-dark);
 }
 
 .prize-pool {
@@ -105,7 +109,7 @@
 }
 
 .bracket-match {
-  background: var(--color-bg-main);
+  background: linear-gradient(180deg, var(--color-bg-main) 0%, rgba(255, 248, 234, 0.92) 100%);
   border: 2px solid var(--color-border-main);
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
@@ -154,16 +158,19 @@
 .match-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: var(--space-md);
   margin-bottom: var(--space-md);
   padding-bottom: var(--space-sm);
   border-bottom: 2px solid var(--color-border-main);
+  flex-wrap: wrap;
 }
 
 .match-title {
   font-weight: var(--font-bold);
   color: var(--color-accent-gold);
   font-size: 1.1em;
+  line-height: 1.2;
 }
 
 .match-deadline {
@@ -188,11 +195,12 @@
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-md);
-  background: var(--color-bg-secondary);
+  background: rgba(255, 255, 255, 0.45);
   border-radius: var(--radius-md);
   border: 2px solid var(--color-border-main);
   transition: var(--transition-base);
   color: var(--color-text-dark);
+  min-height: 110px;
 }
 
 .player.winner {
@@ -207,6 +215,7 @@
   text-align: center;
   min-height: var(--space-xl);
   color: var(--color-primary);
+  word-break: break-word;
 }
 
 .match-vs {
@@ -227,6 +236,8 @@
   font-weight: var(--font-bold);
   transition: var(--transition-base);
   box-shadow: var(--shadow-sm);
+  width: 100%;
+  max-width: 220px;
 }
 
 .report-win-btn:hover {
@@ -279,6 +290,18 @@
   font-weight: var(--font-bold);
   margin-top: var(--space-sm);
   box-shadow: var(--shadow-sm);
+}
+
+.tournament-winner-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: rgba(201, 168, 106, 0.18);
+  color: var(--color-primary);
+  border: 1px solid rgba(201, 168, 106, 0.35);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: 999px;
+  font-weight: var(--font-bold);
 }
 
 .match-waiting {
@@ -448,6 +471,11 @@
 
   .winner-name {
     font-size: 2em;
+  }
+
+  .back-btn-bracket {
+    width: 42px;
+    height: 42px;
   }
 }
 

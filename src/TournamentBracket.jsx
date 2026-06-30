@@ -140,6 +140,26 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
     if (!socket) return;
     socket.emit("reportMatchResult", { tournamentId, matchId, winnerId });
   };
+
+  const getPlayerDisplayName = (playerId, playerName) => {
+    if (playerId === "TBD") return "Čeka se...";
+    return playerName || playerId;
+  };
+
+  const isCurrentUserPlayer = (playerId) => {
+    if (!user || playerId === "TBD") return false;
+    return playerId === user.userId || playerId === user.name;
+  };
+
+  const getWinnerDisplayName = (match) => {
+    if (!match?.winner) return null;
+    if (match.winner === match.player1)
+      return getPlayerDisplayName(match.player1, match.player1Name);
+    if (match.winner === match.player2)
+      return getPlayerDisplayName(match.player2, match.player2Name);
+    return match.winner;
+  };
+
   // Persist current viewed tournament id (defensive in case parent unmount sequence differs)
   useEffect(() => {
     if (tournamentId) {
@@ -160,6 +180,8 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
     // Normalize identifiers: prefer raw IDs for logic, show names for UI
     const p1Id = match.player1;
     const p2Id = match.player2;
+    const p1Name = getPlayerDisplayName(p1Id, match.player1Name);
+    const p2Name = getPlayerDisplayName(p2Id, match.player2Name);
     const isPlayable = match.status === "pending";
     const isFinished = match.status === "finished";
     const isPlaying = match.status === "playing";
@@ -172,11 +194,11 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
         p1Id === user.name ||
         p2Id === user.userId ||
         p2Id === user.name);
+    const canReportP1 = isPlaying && isCurrentUserPlayer(p1Id);
+    const canReportP2 = isPlaying && isCurrentUserPlayer(p2Id);
     const remaining = deadlineRemaining(match.deadline);
 
-    // Debug logging for finals match
-    if (roundNumber === bracket?.length) {
-    }
+    const winnerDisplayName = getWinnerDisplayName(match);
 
     return (
       <div key={match.id} className={`bracket-match ${match.status}`}>
@@ -212,29 +234,25 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
         </div>
         <div className="match-players">
           <div className={`player ${match.winner === p1Id ? "winner" : ""}`}>
-            <span className="player-name">
-              {p1Id === "TBD" ? "Čeka se..." : match.player1Name || p1Id}
-            </span>
-            {isPlayable && p1Id !== "TBD" && isUserInMatch && (
+            <span className="player-name">{p1Name}</span>
+            {canReportP1 && (
               <button
                 className="report-win-btn"
                 onClick={() => handleReportResult(match.id, p1Id)}
               >
-                Pobijedio
+                🏆 Ja sam pobijedio
               </button>
             )}
           </div>
           <div className="match-vs">VS</div>
           <div className={`player ${match.winner === p2Id ? "winner" : ""}`}>
-            <span className="player-name">
-              {p2Id === "TBD" ? "Čeka se..." : match.player2Name || p2Id}
-            </span>
-            {isPlayable && p2Id !== "TBD" && isUserInMatch && (
+            <span className="player-name">{p2Name}</span>
+            {canReportP2 && (
               <button
                 className="report-win-btn"
                 onClick={() => handleReportResult(match.id, p2Id)}
               >
-                Pobijedio
+                🏆 Ja sam pobijedio
               </button>
             )}
           </div>
@@ -309,7 +327,8 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
         )}
         {isFinished && (
           <div className="match-result">
-            🏆 Pobjednik: <strong>{match.winner}</strong>
+            🏆 Pobjednik meča:{" "}
+            <strong>{winnerDisplayName || match.winner}</strong>
           </div>
         )}
         {isWaiting && (
@@ -328,11 +347,16 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
     </div>
   );
 
+  const finalMatch = bracket?.[bracket.length - 1]?.matches?.[0] || null;
+  const tournamentWinnerDisplayName = finalMatch
+    ? getWinnerDisplayName(finalMatch)
+    : tournament?.winner;
+
   if (loading) {
     return (
       <div className="tournament-bracket-container">
         <div className="bracket-header">
-          <button className="back-btn" onClick={onBack}>
+          <button className="back-btn-bracket" onClick={onBack}>
             ←
           </button>
           <h2>Učitavanje...</h2>
@@ -344,7 +368,7 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
     return (
       <div className="tournament-bracket-container">
         <div className="bracket-header">
-          <button className="back-btn" onClick={onBack}>
+          <button className="back-btn-bracket" onClick={onBack}>
             ←
           </button>
           <h2>Greška</h2>
@@ -356,7 +380,7 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
   return (
     <div className="tournament-bracket-container">
       <div className="bracket-header">
-        <button className="back-btn" onClick={onBack} title="Natrag">
+        <button className="back-btn-bracket" onClick={onBack} title="Natrag">
           ←
         </button>
         <div className="tournament-info">
@@ -371,7 +395,8 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
           </div>
           {tournament.winner && (
             <div className="tournament-winner-inline">
-              Pobjednik: {tournament.winner}
+              Pobjednik turnira:{" "}
+              {tournamentWinnerDisplayName || tournament.winner}
             </div>
           )}
         </div>
@@ -380,22 +405,23 @@ const TournamentBracket = ({ tournamentId, onBack, onGameStart }) => {
           {leaderboard.slice(0, 5).map((row, idx) => (
             <div key={row.user_id || row.userId} className="lb-row">
               <span>{idx + 1}.</span>
-              <span>{row.user_id || row.userId}</span>
+              <span>
+                {row.name || row.user_name || row.userId || row.user_id}
+              </span>
               <span>{row.points}p</span>
             </div>
           ))}
         </div>
       </div>
       <div className="bracket-container">{bracket.map(renderRound)}</div>
-      {tournament.status === "finished" &&
-        bracket[bracket.length - 1]?.matches[0]?.winner && (
-          <div className="tournament-winner">
-            <h3>🎉 POBJEDNIK</h3>
-            <div className="winner-name">
-              {bracket[bracket.length - 1].matches[0].winner}
-            </div>
+      {tournament.status === "finished" && finalMatch?.winner && (
+        <div className="tournament-winner">
+          <h3>🎉 POBJEDNIK</h3>
+          <div className="winner-name">
+            {tournamentWinnerDisplayName || finalMatch.winner}
           </div>
-        )}
+        </div>
+      )}
     </div>
   );
 };

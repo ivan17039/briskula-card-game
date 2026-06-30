@@ -79,9 +79,12 @@ export default class TournamentManager {
     }
 
     // periodic deadline processing
-    setInterval(() => {
-      this.processDeadlines();
-    }, 5 * 60 * 1000); // every 5 min
+    setInterval(
+      () => {
+        this.processDeadlines();
+      },
+      5 * 60 * 1000,
+    ); // every 5 min
   }
 
   // ---------- Helpers ----------
@@ -250,7 +253,7 @@ export default class TournamentManager {
       }));
     }
     return Array.from(this.memory.tournaments.values()).filter(
-      (t) => !gameType || t.gameType === gameType
+      (t) => !gameType || t.gameType === gameType,
     );
   }
 
@@ -288,7 +291,7 @@ export default class TournamentManager {
       }));
     }
     return Array.from(
-      this.memory.players.get(tournamentId)?.values() || []
+      this.memory.players.get(tournamentId)?.values() || [],
     ).map((p) => ({
       userId: p.userId,
       userName: p.userName,
@@ -445,8 +448,8 @@ export default class TournamentManager {
         r === rounds
           ? "Finale"
           : r === rounds - 1
-          ? "Polufinale"
-          : `Runda ${r}`;
+            ? "Polufinale"
+            : `Runda ${r}`;
       bracket.push({ roundNumber: r, name, matches });
     }
 
@@ -470,7 +473,7 @@ export default class TournamentManager {
           winner_user_id: m.winner,
           status: m.status === "finished" && !m.winner ? "waiting" : m.status,
           deadline: m.deadline,
-        }))
+        })),
       );
       if (rows.length)
         await this.supabase.from("tournament_matches").insert(rows);
@@ -502,8 +505,8 @@ export default class TournamentManager {
             m.player1 === "TBD"
               ? m.player2
               : m.player2 === "TBD"
-              ? m.player1
-              : null;
+                ? m.player1
+                : null;
           if (real && real !== "TBD") {
             m.winner = real;
             this._propagateWinner(bracket, m);
@@ -690,7 +693,7 @@ export default class TournamentManager {
           .lt("deadline", now.toISOString());
         for (const m of expired || []) {
           const players = [m.player1_user_id, m.player2_user_id].filter(
-            Boolean
+            Boolean,
           );
           if (players.length === 2) {
             const winner = players[Math.floor(Math.random() * 2)];
@@ -723,7 +726,7 @@ export default class TournamentManager {
               new Date(m.deadline) < now
             ) {
               const candidates = [m.player1, m.player2].filter(
-                (p) => p !== "TBD"
+                (p) => p !== "TBD",
               );
               if (candidates.length === 2) {
                 const winner = candidates[Math.floor(Math.random() * 2)];
@@ -759,7 +762,7 @@ export default class TournamentManager {
       ([userId, row]) => ({
         userId,
         ...row,
-      })
+      }),
     );
   }
 
@@ -818,7 +821,7 @@ export default class TournamentManager {
           maxParticipants: 8,
           registrationDeadline: new Date(Date.now() + 30 * 60 * 1000),
         },
-        "system"
+        "system",
       );
       const t2 = await this.createTournament(
         {
@@ -827,7 +830,7 @@ export default class TournamentManager {
           maxParticipants: 4,
           registrationDeadline: new Date(Date.now() + 2 * 60 * 60 * 1000),
         },
-        "system"
+        "system",
       );
       const dummyPlayers = [
         { userId: "demo1", name: "Demo1" },
@@ -886,7 +889,7 @@ export default class TournamentManager {
             20,
             12,
             0,
-            0
+            0,
           ), // Dec 20
         },
         {
@@ -899,7 +902,7 @@ export default class TournamentManager {
             25,
             12,
             0,
-            0
+            0,
           ), // approx March 25 next year
         },
       ];

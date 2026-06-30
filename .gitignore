@@ -78,5 +78,5 @@ jspm_packages/
 .yarn/install-state.gz
 .pnp.*
 
-Improvment.md
-interview_prep.md
+ignore
+supabase-setup.sql
