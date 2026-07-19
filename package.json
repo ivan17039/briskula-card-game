@@ -16,6 +16,7 @@
     "@supabase/supabase-js": "^2.53.0",
     "docx": "^9.6.1",
     "navigate": "^0.3.6",
+    "pptxgenjs": "^4.0.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.9.1",

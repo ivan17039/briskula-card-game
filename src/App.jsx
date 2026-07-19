@@ -17,9 +17,15 @@ import Footer from "./Footer";
 import BugReportModal from "./BugReportModal";
 import AboutModal from "./AboutModal";
 import PrivacyModal from "./PrivacyModal";
+import AccountModal from "./AccountModal";
 import "./App.css";
 
 function AppContent() {
+  const isRecoveryFlow =
+    typeof window !== "undefined" &&
+    (window.location.hash.includes("type=recovery") ||
+      window.location.search.includes("type=recovery"));
+
   const {
     isConnected,
     connectionError,
@@ -40,6 +46,7 @@ function AppContent() {
   const [showBugReportModal, setShowBugReportModal] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showAccountModal, setShowAccountModal] = useState(false);
   const [pendingJoinCode, setPendingJoinCode] = useState(null);
 
   const resetDeadOnlineGame = () => {
@@ -91,7 +98,7 @@ function AppContent() {
 
   // Check if user is already logged in when component mounts
   useEffect(() => {
-    if (user && appState === "login") {
+    if (user && appState === "login" && !isRecoveryFlow) {
       // User is logged in, try to restore their previous state
       const savedAppState = localStorage.getItem("appState");
       const savedGameType = localStorage.getItem("gameType");
@@ -139,7 +146,7 @@ function AppContent() {
       localStorage.removeItem("gameType");
       localStorage.removeItem("gameMode");
     }
-  }, [user, appState, savedGameState]);
+  }, [user, appState, savedGameState, isRecoveryFlow]);
 
   // Check for saved game state when user connects - only show if not currently in a game
   useEffect(() => {
@@ -332,6 +339,10 @@ function AppContent() {
     setAppState("leaderboard");
   };
 
+  const handleOpenAccount = () => {
+    setShowAccountModal(true);
+  };
+
   const handleBackToLogin = () => {
     // Only allow going back to login if user logs out
     logout();
@@ -344,6 +355,7 @@ function AppContent() {
 
   const handleLogout = async () => {
     await logout();
+    setShowAccountModal(false);
     // Clear saved states when logging out
     localStorage.removeItem("appState");
     localStorage.removeItem("gameType");
@@ -407,7 +419,11 @@ function AppContent() {
       return (
         <>
           <Header onBugReport={() => setShowBugReportModal(true)} />
-          <Login onLogin={handleLogin} pendingJoinCode={pendingJoinCode} />
+          <Login
+            onLogin={handleLogin}
+            pendingJoinCode={pendingJoinCode}
+            forceRecoveryMode={isRecoveryFlow}
+          />
           <Footer
             onBugReport={() => setShowBugReportModal(true)}
             onAbout={() => setShowAboutModal(true)}
@@ -440,6 +456,7 @@ function AppContent() {
             onLogout={handleLogout}
             onLeaderboard={handleOpenLeaderboard}
             onBugReport={() => setShowBugReportModal(true)}
+            onAccountSettings={handleOpenAccount}
           />
           <GameTypeSelector
             onGameTypeSelect={handleGameTypeSelect}
@@ -466,6 +483,9 @@ function AppContent() {
           {showPrivacyModal && (
             <PrivacyModal onClose={() => setShowPrivacyModal(false)} />
           )}
+          {showAccountModal && user && (
+            <AccountModal onClose={() => setShowAccountModal(false)} />
+          )}
         </>
       );
 
@@ -477,6 +497,7 @@ function AppContent() {
             onLogout={handleLogout}
             onLeaderboard={handleOpenLeaderboard}
             onBugReport={() => setShowBugReportModal(true)}
+            onAccountSettings={handleOpenAccount}
           />
           <GameModeSelector
             onModeSelect={(modeData) => {
@@ -528,6 +549,9 @@ function AppContent() {
           {showPrivacyModal && (
             <PrivacyModal onClose={() => setShowPrivacyModal(false)} />
           )}
+          {showAccountModal && user && (
+            <AccountModal onClose={() => setShowAccountModal(false)} />
+          )}
         </>
       );
 
@@ -539,6 +563,7 @@ function AppContent() {
             onLogout={handleLogout}
             onLeaderboard={handleOpenLeaderboard}
             onBugReport={() => setShowBugReportModal(true)}
+            onAccountSettings={handleOpenAccount}
           />
           <GameLobby
             onGameStart={handleLobbyGameStart}
@@ -567,6 +592,9 @@ function AppContent() {
           {showPrivacyModal && (
             <PrivacyModal onClose={() => setShowPrivacyModal(false)} />
           )}
+          {showAccountModal && user && (
+            <AccountModal onClose={() => setShowAccountModal(false)} />
+          )}
         </>
       );
 
@@ -578,6 +606,7 @@ function AppContent() {
             onLogout={handleLogout}
             onLeaderboard={handleOpenLeaderboard}
             onBugReport={() => setShowBugReportModal(true)}
+            onAccountSettings={handleOpenAccount}
           />
           <TournamentLobby
             gameType={gameType || "treseta"} // Default to treseta if gameType is null
@@ -604,6 +633,9 @@ function AppContent() {
           {showPrivacyModal && (
             <PrivacyModal onClose={() => setShowPrivacyModal(false)} />
           )}
+          {showAccountModal && user && (
+            <AccountModal onClose={() => setShowAccountModal(false)} />
+          )}
         </>
       );
 
@@ -629,6 +661,9 @@ function AppContent() {
           {showPrivacyModal && (
             <PrivacyModal onClose={() => setShowPrivacyModal(false)} />
           )}
+          {showAccountModal && user && (
+            <AccountModal onClose={() => setShowAccountModal(false)} />
+          )}
         </>
       );
 
@@ -646,7 +681,11 @@ function AppContent() {
     default:
       return (
         <>
-          <Login onLogin={handleLogin} pendingJoinCode={pendingJoinCode} />
+          <Login
+            onLogin={handleLogin}
+            pendingJoinCode={pendingJoinCode}
+            forceRecoveryMode={isRecoveryFlow}
+          />
           {showReconnectDialog && (
             <ReconnectDialog
               gameState={savedGameState}

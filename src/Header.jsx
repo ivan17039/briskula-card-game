@@ -1,8 +1,15 @@
 import React, { useState } from "react";
 import "./Header.css";
 
-const Header = ({ user, onLogout, onLeaderboard, onBugReport }) => {
+const Header = ({
+  user,
+  onLogout,
+  onLeaderboard,
+  onBugReport,
+  onAccountSettings,
+}) => {
   const isLoggedIn = !!user;
+  const canManageAccount = isLoggedIn && !user?.isGuest && onAccountSettings;
   const [menuOpen, setMenuOpen] = useState(false);
 
   const toggleMenu = () => {
@@ -83,6 +90,15 @@ const Header = ({ user, onLogout, onLeaderboard, onBugReport }) => {
                   <span>Prijavi bug</span>
                 </button>
               )}
+              {canManageAccount && (
+                <button
+                  className="mobile-menu-item"
+                  onClick={() => handleMenuAction(onAccountSettings)}
+                >
+                  <span className="mobile-menu-icon">👤</span>
+                  <span>Račun</span>
+                </button>
+              )}
               {isLoggedIn && (
                 <button
                   className="mobile-menu-item logout-item"
@@ -130,6 +146,15 @@ const Header = ({ user, onLogout, onLeaderboard, onBugReport }) => {
                 >
                   <span className="app-btn-icon">🏆</span>
                   <span className="app-btn-text">Ljestvica</span>
+                </button>
+              )}
+              {canManageAccount && (
+                <button
+                  className="app-action-btn app-account-btn"
+                  onClick={onAccountSettings}
+                >
+                  <span className="app-btn-icon">👤</span>
+                  <span className="app-btn-text">Račun</span>
                 </button>
               )}
               <button

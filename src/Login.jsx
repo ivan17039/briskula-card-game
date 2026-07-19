@@ -6,26 +6,44 @@ import { auth } from "./supabase.js";
 import { useSocket } from "./SocketContext";
 import "./Login.css";
 
-function Login({ onLogin, pendingJoinCode }) {
+function Login({ onLogin, pendingJoinCode, forceRecoveryMode = false }) {
   const { user } = useSocket();
-  const [loginMode, setLoginMode] = useState("guest"); // 'guest', 'login', ili 'register'
+  const isRecoveryRedirect =
+    typeof window !== "undefined" &&
+    forceRecoveryMode &&
+    (window.location.hash.includes("type=recovery") ||
+      window.location.search.includes("type=recovery"));
+
+  const [loginMode, setLoginMode] = useState(
+    isRecoveryRedirect ? "recovery" : "guest",
+  ); // 'guest', 'login', 'register', 'reset', ili 'recovery'
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
+    confirmPassword: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Check if user is already logged in
   useEffect(() => {
-    if (user) {
+    if (user && !isRecoveryRedirect) {
       // User is already logged in, skip to next screen
       onLogin(user);
       return;
     }
 
+    if (isRecoveryRedirect) {
+      setLoginMode("recovery");
+    }
+
     const checkUser = async () => {
+      if (isRecoveryRedirect) {
+        return;
+      }
+
       const { user: supabaseUser } = await auth.getUser();
       if (supabaseUser) {
         onLogin({
@@ -37,13 +55,34 @@ function Login({ onLogin, pendingJoinCode }) {
       }
     };
     checkUser();
-  }, [onLogin, user]);
+  }, [onLogin, user, isRecoveryRedirect]);
+
+  // Listen for password recovery redirects and keep the form in recovery mode
+  useEffect(() => {
+    const { data } = auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setLoginMode("recovery");
+        setFormData((current) => ({
+          ...current,
+          email: session?.user?.email || current.email,
+          password: "",
+          confirmPassword: "",
+        }));
+        setError("");
+      }
+    });
+
+    return () => {
+      data?.subscription?.unsubscribe();
+    };
+  }, []);
 
   const handleInputChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
+    setSuccessMessage("");
   };
 
   // Generate random 5-character guest name
@@ -177,6 +216,56 @@ function Login({ onLogin, pendingJoinCode }) {
             console.debug("Analytics tracking error:", err);
           }
         }
+      } else if (loginMode === "reset") {
+        if (!formData.email.trim()) {
+          throw new Error("Email je obavezan");
+        }
+
+        const redirectTo = `${window.location.origin}${window.location.pathname}`;
+        const { error } = await auth.requestPasswordReset(
+          formData.email.trim(),
+          redirectTo,
+        );
+
+        if (error) {
+          throw new Error(error.message || "Greška pri slanju reset linka");
+        }
+
+        setSuccessMessage(
+          "Poslali smo vam link za reset lozinke na navedeni email.",
+        );
+      } else if (loginMode === "recovery") {
+        if (formData.password.length < 6) {
+          throw new Error("Nova lozinka mora imati najmanje 6 karaktera");
+        }
+
+        if (formData.password !== formData.confirmPassword) {
+          throw new Error("Lozinke se ne podudaraju");
+        }
+
+        const { error } = await auth.updateAccount({
+          password: formData.password,
+        });
+
+        if (error) {
+          throw new Error(error.message || "Greška pri spremanju nove lozinke");
+        }
+
+        const { user: supabaseUser } = await auth.getUser();
+        if (supabaseUser) {
+          await onLogin({
+            name: supabaseUser.user_metadata?.username || supabaseUser.email,
+            email: supabaseUser.email,
+            isGuest: false,
+            userId: supabaseUser.id,
+          });
+        }
+
+        setSuccessMessage("Lozinka je ažurirana. Prijavljujem vas...");
+
+        if (typeof window !== "undefined") {
+          window.history.replaceState({}, "", window.location.pathname);
+        }
       }
     } catch (err) {
       setError(err.message);
@@ -186,7 +275,7 @@ function Login({ onLogin, pendingJoinCode }) {
   };
 
   // If user is already logged in, show loading or redirect
-  if (user) {
+  if (user && !isRecoveryRedirect) {
     return (
       <div className="login-container">
         <div className="login-card">
@@ -249,11 +338,21 @@ function Login({ onLogin, pendingJoinCode }) {
           >
             👤 Registriraj se
           </button>
+          <button
+            type="button"
+            className={`mode-btn ${loginMode === "reset" ? "active" : ""}`}
+            onClick={() => setLoginMode("reset")}
+          >
+            🔁 Reset lozinke
+          </button>
         </div>
 
         {/* Forma */}
         <form onSubmit={handleSubmit} className="login-form">
           {error && <div className="error-message">{error}</div>}
+          {successMessage && (
+            <div className="success-message">{successMessage}</div>
+          )}
 
           {/* Ime korisnika - samo za guest i register */}
           {(loginMode === "guest" || loginMode === "register") && (
@@ -278,7 +377,7 @@ function Login({ onLogin, pendingJoinCode }) {
           )}
 
           {/* Email (za login i registraciju) */}
-          {(loginMode === "login" || loginMode === "register") && (
+          {(loginMode === "login" || loginMode === "register" || loginMode === "reset") && (
             <div className="form-group">
               <label htmlFor="email">Email adresa</label>
               <input
@@ -294,19 +393,54 @@ function Login({ onLogin, pendingJoinCode }) {
           )}
 
           {/* Password (za login i registraciju) */}
-          {(loginMode === "login" || loginMode === "register") && (
+          {(loginMode === "login" || loginMode === "register" || loginMode === "recovery") && (
             <div className="form-group">
-              <label htmlFor="password">Password</label>
+              <label htmlFor="password">
+                {loginMode === "recovery" ? "Nova lozinka" : "Password"}
+              </label>
               <input
                 type="password"
                 id="password"
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                placeholder="Unesite password"
+                placeholder={
+                  loginMode === "recovery"
+                    ? "Unesite novu lozinku"
+                    : "Unesite password"
+                }
                 required
                 minLength={6}
               />
+            </div>
+          )}
+
+          {loginMode === "recovery" && (
+            <div className="form-group">
+              <label htmlFor="confirmPassword">Potvrdi lozinku</label>
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                placeholder="Ponovite novu lozinku"
+                required
+                minLength={6}
+              />
+            </div>
+          )}
+
+          {loginMode === "reset" && (
+            <div className="password-reset-note">
+              Unesite email i poslat ćemo vam sigurni link za postavljanje nove
+              lozinke.
+            </div>
+          )}
+
+          {loginMode === "recovery" && (
+            <div className="password-reset-note">
+              Unesite novu lozinku za račun koji je otvoren putem reset linka.
             </div>
           )}
 
@@ -319,9 +453,23 @@ function Login({ onLogin, pendingJoinCode }) {
             ) : loginMode === "login" ? (
               "🔑 Prijavi se"
             ) : (
-              "👤 Registriraj se"
+              loginMode === "register"
+                ? "👤 Registriraj se"
+                : loginMode === "reset"
+                  ? "🔁 Pošalji link"
+                  : "💾 Spremi novu lozinku"
             )}
           </button>
+
+          {loginMode === "reset" && (
+            <button
+              type="button"
+              className="secondary-action-btn"
+              onClick={() => setLoginMode("login")}
+            >
+              Nazad na prijavu
+            </button>
+          )}
         </form>
 
         {/* Info o guest pristupu */}
@@ -348,6 +496,18 @@ function Login({ onLogin, pendingJoinCode }) {
               • Sudjelovanje u turnirima
               <br />• Personalizirani profil
               <br />• ELO rangiranje i leaderboard
+            </p>
+          </div>
+        )}
+
+        {loginMode === "reset" && (
+          <div className="register-info">
+            <p>
+              <strong>Sigurnosna preporuka:</strong>
+              <br />• Ako je Google označio račun kao kompromitiran, obavezno
+              koristite novu i jedinstvenu lozinku
+              <br />• Nemojte ponovno koristiti staru lozinku na drugim
+              servisima
             </p>
           </div>
         )}

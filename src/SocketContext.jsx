@@ -537,6 +537,52 @@ export const SocketProvider = ({ children }) => {
     });
   };
 
+  const updateUserProfile = async ({ name, password }) => {
+    if (!user) {
+      throw new Error("Nema prijavljenog korisnika");
+    }
+
+    if (user.isGuest) {
+      throw new Error("Gost računi nemaju dostupno upravljanje računom");
+    }
+
+    const trimmedName = typeof name === "string" ? name.trim() : "";
+    const updatePayload = {};
+
+    if (trimmedName && trimmedName !== user.name) {
+      updatePayload.username = trimmedName;
+    }
+
+    if (password) {
+      updatePayload.password = password;
+    }
+
+    if (!updatePayload.username && !updatePayload.password) {
+      throw new Error("Nema promjena za spremiti");
+    }
+
+    const { auth } = await import("./supabase.js");
+    const { error } = await auth.updateAccount(updatePayload);
+
+    if (error) {
+      throw new Error(error.message || "Nije moguće ažurirati račun");
+    }
+
+    const updatedUser = {
+      ...user,
+      name: updatePayload.username || user.name,
+      user_metadata: {
+        ...(user.user_metadata || {}),
+        username: updatePayload.username || user.name,
+      },
+    };
+
+    setUser(updatedUser);
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+
+    return updatedUser;
+  };
+
   const findMatch = (gameMode = "1v1", gameType = "briskula") => {
     if (socket && user) {
       socket.emit("findMatch", { gameMode, gameType });
@@ -831,6 +877,7 @@ export const SocketProvider = ({ children }) => {
     leaveRoomPermanently,
     forfeitMatch,
     logout,
+    updateUserProfile,
     clearUserSession,
     saveGameState,
     clearGameState,
