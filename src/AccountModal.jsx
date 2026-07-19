@@ -52,10 +52,7 @@ function AccountModal({ onClose }) {
         throw new Error("Nova lozinka mora imati najmanje 6 karaktera");
       }
 
-      if (
-        formData.password &&
-        formData.password !== formData.confirmPassword
-      ) {
+      if (formData.password && formData.password !== formData.confirmPassword) {
         throw new Error("Lozinke se ne podudaraju");
       }
 

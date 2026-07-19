@@ -112,7 +112,6 @@ export const SocketProvider = ({ children }) => {
         try {
           const userData = JSON.parse(savedUser);
 
-
           const registrationData = {
             ...userData,
             userId: getStableUserId(userData.userId),
@@ -227,7 +226,6 @@ export const SocketProvider = ({ children }) => {
     });
 
     const handleUnifiedReconnected = (data) => {
-
       if (data?.gameState) {
         let reconnectGameData;
 
@@ -248,7 +246,6 @@ export const SocketProvider = ({ children }) => {
             data.gameState[`player${data.playerNumber}Hand`] ||
             data.myHand ||
             [];
-
 
           // If server sends empty hand but we have saved data, try to use it as fallback
           let finalMyHand = myHand;
@@ -358,7 +355,6 @@ export const SocketProvider = ({ children }) => {
 
     newSocket.on("registered", (data) => {
       if (data.success) {
-
         // Include sessionToken in user object
         // Use userId from server response, only fall back to guestId if none
         const userWithSession = {
@@ -374,7 +370,6 @@ export const SocketProvider = ({ children }) => {
 
     newSocket.on("sessionReconnected", (data) => {
       if (data.success) {
-
         // Include sessionToken in user object for reconnected sessions too
         const userWithSession = {
           ...data.user,
@@ -418,7 +413,6 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on("forceLogoutComplete", (data) => {
-
       if (window.showToast) {
         window.showToast(
           data.message || "Sesija je potpuno obrisana",
@@ -658,7 +652,6 @@ export const SocketProvider = ({ children }) => {
   };
 
   const clearUserSession = () => {
-
     setUser(null);
     setGameState(null);
 
@@ -687,7 +680,6 @@ export const SocketProvider = ({ children }) => {
 
   // Enhanced state persistence that supports both localStorage and external storage
   const saveGameState = (gameData) => {
-
     // Don't update the context gameState - this is just for persistence
     // The calling component manages its own state
 
@@ -736,7 +728,6 @@ export const SocketProvider = ({ children }) => {
   const reconnectToGame = () => {
     return new Promise((resolve, reject) => {
       if (socket && user) {
-
         const handleReconnected = (data) => {
           socket.off("reconnected", handleReconnected);
           socket.off("gameStateReconnected", handleReconnected);
@@ -796,7 +787,6 @@ export const SocketProvider = ({ children }) => {
         const savedRoomId = localStorage.getItem("roomId");
 
         if (savedPlayerId && savedRoomId && user.sessionToken) {
-
           socket.emit("reconnectToGame", {
             playerId: savedPlayerId,
             roomId: savedRoomId,

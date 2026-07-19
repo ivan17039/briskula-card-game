@@ -377,7 +377,9 @@ function Login({ onLogin, pendingJoinCode, forceRecoveryMode = false }) {
           )}
 
           {/* Email (za login i registraciju) */}
-          {(loginMode === "login" || loginMode === "register" || loginMode === "reset") && (
+          {(loginMode === "login" ||
+            loginMode === "register" ||
+            loginMode === "reset") && (
             <div className="form-group">
               <label htmlFor="email">Email adresa</label>
               <input
@@ -393,7 +395,9 @@ function Login({ onLogin, pendingJoinCode, forceRecoveryMode = false }) {
           )}
 
           {/* Password (za login i registraciju) */}
-          {(loginMode === "login" || loginMode === "register" || loginMode === "recovery") && (
+          {(loginMode === "login" ||
+            loginMode === "register" ||
+            loginMode === "recovery") && (
             <div className="form-group">
               <label htmlFor="password">
                 {loginMode === "recovery" ? "Nova lozinka" : "Password"}
@@ -452,12 +456,12 @@ function Login({ onLogin, pendingJoinCode, forceRecoveryMode = false }) {
               "🎮 Uđi u igru"
             ) : loginMode === "login" ? (
               "🔑 Prijavi se"
+            ) : loginMode === "register" ? (
+              "👤 Registriraj se"
+            ) : loginMode === "reset" ? (
+              "🔁 Pošalji link"
             ) : (
-              loginMode === "register"
-                ? "👤 Registriraj se"
-                : loginMode === "reset"
-                  ? "🔁 Pošalji link"
-                  : "💾 Spremi novu lozinku"
+              "💾 Spremi novu lozinku"
             )}
           </button>
 

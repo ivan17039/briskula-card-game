@@ -43,12 +43,9 @@ export const auth = {
 
   // Pošalji reset lozinke na email
   requestPasswordReset: async (email, redirectTo) => {
-    const { data, error } = await supabase.auth.resetPasswordForEmail(
-      email,
-      {
-        redirectTo,
-      },
-    );
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
     return { data, error };
   },
 
