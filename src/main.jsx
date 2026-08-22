@@ -6,7 +6,7 @@ import App from "./App.jsx";
 
 // Initialize Plausible Analytics
 init({
-  domain: "briskula-treseta.games",
+  domain: "briskula-treseta.online",
   autoCapturePageviews: true,
   hashBasedRouting: true, // Since you're using hash-based routing
   captureOnLocalhost: false, // Don't track on localhost

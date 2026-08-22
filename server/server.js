@@ -50,8 +50,8 @@ const envOrigins = (process.env.ALLOWED_ORIGINS || "")
 const defaultOrigins = [
   "http://localhost:5173",
   "https://briskula-card-game.vercel.app",
-  "https://briskula-treseta.games",
-  "https://www.briskula-treseta.games",
+  "https://briskula-treseta.online",
+  "https://www.briskula-treseta.online",
 ];
 
 const allowedOrigins = envOrigins.length > 0 ? envOrigins : defaultOrigins;
@@ -60,8 +60,8 @@ const isAllowedOrigin = (origin) => {
   if (!origin) return true; // allow same-origin or non-browser requests
   if (allowedOrigins.includes(origin)) return true;
 
-  // Allow subdomains like https://www.briskula-treseta.games
-  if (origin.endsWith(".briskula-treseta.games")) return true;
+  // Allow subdomains like https://www.briskula-treseta.online
+  if (origin.endsWith(".briskula-treseta.online")) return true;
 
   // Allow Vercel preview deployments if explicitly configured
   if (
@@ -4382,8 +4382,10 @@ async function finishRound1v1(roomId) {
     ) {
       if (isPartidaFinished) {
         // Add akuze to base points for total partija score
-        const player1PartidaPoints = player1Points.points + room.gameState.player1Akuze.points;
-        const player2PartidaPoints = player2Points.points + room.gameState.player2Akuze.points;
+        const player1PartidaPoints =
+          player1Points.points + room.gameState.player1Akuze.points;
+        const player2PartidaPoints =
+          player2Points.points + room.gameState.player2Akuze.points;
 
         // Add partija points to totals
         room.gameState.totalPlayer1Points += player1PartidaPoints;

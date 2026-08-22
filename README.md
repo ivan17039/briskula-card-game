@@ -94,7 +94,7 @@ Popular Balkan card game with trick-taking mechanics:
 
 ## 🌐 Live Demo
 
-**Production URL**: [https://briskula-treseta.games](https://briskula-treseta.games)
+**Production URL**: [https://briskula-treseta.online](https://briskula-treseta.online)
 
 Experience both Briskula and Trešeta online with players from around the world!
 
