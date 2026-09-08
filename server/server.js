@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from "uuid";
 import TournamentManager from "./TournamentManager.js";
 import { Resend } from "resend";
 import eloService from "./EloService.js";
+import { checkAkuze } from "../core/tresetaCommon.js";
 
 // Import novih managera
 import ManagerFactory from "./ManagerFactory.js";
@@ -102,6 +103,7 @@ const gameRooms = new Map(); // roomId -> game state
 const roomCodes = new Map(); // roomCode -> roomId (for friend invite system)
 const waitingQueue1v1 = []; // korisnici koji čekaju 1v1 protivnika
 const waitingQueue2v2 = []; // korisnici koji čekaju 2v2 protivnike
+const processingMoves = new Set(); // room IDs currently processing a move
 // Tournament match readiness: matchId -> Set of user keys who clicked "Igraj sada"
 const tournamentReady = new Map();
 // Player session mapping for reconnection: playerId -> {roomId, playerNumber, socketId}
@@ -1836,7 +1838,7 @@ io.on("connection", (socket) => {
   });
 
   // Igranje karte - UPDATED za oba načina
-  socket.on("playCard", (data) => {
+  socket.on("playCard", async (data) => {
     const { roomId, card } = data;
 
     const room = gameRooms.get(roomId);
@@ -1846,46 +1848,57 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // Provjeri je li red ovog igrača
-    const player = room.players.find((p) => p.id === socket.id);
-
-    // Guards against spectators / forfeited players
-    if (!player) {
-      socket.emit("error", { message: "Niste igrač u ovoj sobi" });
+    // Serialize moves per room so simultaneous requests cannot mutate the same state.
+    if (processingMoves.has(roomId)) {
+      socket.emit("error", { message: "Potez se već obrađuje" });
       return;
     }
-    if (player.permanentlyLeft) {
-      socket.emit("error", { message: "Napustili ste ovu igru" });
-      return;
-    }
-    if (!player.isConnected) {
-      socket.emit("error", { message: "Niste trenutno povezani u igri" });
-      return;
-    }
-    const playerNumber = player?.playerNumber;
+    processingMoves.add(roomId);
 
-    if (!playerNumber || room.gameState.currentPlayer !== playerNumber) {
-      socket.emit("error", { message: "Nije vaš red" });
-      return;
-    }
+    try {
+      // Provjeri je li red ovog igrača
+      const player = room.players.find((p) => p.id === socket.id);
 
-    // Additional check: Has this player already played a card this round?
-    const playerAlreadyPlayed =
-      room.gameState.playedCards &&
-      room.gameState.playedCards.some(
-        (playedCard) => playedCard && playedCard.playerNumber === playerNumber,
-      );
+      // Guards against spectators / forfeited players
+      if (!player) {
+        socket.emit("error", { message: "Niste igrač u ovoj sobi" });
+        return;
+      }
+      if (player.permanentlyLeft) {
+        socket.emit("error", { message: "Napustili ste ovu igru" });
+        return;
+      }
+      if (!player.isConnected) {
+        socket.emit("error", { message: "Niste trenutno povezani u igri" });
+        return;
+      }
+      const playerNumber = player?.playerNumber;
 
-    if (playerAlreadyPlayed) {
-      socket.emit("error", { message: "Već ste odigrali kartu u ovoj rundi" });
-      return;
-    }
+      if (!playerNumber || room.gameState.currentPlayer !== playerNumber) {
+        socket.emit("error", { message: "Nije vaš red" });
+        return;
+      }
 
-    // Obradi potez ovisno o načinu igre
-    if (room.gameMode === "1v1") {
-      processCardPlay1v1(roomId, socket.id, card);
-    } else {
-      processCardPlay2v2(roomId, socket.id, card);
+      // Additional check: Has this player already played a card this round?
+      const playerAlreadyPlayed =
+        room.gameState.playedCards &&
+        room.gameState.playedCards.some(
+          (playedCard) => playedCard && playedCard.playerNumber === playerNumber,
+        );
+
+      if (playerAlreadyPlayed) {
+        socket.emit("error", { message: "Već ste odigrali kartu u ovoj rundi" });
+        return;
+      }
+
+      // Obradi potez ovisno o načinu igre
+      if (room.gameMode === "1v1") {
+        await processCardPlay1v1(roomId, socket.id, card);
+      } else {
+        await processCardPlay2v2(roomId, socket.id, card);
+      }
+    } finally {
+      processingMoves.delete(roomId);
     }
   });
 
@@ -1926,14 +1939,32 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // Add akuz to player's akuze list
+    const playerHand = room.gameState[`player${playerNumber}Hand`];
+    const validAkuze = checkAkuze(playerHand).find(
+      (availableAkuze) => availableAkuze.type === akuz?.type,
+    );
     const akuzeKey = `player${playerNumber}Akuze`;
+    const playerAkuze = room.gameState[akuzeKey] || {
+      points: 0,
+      details: [],
+    };
+
+    if (!validAkuze) {
+      socket.emit("error", { message: "Nevažeći akuz" });
+      return;
+    }
+    if (playerAkuze.details.some((existingAkuze) => existingAkuze.type === akuz.type)) {
+      socket.emit("error", { message: "Ovaj akuz je već prijavljen" });
+      return;
+    }
+
+    // Add akuz to player's akuze list
     if (!room.gameState[akuzeKey]) {
       room.gameState[akuzeKey] = { points: 0, details: [] };
     }
 
-    room.gameState[akuzeKey].details.push(akuz);
-    room.gameState[akuzeKey].points += akuz.points;
+    room.gameState[akuzeKey].details.push(validAkuze);
+    room.gameState[akuzeKey].points += validAkuze.points;
 
     if (room.gameMode === "2v2") {
       // 2v2 mode - also add to team akuze for tracking
@@ -1945,14 +1976,14 @@ io.on("connection", (socket) => {
       room.gameState[teamAkuzeKey].push({
         playerNumber,
         playerName: player.name,
-        ...akuz,
+        ...validAkuze,
       });
 
       // Broadcast akuze to all players with team info
       io.to(roomId).emit("akuzeAnnounced", {
         playerNumber,
         playerName: player.name,
-        akuz,
+        akuz: validAkuze,
         team,
       });
     } else {
@@ -1960,7 +1991,7 @@ io.on("connection", (socket) => {
       io.to(roomId).emit("akuzeAnnounced", {
         playerNumber,
         playerName: player.name,
-        akuz,
+        akuz: validAkuze,
       });
     }
 
@@ -2958,17 +2989,9 @@ io.on("connection", (socket) => {
   });
 
   socket.on("reportMatchResult", async (data) => {
-    try {
-      const user = connectedUsers.get(socket.id);
-      if (!user) throw new Error("Auth required");
-      await tournamentManager.reportMatchResult(
-        data.tournamentId,
-        data.matchId,
-        data.winnerId,
-      );
-    } catch (e) {
-      socket.emit("tournamentError", { message: e.message });
-    }
+    socket.emit("tournamentError", {
+      message: "Rezultat utakmice određuje server",
+    });
   });
 
   // Handle forfeit match for tournaments
@@ -4009,6 +4032,17 @@ async function processCardPlay1v1(roomId, playerId, card) {
   const room = gameRooms.get(roomId);
   if (!room) return;
 
+  const player = room.players.find((p) => p.id === playerId);
+  if (!player) return;
+  const playerHand = room.gameState[`player${player.playerNumber}Hand`];
+  const serverCard = playerHand?.find((currentCard) => currentCard.id === card?.id);
+  if (!serverCard) {
+    io.sockets.sockets.get(playerId)?.emit("error", {
+      message: "Karta nije u vašoj ruci",
+    });
+    return;
+  }
+
   // Importiraj odgovarajuću logiku
   let gameLogic;
   if (room.gameType === "treseta") {
@@ -4027,16 +4061,10 @@ async function processCardPlay1v1(roomId, playerId, card) {
 
   // Za Trešetu - provjeri je li potez valjan
   if (room.gameType === "treseta") {
-    const playerNumber = room.players.find(
-      (p) => p.id === playerId,
-    ).playerNumber;
-    const playerHand =
-      playerNumber === 1
-        ? room.gameState.player1Hand
-        : room.gameState.player2Hand;
+    const playerNumber = player.playerNumber;
 
     const moveValidation = isValidMove(
-      card,
+      serverCard,
       playerHand,
       room.gameState.playedCards,
     );
@@ -4056,7 +4084,7 @@ async function processCardPlay1v1(roomId, playerId, card) {
   // Dodaj kartu u odigrane karte
   const playerNumber = room.players.find((p) => p.id === playerId).playerNumber;
   room.gameState.playedCards.push({
-    card: card,
+    card: serverCard,
     playerNumber: playerNumber,
   });
 
@@ -4077,7 +4105,7 @@ async function processCardPlay1v1(roomId, playerId, card) {
     playerId: playerId,
     playerNumber: playerNumber,
     playerName: playerName,
-    card: card,
+    card: serverCard,
     playedCards: room.gameState.playedCards.map((pc) => ({
       ...pc.card,
       playerNumber: pc.playerNumber,
@@ -4144,6 +4172,17 @@ async function processCardPlay2v2(roomId, playerId, card) {
   const room = gameRooms.get(roomId);
   if (!room) return;
 
+  const player = room.players.find((p) => p.id === playerId);
+  if (!player) return;
+  const playerHand = room.gameState[`player${player.playerNumber}Hand`];
+  const serverCard = playerHand?.find((currentCard) => currentCard.id === card?.id);
+  if (!serverCard) {
+    io.sockets.sockets.get(playerId)?.emit("error", {
+      message: "Karta nije u vašoj ruci",
+    });
+    return;
+  }
+
   // Import correct logic based on gameType
   let getNextPlayer2v2, isValidMove, getPlayableCards;
   if (room.gameType === "treseta") {
@@ -4156,13 +4195,12 @@ async function processCardPlay2v2(roomId, playerId, card) {
     getNextPlayer2v2 = logic2v2.getNextPlayer2v2;
   }
 
-  const playerNumber = room.players.find((p) => p.id === playerId).playerNumber;
-  const playerHand = room.gameState[`player${playerNumber}Hand`];
+  const playerNumber = player.playerNumber;
 
   // Validate move for Trešeta
   if (room.gameType === "treseta") {
     const playedCardsOnly = room.gameState.playedCards.map((pc) => pc.card);
-    const validation = isValidMove(card, playerHand, playedCardsOnly);
+    const validation = isValidMove(serverCard, playerHand, playedCardsOnly);
 
     if (!validation.isValid) {
       const playerSocket = io.sockets.sockets.get(playerId);
@@ -4179,7 +4217,7 @@ async function processCardPlay2v2(roomId, playerId, card) {
   }
 
   room.gameState.playedCards.push({
-    card: card,
+    card: serverCard,
     playerNumber: playerNumber,
   });
 
@@ -4192,7 +4230,7 @@ async function processCardPlay2v2(roomId, playerId, card) {
     playerId: playerId,
     playerNumber: playerNumber,
     playerName: playerName,
-    card: card,
+    card: serverCard,
     playedCards: room.gameState.playedCards.map((pc) => ({
       ...pc.card,
       playerNumber: pc.playerNumber,
