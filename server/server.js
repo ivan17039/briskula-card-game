@@ -1883,11 +1883,14 @@ io.on("connection", (socket) => {
       const playerAlreadyPlayed =
         room.gameState.playedCards &&
         room.gameState.playedCards.some(
-          (playedCard) => playedCard && playedCard.playerNumber === playerNumber,
+          (playedCard) =>
+            playedCard && playedCard.playerNumber === playerNumber,
         );
 
       if (playerAlreadyPlayed) {
-        socket.emit("error", { message: "Već ste odigrali kartu u ovoj rundi" });
+        socket.emit("error", {
+          message: "Već ste odigrali kartu u ovoj rundi",
+        });
         return;
       }
 
@@ -1953,7 +1956,11 @@ io.on("connection", (socket) => {
       socket.emit("error", { message: "Nevažeći akuz" });
       return;
     }
-    if (playerAkuze.details.some((existingAkuze) => existingAkuze.type === akuz.type)) {
+    if (
+      playerAkuze.details.some(
+        (existingAkuze) => existingAkuze.type === akuz.type,
+      )
+    ) {
       socket.emit("error", { message: "Ovaj akuz je već prijavljen" });
       return;
     }
@@ -4035,7 +4042,9 @@ async function processCardPlay1v1(roomId, playerId, card) {
   const player = room.players.find((p) => p.id === playerId);
   if (!player) return;
   const playerHand = room.gameState[`player${player.playerNumber}Hand`];
-  const serverCard = playerHand?.find((currentCard) => currentCard.id === card?.id);
+  const serverCard = playerHand?.find(
+    (currentCard) => currentCard.id === card?.id,
+  );
   if (!serverCard) {
     io.sockets.sockets.get(playerId)?.emit("error", {
       message: "Karta nije u vašoj ruci",
@@ -4175,7 +4184,9 @@ async function processCardPlay2v2(roomId, playerId, card) {
   const player = room.players.find((p) => p.id === playerId);
   if (!player) return;
   const playerHand = room.gameState[`player${player.playerNumber}Hand`];
-  const serverCard = playerHand?.find((currentCard) => currentCard.id === card?.id);
+  const serverCard = playerHand?.find(
+    (currentCard) => currentCard.id === card?.id,
+  );
   if (!serverCard) {
     io.sockets.sockets.get(playerId)?.emit("error", {
       message: "Karta nije u vašoj ruci",
