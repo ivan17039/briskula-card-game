@@ -266,6 +266,11 @@ function Game({
             data.gameState?.akuzeEnabled !== undefined
               ? data.gameState.akuzeEnabled
               : true,
+          myAkuze: data.gameState?.myAkuze || [],
+          canAkuze:
+            data.gameState?.canAkuze !== undefined
+              ? data.gameState.canAkuze
+              : true,
           totalMyPoints: data.gameState?.totalPlayer1Points || 0,
           totalOpponentPoints: data.gameState?.totalPlayer2Points || 0,
           partijas: data.gameState?.partijas || [],
@@ -447,6 +452,11 @@ function Game({
       ...(data.gameType === "treseta" && {
         akuzeEnabled:
           data.akuzeEnabled !== undefined ? data.akuzeEnabled : true,
+        myAkuze: data.gameState?.myAkuze || [],
+        canAkuze:
+          data.gameState?.canAkuze !== undefined
+            ? data.gameState.canAkuze
+            : true,
 
         // Long-term scoring system for Treseta
         totalMyPoints: data.gameState?.totalMyPoints || 0,
@@ -864,6 +874,10 @@ function Game({
           message: "Određuje se pobjednik runde...",
           roundResolving: true,
           hasPlayedFirstCard: newHasPlayedFirstCard,
+          canAkuze:
+            prevState.gameType === "treseta"
+              ? false
+              : prevState.canAkuze,
         };
 
         // Add delay before resolving the round
@@ -2818,7 +2832,7 @@ function Game({
 
     setGameState((prev) => ({
       ...prev,
-      myAkuze: [...prev.myAkuze, akuz],
+      myAkuze: [...(prev.myAkuze || []), akuz],
       canAkuze: false, // Može akužavati samo jednom po partiji
       message: `Akužavali ste ${akuz.description} (${akuz.points} bodova)!`,
     }));

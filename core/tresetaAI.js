@@ -27,6 +27,20 @@ function chooseStrongestByStrength(cards, strengthOf) {
   return cards.reduce((s, c) => (strengthOf(c) > strengthOf(s) ? c : s));
 }
 
+function getCardPointValue(card) {
+  if (card.value === 1) return 1;
+  if ([2, 3, 11, 12, 13].includes(card.value)) return 1 / 3;
+  return 0;
+}
+
+function chooseBestLead(cards, strengthOf) {
+  return cards.reduce((best, card) => {
+    const cardScore = getCardPointValue(card) * 12 + strengthOf(card);
+    const bestScore = getCardPointValue(best) * 12 + strengthOf(best);
+    return cardScore > bestScore ? card : best;
+  });
+}
+
 /**
  * AI za Trešeta bira kartu ovisno o tome igra li prvi (aiIsFirst) ili odgovara na protivničku kartu.
  * API i debug stil su usklađeni s core/briskulaAI.js
@@ -60,16 +74,19 @@ function chooseAiCard({
       return chooseWeakestByStrength(hand, strengthOf);
     }
 
-    // Medium/Hard: when behind later in the hand, pressure with strongest safe card.
-    if ((phase === "late" || difficulty === "hard") && isBehind) {
-      const nonPointCards = hand.filter((c) => c.points === 0);
-      if (nonPointCards.length > 0) {
+    // When behind, force the opponent to answer a strong card. Otherwise lead
+    // a high-value card instead of repeatedly throwing away the weakest card.
+    if (isBehind || phase === "late") {
+      const nonPointCards = hand.filter((c) => getCardPointValue(c) === 0);
+      if (nonPointCards.length > 0 && isBehind) {
         return chooseStrongestByStrength(nonPointCards, strengthOf);
       }
-      return chooseStrongestByStrength(hand, strengthOf);
+      return chooseBestLead(hand, strengthOf);
     }
 
-    return chooseWeakestByStrength(hand, strengthOf);
+    return difficulty === "easy"
+      ? chooseWeakestByStrength(hand, strengthOf)
+      : chooseBestLead(hand, strengthOf);
   }
 
   // AI odgovara na protivničku kartu
@@ -98,7 +115,7 @@ function chooseAiCard({
       return chooseWeakestByStrength(winning, strengthOf);
     }
 
-    const trickValue = opponentCard.points || 0;
+    const trickValue = getCardPointValue(opponentCard);
     const shouldContest =
       phase === "late" ||
       (difficulty === "hard" ? trickValue >= 0.33 : trickValue >= 0.66) ||
