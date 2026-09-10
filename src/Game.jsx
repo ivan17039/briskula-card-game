@@ -875,9 +875,7 @@ function Game({
           roundResolving: true,
           hasPlayedFirstCard: newHasPlayedFirstCard,
           canAkuze:
-            prevState.gameType === "treseta"
-              ? false
-              : prevState.canAkuze,
+            prevState.gameType === "treseta" ? false : prevState.canAkuze,
         };
 
         // Add delay before resolving the round
