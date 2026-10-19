@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { track } from "@plausible-analytics/tracker";
 import io from "socket.io-client";
+import { isPasswordRecoveryUrl } from "./authFlow";
 
 const SocketContext = createContext();
 
@@ -15,6 +16,7 @@ export const useSocket = () => {
 };
 
 export const SocketProvider = ({ children }) => {
+  const isRecoveryFlow = isPasswordRecoveryUrl();
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [user, setUser] = useState(null);
@@ -49,6 +51,10 @@ export const SocketProvider = ({ children }) => {
 
   // Load user and game state from localStorage on mount
   useEffect(() => {
+    if (isRecoveryFlow) {
+      return;
+    }
+
     const savedUser = localStorage.getItem("user");
     if (savedUser) {
       try {
@@ -75,7 +81,7 @@ export const SocketProvider = ({ children }) => {
         localStorage.removeItem("gameState");
       }
     }
-  }, []);
+  }, [isRecoveryFlow]);
 
   useEffect(() => {
     if (isAIMode()) {
@@ -104,8 +110,10 @@ export const SocketProvider = ({ children }) => {
       setConnectionError(null);
       setReconnectAttempts(0);
 
-      const savedGameState = localStorage.getItem("gameState");
-      const savedUser = localStorage.getItem("user");
+      const savedGameState = isRecoveryFlow
+        ? null
+        : localStorage.getItem("gameState");
+      const savedUser = isRecoveryFlow ? null : localStorage.getItem("user");
 
       // Auto-register if user has saved session data
       if (savedUser) {
@@ -473,7 +481,7 @@ export const SocketProvider = ({ children }) => {
     return () => {
       newSocket.close();
     };
-  }, []);
+  }, [isRecoveryFlow]);
 
   const registerUser = (userData) => {
     return new Promise((resolve, reject) => {

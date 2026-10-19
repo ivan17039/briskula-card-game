@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { auth } from "./supabase.js";
 import { useSocket } from "./SocketContext";
+import { auth } from "./supabase.js";
 import "./AboutModal.css";
 import "./AccountModal.css";
 
@@ -12,7 +12,6 @@ function AccountModal({ onClose }) {
     confirmPassword: "",
   });
   const [isSaving, setIsSaving] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [error, setError] = useState("");
@@ -85,36 +84,6 @@ function AccountModal({ onClose }) {
     }
   };
 
-  const handleSendResetEmail = async () => {
-    setIsResetting(true);
-    setError("");
-    setSuccessMessage("");
-
-    try {
-      if (!user?.email) {
-        throw new Error("Nedostaje email adresa korisnika");
-      }
-
-      const redirectTo = `${window.location.origin}${window.location.pathname}`;
-      const { error: resetError } = await auth.requestPasswordReset(
-        user.email,
-        redirectTo,
-      );
-
-      if (resetError) {
-        throw new Error(resetError.message || "Nije moguće poslati reset link");
-      }
-
-      setSuccessMessage(
-        "Reset link je poslan na vaš email. Provjerite pristiglu poštu.",
-      );
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
   const handleDeleteAccount = async () => {
     if (user?.isGuest) {
       setError("Gost računi nemaju trajni račun za brisanje.");
@@ -157,8 +126,7 @@ function AccountModal({ onClose }) {
 
           <div className="modal-body account-modal-body">
             <p className="account-intro">
-              Upravite naziv profila i lozinku. Za registrirane račune dostupno
-              je i slanje reset linka na email.
+              Upravite naziv profila i lozinku.
             </p>
 
             {error && (
@@ -245,15 +213,6 @@ function AccountModal({ onClose }) {
                 >
                   {isSaving ? "Spremanje..." : "Spremi promjene"}
                 </button>
-
-                <button
-                  type="button"
-                  className="account-secondary-btn"
-                  onClick={handleSendResetEmail}
-                  disabled={isResetting || isDeleting || user?.isGuest}
-                >
-                  {isResetting ? "Šaljem..." : "Pošalji reset link"}
-                </button>
               </div>
 
               {!user?.isGuest && (
@@ -261,7 +220,7 @@ function AccountModal({ onClose }) {
                   type="button"
                   className="account-danger-btn"
                   onClick={() => setShowDeleteConfirmation(true)}
-                  disabled={isSaving || isResetting || isDeleting}
+                  disabled={isSaving || isDeleting}
                 >
                   {isDeleting ? "Brisanje..." : "Trajno obriši račun"}
                 </button>

@@ -18,13 +18,11 @@ import BugReportModal from "./BugReportModal";
 import AboutModal from "./AboutModal";
 import PrivacyModal from "./PrivacyModal";
 import AccountModal from "./AccountModal";
+import { isPasswordRecoveryUrl } from "./authFlow";
 import "./App.css";
 
 function AppContent() {
-  const isRecoveryFlow =
-    typeof window !== "undefined" &&
-    (window.location.hash.includes("type=recovery") ||
-      window.location.search.includes("type=recovery"));
+  const isRecoveryFlow = isPasswordRecoveryUrl();
 
   const {
     isConnected,

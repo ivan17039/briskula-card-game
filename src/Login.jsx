@@ -3,16 +3,17 @@
 import React, { useState, useEffect } from "react";
 import { track } from "@plausible-analytics/tracker";
 import { auth } from "./supabase.js";
+import {
+  clearPasswordRecoveryPending,
+  isPasswordRecoveryUrl,
+  markPasswordRecoveryPending,
+} from "./authFlow";
 import { useSocket } from "./SocketContext";
 import "./Login.css";
 
 function Login({ onLogin, pendingJoinCode, forceRecoveryMode = false }) {
   const { user } = useSocket();
-  const isRecoveryRedirect =
-    typeof window !== "undefined" &&
-    forceRecoveryMode &&
-    (window.location.hash.includes("type=recovery") ||
-      window.location.search.includes("type=recovery"));
+  const isRecoveryRedirect = forceRecoveryMode && isPasswordRecoveryUrl();
 
   const [loginMode, setLoginMode] = useState(
     isRecoveryRedirect ? "recovery" : "guest",
@@ -231,6 +232,7 @@ function Login({ onLogin, pendingJoinCode, forceRecoveryMode = false }) {
           throw new Error(error.message || "Greška pri slanju reset linka");
         }
 
+        markPasswordRecoveryPending();
         setSuccessMessage(
           "Poslali smo vam link za reset lozinke na navedeni email.",
         );
@@ -266,6 +268,7 @@ function Login({ onLogin, pendingJoinCode, forceRecoveryMode = false }) {
         if (typeof window !== "undefined") {
           window.history.replaceState({}, "", window.location.pathname);
         }
+        clearPasswordRecoveryPending();
       }
     } catch (err) {
       setError(err.message);
