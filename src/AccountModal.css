@@ -119,6 +119,77 @@
   opacity: 0.6;
 }
 
+.account-confirmation-overlay {
+  z-index: 10001;
+}
+
+.account-confirmation-modal {
+  width: min(440px, 100%);
+  padding: var(--space-3xl);
+  border: 2px solid #f0c4bd;
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-main);
+  box-shadow: var(--shadow-2xl);
+  text-align: center;
+  animation: slideUp 0.2s ease;
+}
+
+.account-confirmation-icon {
+  display: flex;
+  width: 3rem;
+  height: 3rem;
+  margin: 0 auto var(--space-lg);
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #fff1f0;
+  color: #b42318;
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+}
+
+.account-confirmation-modal h2 {
+  margin: 0 0 var(--space-md);
+  color: var(--color-primary);
+}
+
+.account-confirmation-modal p {
+  margin: var(--space-sm) 0;
+  color: var(--color-text-medium);
+  line-height: 1.5;
+}
+
+.account-confirmation-warning {
+  color: #b42318 !important;
+  font-weight: var(--font-semibold);
+}
+
+.account-confirmation-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-top: var(--space-xl);
+}
+
+.account-confirm-delete-btn {
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-xl);
+  background: #b42318;
+  color: #fff;
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+}
+
+.account-confirm-delete-btn:hover:not(:disabled) {
+  background: #8f1d14;
+}
+
+.account-confirm-delete-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 @media (max-width: 768px) {
   .account-grid {
     grid-template-columns: 1fr;
@@ -130,6 +201,19 @@
 
   .account-primary-btn,
   .account-secondary-btn {
+    width: 100%;
+  }
+
+  .account-confirmation-modal {
+    padding: var(--space-2xl) var(--space-xl);
+  }
+
+  .account-confirmation-actions {
+    flex-direction: column-reverse;
+  }
+
+  .account-confirm-delete-btn,
+  .account-confirmation-actions .account-secondary-btn {
     width: 100%;
   }
 }

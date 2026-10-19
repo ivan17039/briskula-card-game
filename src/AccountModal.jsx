@@ -14,6 +14,7 @@ function AccountModal({ onClose }) {
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -120,14 +121,7 @@ function AccountModal({ onClose }) {
       return;
     }
 
-    if (
-      !window.confirm(
-        "Trajno obrisati račun i podatke? Ova radnja se ne može poništiti.",
-      )
-    ) {
-      return;
-    }
-
+    setShowDeleteConfirmation(false);
     setIsDeleting(true);
     setError("");
     setSuccessMessage("");
@@ -148,131 +142,180 @@ function AccountModal({ onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-content account-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-header">
-          <h2>Račun</h2>
-          <button className="modal-close-btn" onClick={onClose}>
-            ✕
-          </button>
-        </div>
+    <>
+      <div className="modal-overlay" onClick={onClose}>
+        <div
+          className="modal-content account-modal"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="modal-header">
+            <h2>Račun</h2>
+            <button className="modal-close-btn" onClick={onClose}>
+              ✕
+            </button>
+          </div>
 
-        <div className="modal-body account-modal-body">
-          <p className="account-intro">
-            Upravite naziv profila i lozinku. Za registrirane račune dostupno je
-            i slanje reset linka na email.
-          </p>
+          <div className="modal-body account-modal-body">
+            <p className="account-intro">
+              Upravite naziv profila i lozinku. Za registrirane račune dostupno
+              je i slanje reset linka na email.
+            </p>
 
-          {error && <div className="account-status error-status">{error}</div>}
-          {successMessage && (
-            <div className="account-status success-status">
-              {successMessage}
-            </div>
-          )}
-
-          <form onSubmit={handleSave} className="account-form">
-            <div className="account-grid">
-              <div className="form-group">
-                <label htmlFor="accountName">Ime korisnika</label>
-                <input
-                  type="text"
-                  id="accountName"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  disabled={user?.isGuest}
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="accountEmail">Email</label>
-                <input
-                  type="email"
-                  id="accountEmail"
-                  value={user?.email || ""}
-                  disabled
-                />
-              </div>
-            </div>
-
-            <div className="account-note">
-              <strong>Sigurnost:</strong> koristite jedinstvenu lozinku koja se
-              ne koristi na drugim servisima.
-            </div>
-
-            <div className="account-grid">
-              <div className="form-group">
-                <label htmlFor="accountPassword">Nova lozinka</label>
-                <input
-                  type="password"
-                  id="accountPassword"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  minLength={6}
-                  disabled={user?.isGuest}
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="accountConfirmPassword">
-                  Potvrdi novu lozinku
-                </label>
-                <input
-                  type="password"
-                  id="accountConfirmPassword"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                  minLength={6}
-                  disabled={user?.isGuest}
-                />
-              </div>
-            </div>
-
-            {user?.isGuest && (
-              <div className="account-note guest-note">
-                Gost računi mogu koristiti samo privremeni nadimak. Za trajno
-                upravljanje računom registrirajte se s email adresom.
+            {error && (
+              <div className="account-status error-status">{error}</div>
+            )}
+            {successMessage && (
+              <div className="account-status success-status">
+                {successMessage}
               </div>
             )}
 
-            <div className="account-actions">
-              <button
-                type="submit"
-                className="account-primary-btn"
-                disabled={isSaving || user?.isGuest}
-              >
-                {isSaving ? "Spremanje..." : "Spremi promjene"}
-              </button>
+            <form onSubmit={handleSave} className="account-form">
+              <div className="account-grid">
+                <div className="form-group">
+                  <label htmlFor="accountName">Ime korisnika</label>
+                  <input
+                    type="text"
+                    id="accountName"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    disabled={user?.isGuest}
+                  />
+                </div>
 
+                <div className="form-group">
+                  <label htmlFor="accountEmail">Email</label>
+                  <input
+                    type="email"
+                    id="accountEmail"
+                    value={user?.email || ""}
+                    disabled
+                  />
+                </div>
+              </div>
+
+              <div className="account-note">
+                <strong>Sigurnost:</strong> koristite jedinstvenu lozinku koja
+                se ne koristi na drugim servisima.
+              </div>
+
+              <div className="account-grid">
+                <div className="form-group">
+                  <label htmlFor="accountPassword">Nova lozinka</label>
+                  <input
+                    type="password"
+                    id="accountPassword"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    minLength={6}
+                    disabled={user?.isGuest}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="accountConfirmPassword">
+                    Potvrdi novu lozinku
+                  </label>
+                  <input
+                    type="password"
+                    id="accountConfirmPassword"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleInputChange}
+                    minLength={6}
+                    disabled={user?.isGuest}
+                  />
+                </div>
+              </div>
+
+              {user?.isGuest && (
+                <div className="account-note guest-note">
+                  Gost računi mogu koristiti samo privremeni nadimak. Za trajno
+                  upravljanje računom registrirajte se s email adresom.
+                </div>
+              )}
+
+              <div className="account-actions">
+                <button
+                  type="submit"
+                  className="account-primary-btn"
+                  disabled={isSaving || user?.isGuest}
+                >
+                  {isSaving ? "Spremanje..." : "Spremi promjene"}
+                </button>
+
+                <button
+                  type="button"
+                  className="account-secondary-btn"
+                  onClick={handleSendResetEmail}
+                  disabled={isResetting || isDeleting || user?.isGuest}
+                >
+                  {isResetting ? "Šaljem..." : "Pošalji reset link"}
+                </button>
+              </div>
+
+              {!user?.isGuest && (
+                <button
+                  type="button"
+                  className="account-danger-btn"
+                  onClick={() => setShowDeleteConfirmation(true)}
+                  disabled={isSaving || isResetting || isDeleting}
+                >
+                  {isDeleting ? "Brisanje..." : "Trajno obriši račun"}
+                </button>
+              )}
+            </form>
+          </div>
+        </div>
+      </div>
+
+      {showDeleteConfirmation && (
+        <div
+          className="modal-overlay account-confirmation-overlay"
+          onClick={() => setShowDeleteConfirmation(false)}
+        >
+          <div
+            className="account-confirmation-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-account-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="account-confirmation-icon" aria-hidden="true">
+              !
+            </div>
+            <h2 id="delete-account-title">Obriši korisnički račun?</h2>
+            <p>
+              Ovim će se trajno izbrisati vaš račun, profil, statistika i
+              turnirski podaci.
+            </p>
+            <p className="account-confirmation-warning">
+              Ova radnja je nepovratna.
+            </p>
+            <div className="account-confirmation-actions">
               <button
                 type="button"
                 className="account-secondary-btn"
-                onClick={handleSendResetEmail}
-                disabled={isResetting || isDeleting || user?.isGuest}
+                onClick={() => setShowDeleteConfirmation(false)}
+                disabled={isDeleting}
               >
-                {isResetting ? "Šaljem..." : "Pošalji reset link"}
+                Odustani
               </button>
-            </div>
-
-            {!user?.isGuest && (
               <button
                 type="button"
-                className="account-danger-btn"
+                className="account-confirm-delete-btn"
                 onClick={handleDeleteAccount}
-                disabled={isSaving || isResetting || isDeleting}
+                disabled={isDeleting}
               >
-                {isDeleting ? "Brisanje..." : "Trajno obriši račun"}
+                {isDeleting ? "Brisanje..." : "Da, obriši račun"}
               </button>
-            )}
-          </form>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
 

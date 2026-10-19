@@ -586,7 +586,6 @@ app.post("/api/cleanup/games", async (req, res) => {
         currentStats: stats,
         timestamp: new Date().toISOString(),
       });
-
     } else {
       res.status(500).json({
         success: false,
@@ -649,7 +648,10 @@ app.delete("/api/account", async (req, res) => {
       supabaseAdmin.from("user_sessions").delete().eq("user_id", userId),
       supabaseAdmin.from("player_stats").delete().eq("user_id", userId),
       supabaseAdmin.from("tournament_players").delete().eq("user_id", userId),
-      supabaseAdmin.from("tournament_leaderboard").delete().eq("user_id", userId),
+      supabaseAdmin
+        .from("tournament_leaderboard")
+        .delete()
+        .eq("user_id", userId),
       supabaseAdmin
         .from("tournament_matches")
         .update({ player1_user_id: null })
@@ -671,9 +673,8 @@ app.delete("/api/account", async (req, res) => {
       return res.status(500).json({ error: "Unable to delete account data" });
     }
 
-    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(
-      userId,
-    );
+    const { error: deleteError } =
+      await supabaseAdmin.auth.admin.deleteUser(userId);
     if (deleteError) {
       console.error("Error deleting Supabase account:", deleteError);
       return res.status(500).json({ error: "Unable to delete account" });
