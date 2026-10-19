@@ -9,6 +9,7 @@ import http from "http";
 import { Server as SocketIOServer } from "socket.io";
 import cors from "cors";
 import { v4 as uuidv4 } from "uuid";
+import { createClient } from "@supabase/supabase-js";
 import TournamentManager from "./TournamentManager.js";
 import { Resend } from "resend";
 import eloService from "./EloService.js";
@@ -19,6 +20,14 @@ import ManagerFactory from "./ManagerFactory.js";
 
 const app = express();
 const server = http.createServer(app);
+const supabaseAdmin =
+  process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        { auth: { persistSession: false, autoRefreshToken: false } },
+      )
+    : null;
 // Initialize Resend only if API key provided to avoid runtime crash
 const resendApiKey = process.env.RESEND_API_KEY;
 let resend = null;
@@ -577,6 +586,7 @@ app.post("/api/cleanup/games", async (req, res) => {
         currentStats: stats,
         timestamp: new Date().toISOString(),
       });
+
     } else {
       res.status(500).json({
         success: false,
@@ -605,6 +615,75 @@ app.get("/api/status", (req, res) => {
     waitingQueue1v1: waitingQueue1v1.length,
     waitingQueue2v2: waitingQueue2v2.length,
   });
+});
+
+// Permanently delete the authenticated user's account and app data.
+app.delete("/api/account", async (req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(503).json({ error: "Account deletion is unavailable" });
+  }
+
+  const authorization = req.get("authorization") || "";
+  const accessToken = authorization.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length).trim()
+    : "";
+
+  if (!accessToken) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+
+  try {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseAdmin.auth.getUser(accessToken);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: "Invalid authentication token" });
+    }
+
+    const userId = user.id;
+
+    const cleanupOperations = [
+      supabaseAdmin.from("profiles").delete().eq("id", userId),
+      supabaseAdmin.from("user_sessions").delete().eq("user_id", userId),
+      supabaseAdmin.from("player_stats").delete().eq("user_id", userId),
+      supabaseAdmin.from("tournament_players").delete().eq("user_id", userId),
+      supabaseAdmin.from("tournament_leaderboard").delete().eq("user_id", userId),
+      supabaseAdmin
+        .from("tournament_matches")
+        .update({ player1_user_id: null })
+        .eq("player1_user_id", userId),
+      supabaseAdmin
+        .from("tournament_matches")
+        .update({ player2_user_id: null })
+        .eq("player2_user_id", userId),
+      supabaseAdmin
+        .from("tournament_matches")
+        .update({ winner_user_id: null })
+        .eq("winner_user_id", userId),
+    ];
+
+    const cleanupResults = await Promise.all(cleanupOperations);
+    const cleanupError = cleanupResults.find((result) => result.error)?.error;
+    if (cleanupError) {
+      console.error("Error cleaning up account data:", cleanupError);
+      return res.status(500).json({ error: "Unable to delete account data" });
+    }
+
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(
+      userId,
+    );
+    if (deleteError) {
+      console.error("Error deleting Supabase account:", deleteError);
+      return res.status(500).json({ error: "Unable to delete account" });
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    return res.status(500).json({ error: "Unable to delete account" });
+  }
 });
 
 // Health check endpoint za UptimeRobot - sprječava spavanje na Render free tier

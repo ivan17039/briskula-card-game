@@ -98,6 +98,27 @@
   opacity: 0.6;
 }
 
+.account-danger-btn {
+  width: 100%;
+  margin-top: var(--space-md);
+  border: 1px solid #b42318;
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-xl);
+  background: transparent;
+  color: #b42318;
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+}
+
+.account-danger-btn:hover:not(:disabled) {
+  background: #fff1f0;
+}
+
+.account-danger-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 @media (max-width: 768px) {
   .account-grid {
     grid-template-columns: 1fr;

@@ -5,7 +5,7 @@ import "./AboutModal.css";
 import "./AccountModal.css";
 
 function AccountModal({ onClose }) {
-  const { user, updateUserProfile } = useSocket();
+  const { user, updateUserProfile, logout } = useSocket();
   const [formData, setFormData] = useState({
     name: user?.name || "",
     password: "",
@@ -13,6 +13,7 @@ function AccountModal({ onClose }) {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -110,6 +111,39 @@ function AccountModal({ onClose }) {
       setError(err.message);
     } finally {
       setIsResetting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (user?.isGuest) {
+      setError("Gost računi nemaju trajni račun za brisanje.");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Trajno obrisati račun i podatke? Ova radnja se ne može poništiti.",
+      )
+    ) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const { error: deleteError } = await auth.deleteAccount();
+      if (deleteError) {
+        throw new Error(deleteError.message || "Nije moguće obrisati račun");
+      }
+
+      await logout();
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -219,11 +253,22 @@ function AccountModal({ onClose }) {
                 type="button"
                 className="account-secondary-btn"
                 onClick={handleSendResetEmail}
-                disabled={isResetting || user?.isGuest}
+                disabled={isResetting || isDeleting || user?.isGuest}
               >
                 {isResetting ? "Šaljem..." : "Pošalji reset link"}
               </button>
             </div>
+
+            {!user?.isGuest && (
+              <button
+                type="button"
+                className="account-danger-btn"
+                onClick={handleDeleteAccount}
+                disabled={isSaving || isResetting || isDeleting}
+              >
+                {isDeleting ? "Brisanje..." : "Trajno obriši račun"}
+              </button>
+            )}
           </form>
         </div>
       </div>

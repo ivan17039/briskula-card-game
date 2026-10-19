@@ -49,6 +49,41 @@ export const auth = {
     return { data, error };
   },
 
+  // Permanently delete the authenticated account and app data
+  deleteAccount: async () => {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.access_token) {
+      return {
+        error: sessionError || new Error("Nema aktivne prijave"),
+      };
+    }
+
+    const serverUrl = import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
+    try {
+      const response = await fetch(`${serverUrl}/api/account`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        return {
+          error: new Error(result.error || "Nije moguće obrisati račun"),
+        };
+      }
+
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
+  },
+
   // Ažuriraj profil ili lozinku
   updateAccount: async ({ username, password }) => {
     const updateData = {};
